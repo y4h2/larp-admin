@@ -1,0 +1,39 @@
+{
+  "clue_id": "BM_X001",
+  "npc_id": "bai_mengxue",
+  "npc_name": "白梦雪",
+  "name": "江湖动向信息",
+  "summary": "白梦雪在苏州同仁堂买药时，暗中打探到血刀门和五毒教近期在苏州、太湖一带频繁出没，今晚醉仙楼很可能会发生大事。",
+  "detail_for_npc": "我走进同仁堂时，表面上只是个来买药的女侠，实际上心里早就盘算好要问些什么。坐堂郎中看到我时愣了一下，显然认出了我的名号。我装作随口闲聊，问起最近江湖上有没有什么新鲜事。他压低声音提到，血刀门和五毒教的人最近常在苏州、太湖一带晃，还说今晚醉仙楼恐怕不会太平。听到这些，我心里反而更确定——我来对地方了，也来对时间了。",
+  "timeline_time": "1548-12-22 09:00",
+  "timeline_location": "同仁堂药铺",
+  "importance": "medium",
+  "twist_level": "surface",
+  "level": "B",
+  "discover_location": "同仁堂药铺",
+  "fake_flag": false,
+  "point_to": [
+    "faction:血刀门",
+    "faction:五毒教",
+    "scene:醉仙楼",
+    "region:苏州城",
+    "region:太湖一带"
+  ],
+  "category": "世界观/背景",
+  "trigger_keywords": [
+    "江湖最近",
+    "最近江湖",
+    "江湖动向",
+    "血刀门",
+    "五毒教",
+    "太湖",
+    "苏州城",
+    "醉仙楼今晚",
+    "江湖大事"
+  ],
+  "trigger_semantic_summary": "当玩家向白梦雪打听最近江湖局势、血刀门或五毒教在苏州/太湖的动向，或询问今晚醉仙楼是否会有大事时，可以触发这条线索。",
+  "prereq_clues": [],
+  "lock_until_stage": "any",
+  "lock_until_time": null,
+  "max_reveal_times": 2
+}

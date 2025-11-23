@@ -1,0 +1,133 @@
+{
+    "scene_id": "chapter_2_drunken_immortal_hall",
+    "name": "醉仙楼·夜",
+    "type": "hub",
+    "entry_from_stage": "chapter_1_city",
+    "entry_narration": [
+      "夜色降临，醉仙楼的灯笼一盏一盏亮起，酒香和笑声从楼里溢出来。",
+      "你推门而入，嘈杂声瞬间包裹住你。说书的敲着醒木，唱戏的吊着嗓子，伙计端着盘子在人群中穿梭。",
+      "你注意到几个格外安静的身影——有人低头慢饮，有人坐在角落里扫视全场，还有人似乎在等什么。"
+    ],
+    "player_goals_hint": [
+      "你可以与白梦雪或冷长空交谈，打听今晚醉仙楼里有没有不寻常之处。",
+      "你也可以四处走动，比如去后院、二楼雅间，看看有没有异常的痕迹或人物。"
+    ],
+  
+    "available_npcs": [
+      "bai_mengxue",
+      "leng_changkong",
+      "qing_yu",
+      "inn_keeper"
+    ],
+  
+    "areas": [
+      {
+        "area_id": "hall_main",
+        "name": "醉仙楼大堂",
+        "description": [
+          "大堂里人声鼎沸，酒桌之间挤满了江湖中人和本地客商。",
+          "白梦雪坐在靠窗的位置，背对着墙，可以一眼扫到半个大堂。",
+          "冷长空则在不远处的桌边，仿佛只是随意喝酒，却总能占据观察全场的角度。"
+        ],
+        "default_npcs": [
+          "bai_mengxue",
+          "leng_changkong",
+          "inn_keeper"
+        ]
+      },
+      {
+        "area_id": "backyard",
+        "name": "后院",
+        "description": [
+          "后院比大堂冷清许多，只有几只空酒坛靠墙摞着，角落里堆着杂物。",
+          "风从屋檐边吹过，吹动一盏有些旧的灯笼，发出细微的吱呀声。",
+          "一根木柱上，有一道若有若无的划痕，若不凑近，很难察觉它的存在。"
+        ],
+        "default_npcs": [
+          "bai_mengxue"
+        ],
+        "special_notes": [
+          "玩家第一次来到后院时，可以自动高亮那根木柱（作为探索点）。"
+        ]
+      },
+      {
+        "area_id": "second_floor",
+        "name": "二楼雅间走廊",
+        "description": [
+          "二楼比一楼要安静很多，雅间的门大多紧闭，偶尔传出低声交谈。",
+          "你隐约能听到某个房间里，有人压低嗓子说着'今晚动手'之类的字眼。"
+        ],
+        "default_npcs": [
+          "qing_yu"
+        ]
+      }
+    ],
+  
+    "clue_integration": {
+      "npc_clues": {
+        "bai_mengxue": [
+          "BM_X001",
+          "BM_X002"
+        ],
+        "leng_changkong": [
+          "LC_X001"
+        ],
+        "qing_yu": [
+          "QY_S001"
+        ]
+      },
+      "scene_clues": [
+        {
+          "scene_clue_id": "SC_BACKYARD_MEIHUA_MARK",
+          "name": "柱子上的梅花划痕",
+          "area_id": "backyard",
+          "discover_condition": {
+            "type": "inspect_point",
+            "description": "玩家在后院明确选择了'检查木柱/观察划痕'"
+          },
+          "effect_on_story": [
+            "向玩家展示一段文字：你辨认出那是被剑气刻出的半朵梅花。",
+            "在玩家状态中添加标记 has_seen_meihua_mark = true。",
+            "对白时对白梦雪触发 BM_X002 的权重提高。"
+          ]
+        }
+      ]
+    },
+  
+    "story_triggers": [
+      {
+        "trigger_id": "T_BACKYARD_SOFT_PUSH_BM_X002",
+        "description": "玩家在后院与白梦雪对话超过 2 轮，但尚未获得 BM_X002。",
+        "conditions": [
+          "current_stage == 'chapter_2_drunken_immortal_hall'",
+          "current_area == 'backyard'",
+          "white_mengxue_dialog_rounds_in_backyard >= 2",
+          "BM_X002 not in obtained_clues"
+        ],
+        "action": {
+          "type": "force_clue_dialog",
+          "npc_id": "bai_mengxue",
+          "clue_id": "BM_X002",
+          "note": "强制在下一轮对白中，引导白梦雪说出与梅花暗号相关的内容。"
+        }
+      },
+      {
+        "trigger_id": "T_TO_MURDER_EVENT",
+        "description": "当玩家已获得梅花暗号线索 BM_X002，且在醉仙楼逗留一定时间后，触发命案事件，推进到下一章。",
+        "conditions": [
+          "current_stage == 'chapter_2_drunken_immortal_hall'",
+          "BM_X002 in obtained_clues",
+          "turns_in_scene >= 5"
+        ],
+        "action": {
+          "type": "advance_stage",
+          "new_stage": "chapter_3_murder_event",
+          "narration": [
+            "正当你还想再问些什么，大堂里忽然传来一声撕心裂肺的尖叫。",
+            "酒杯落地的脆响、椅子倒下的声音混作一团，醉仙楼里一片混乱。",
+            "有人喊道：'杀人啦！有人在大堂倒下了——' 夜色，终于如你所料，开始染上血色。"
+          ]
+        }
+      }
+    ]
+  }
