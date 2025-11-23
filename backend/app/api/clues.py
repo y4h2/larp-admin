@@ -38,7 +38,7 @@ router = APIRouter()
 async def list_clues(
     db: DBSession,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=500),
     script_id: str | None = Query(default=None, description="Filter by script ID"),
     scene_id: str | None = Query(default=None, description="Filter by scene ID"),
     npc_id: str | None = Query(default=None, description="Filter by NPC ID"),

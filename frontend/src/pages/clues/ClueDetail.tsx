@@ -74,23 +74,23 @@ export default function ClueDetail() {
       setSelectedScriptId(clueData.script_id);
       form.setFieldsValue({
         ...clueData,
-        semantic_threshold: clueData.unlock_conditions.semantic_conditions?.similarity_threshold,
-        semantic_queries: clueData.unlock_conditions.semantic_conditions?.target_queries,
-        prerequisite_clue_ids: clueData.unlock_conditions.state_conditions?.prerequisite_clue_ids,
-        stage_lock: clueData.unlock_conditions.state_conditions?.stage_lock,
+        semantic_threshold: clueData.unlock_conditions?.semantic_conditions?.similarity_threshold,
+        semantic_queries: clueData.unlock_conditions?.semantic_conditions?.target_queries,
+        prerequisite_clue_ids: clueData.unlock_conditions?.state_conditions?.prerequisite_clue_ids,
+        stage_lock: clueData.unlock_conditions?.state_conditions?.stage_lock,
       });
 
       // Set unlock conditions state
-      setKeywordLists(clueData.unlock_conditions.text_conditions.keyword_lists);
-      setBlacklist(clueData.unlock_conditions.text_conditions.blacklist);
-      setSemanticEnabled(!!clueData.unlock_conditions.semantic_conditions);
-      setStateEnabled(!!clueData.unlock_conditions.state_conditions);
+      setKeywordLists(clueData.unlock_conditions?.text_conditions?.keyword_lists || []);
+      setBlacklist(clueData.unlock_conditions?.text_conditions?.blacklist || []);
+      setSemanticEnabled(!!clueData.unlock_conditions?.semantic_conditions);
+      setStateEnabled(!!clueData.unlock_conditions?.state_conditions);
 
       // Fetch related data
       const [npcsData, scenesData, cluesData] = await Promise.all([
         npcApi.list({ script_id: clueData.script_id, page_size: 100 }),
         sceneApi.list({ script_id: clueData.script_id }),
-        clueApi.list({ script_id: clueData.script_id, page_size: 500 }),
+        clueApi.list({ script_id: clueData.script_id, page_size: 100 }),
       ]);
       setNpcs(npcsData.items);
       setScenes(scenesData.items);
@@ -116,7 +116,7 @@ export default function ClueDetail() {
       Promise.all([
         npcApi.list({ script_id: selectedScriptId, page_size: 100 }),
         sceneApi.list({ script_id: selectedScriptId }),
-        clueApi.list({ script_id: selectedScriptId, page_size: 500 }),
+        clueApi.list({ script_id: selectedScriptId, page_size: 100 }),
       ]).then(([npcsData, scenesData, cluesData]) => {
         setNpcs(npcsData.items);
         setScenes(scenesData.items);
@@ -598,7 +598,7 @@ export default function ClueDetail() {
                         name="display_text"
                         label={t('clue.displayText')}
                         extra={t('clue.displayTextExtra')}
-                        initialValue={clue.effects.display_text}
+                        initialValue={clue.effects?.display_text}
                       >
                         <TextArea rows={4} placeholder="Custom display text" />
                       </Form.Item>
@@ -608,7 +608,7 @@ export default function ClueDetail() {
                         name="one_time_trigger"
                         label={t('clue.oneTimeTrigger')}
                         valuePropName="checked"
-                        initialValue={clue.effects.one_time_trigger}
+                        initialValue={clue.effects?.one_time_trigger}
                       >
                         <Switch />
                       </Form.Item>

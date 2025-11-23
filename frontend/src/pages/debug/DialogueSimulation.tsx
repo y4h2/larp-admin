@@ -75,7 +75,7 @@ export default function DialogueSimulation() {
       Promise.all([
         sceneApi.list({ script_id: selectedScriptId }),
         npcApi.list({ script_id: selectedScriptId, page_size: 100 }),
-        clueApi.list({ script_id: selectedScriptId, page_size: 500 }),
+        clueApi.list({ script_id: selectedScriptId, page_size: 100 }),
       ]).then(([scenesData, npcsData, cluesData]) => {
         setScenes(scenesData.items);
         setNpcs(npcsData.items);

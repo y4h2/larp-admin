@@ -47,7 +47,7 @@ class Scene(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     scene_type: Mapped[SceneType] = mapped_column(
-        Enum(SceneType, name="scene_type", create_type=False),
+        Enum(SceneType, name="scene_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=SceneType.INVESTIGATION,
         nullable=False,
     )

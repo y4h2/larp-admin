@@ -58,7 +58,7 @@ export default function ClueDebug() {
 
   useEffect(() => {
     if (selectedScriptId) {
-      clueApi.list({ script_id: selectedScriptId, page_size: 500 }).then((data) => {
+      clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((data) => {
         setClues(data.items);
       });
     }

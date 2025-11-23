@@ -176,7 +176,7 @@ export default function ClueTree() {
     });
 
     // Calculate levels (BFS from nodes without prerequisites)
-    const rootNodes = treeData.nodes.filter((n) => n.prerequisite_clue_ids.length === 0);
+    const rootNodes = treeData.nodes.filter((n) => (n.prerequisite_clue_ids?.length ?? 0) === 0);
     const queue: Array<{ id: string; level: number }> = rootNodes.map((n) => ({
       id: n.id,
       level: 0,
@@ -261,7 +261,7 @@ export default function ClueTree() {
       const targetNode = treeData?.nodes.find((n) => n.id === params.target);
       if (!targetNode) return;
 
-      const newPrerequisites = [...targetNode.prerequisite_clue_ids, params.source];
+      const newPrerequisites = [...(targetNode.prerequisite_clue_ids || []), params.source];
 
       try {
         await clueApi.updateDependencies(params.target, newPrerequisites);
@@ -279,10 +279,10 @@ export default function ClueTree() {
   }, [treeData, selectedClueId]);
 
   const hasIssues =
-    treeData &&
-    (treeData.issues.dead_clues.length > 0 ||
-      treeData.issues.orphan_clues.length > 0 ||
-      treeData.issues.cycles.length > 0);
+    treeData?.issues &&
+    ((treeData.issues.dead_clues?.length ?? 0) > 0 ||
+      (treeData.issues.orphan_clues?.length ?? 0) > 0 ||
+      (treeData.issues.cycles?.length ?? 0) > 0);
 
   return (
     <div>
@@ -353,22 +353,22 @@ export default function ClueTree() {
           message={t('clue.qualityIssues')}
           description={
             <Space direction="vertical">
-              {treeData!.issues.dead_clues.length > 0 && (
+              {(treeData?.issues?.dead_clues?.length ?? 0) > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
-                  {t('clue.deadClues')}: {treeData!.issues.dead_clues.length}
+                  {t('clue.deadClues')}: {treeData?.issues?.dead_clues?.length}
                 </span>
               )}
-              {treeData!.issues.orphan_clues.length > 0 && (
+              {(treeData?.issues?.orphan_clues?.length ?? 0) > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
-                  {t('clue.orphanClues')}: {treeData!.issues.orphan_clues.length}
+                  {t('clue.orphanClues')}: {treeData?.issues?.orphan_clues?.length}
                 </span>
               )}
-              {treeData!.issues.cycles.length > 0 && (
+              {(treeData?.issues?.cycles?.length ?? 0) > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
-                  {t('clue.circularDependencies')}: {treeData!.issues.cycles.length}
+                  {t('clue.circularDependencies')}: {treeData?.issues?.cycles?.length}
                 </span>
               )}
             </Space>
@@ -443,11 +443,11 @@ export default function ClueTree() {
               <StatusTag status={selectedClue.status} />
             </Descriptions.Item>
             <Descriptions.Item label={t('clue.prerequisites')}>
-              {selectedClue.prerequisite_clue_ids.length === 0 ? (
+              {(selectedClue.prerequisite_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneRoot')}</Text>
               ) : (
                 <Space direction="vertical">
-                  {selectedClue.prerequisite_clue_ids.map((id) => {
+                  {(selectedClue.prerequisite_clue_ids || []).map((id) => {
                     const prereq = treeData?.nodes.find((n) => n.id === id);
                     return (
                       <Tag
@@ -463,11 +463,11 @@ export default function ClueTree() {
               )}
             </Descriptions.Item>
             <Descriptions.Item label={t('clue.dependents')}>
-              {selectedClue.dependent_clue_ids.length === 0 ? (
+              {(selectedClue.dependent_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneLeaf')}</Text>
               ) : (
                 <Space direction="vertical">
-                  {selectedClue.dependent_clue_ids.map((id) => {
+                  {(selectedClue.dependent_clue_ids || []).map((id) => {
                     const dep = treeData?.nodes.find((n) => n.id === id);
                     return (
                       <Tag

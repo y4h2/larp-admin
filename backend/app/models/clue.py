@@ -95,7 +95,7 @@ class Clue(Base):
     )
     content_text: Mapped[str] = mapped_column(Text, nullable=False)
     content_type: Mapped[ContentType] = mapped_column(
-        Enum(ContentType, name="content_type", create_type=False),
+        Enum(ContentType, name="content_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ContentType.TEXT,
         nullable=False,
     )
@@ -106,12 +106,12 @@ class Clue(Base):
         comment="Additional content data (images, structured content)",
     )
     clue_type: Mapped[ClueType] = mapped_column(
-        Enum(ClueType, name="clue_type", create_type=False),
+        Enum(ClueType, name="clue_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ClueType.EVIDENCE,
         nullable=False,
     )
     importance: Mapped[ClueImportance] = mapped_column(
-        Enum(ClueImportance, name="clue_importance", create_type=False),
+        Enum(ClueImportance, name="clue_importance", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ClueImportance.MINOR,
         nullable=False,
     )
@@ -128,7 +128,7 @@ class Clue(Base):
         comment="Related NPC IDs",
     )
     status: Mapped[ClueStatus] = mapped_column(
-        Enum(ClueStatus, name="clue_status", create_type=False),
+        Enum(ClueStatus, name="clue_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ClueStatus.DRAFT,
         nullable=False,
     )
@@ -214,7 +214,7 @@ class ClueRelation(Base):
         index=True,
     )
     relation_type: Mapped[ClueRelationType] = mapped_column(
-        Enum(ClueRelationType, name="clue_relation_type", create_type=False),
+        Enum(ClueRelationType, name="clue_relation_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ClueRelationType.REQUIRED,
         nullable=False,
     )

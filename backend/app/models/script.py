@@ -50,7 +50,7 @@ class Script(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ScriptStatus] = mapped_column(
-        Enum(ScriptStatus, name="script_status", create_type=False),
+        Enum(ScriptStatus, name="script_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ScriptStatus.DRAFT,
         nullable=False,
     )
@@ -60,7 +60,7 @@ class Script(Base):
         Integer, nullable=True, comment="Expected duration in minutes"
     )
     difficulty: Mapped[ScriptDifficulty] = mapped_column(
-        Enum(ScriptDifficulty, name="script_difficulty", create_type=False),
+        Enum(ScriptDifficulty, name="script_difficulty", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ScriptDifficulty.MEDIUM,
         nullable=False,
     )

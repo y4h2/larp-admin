@@ -61,13 +61,13 @@ class AlgorithmImplementation(Base):
         comment="Algorithm ID like 'keyword_v1', 'embedding_v2'",
     )
     type: Mapped[AlgorithmType] = mapped_column(
-        Enum(AlgorithmType, name="algorithm_type", create_type=False),
+        Enum(AlgorithmType, name="algorithm_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     doc_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[AlgorithmImplStatus] = mapped_column(
-        Enum(AlgorithmImplStatus, name="algorithm_impl_status", create_type=False),
+        Enum(AlgorithmImplStatus, name="algorithm_impl_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=AlgorithmImplStatus.AVAILABLE,
         nullable=False,
     )
@@ -113,7 +113,7 @@ class AlgorithmStrategy(Base):
         index=True,
     )
     scope_type: Mapped[StrategyScopeType] = mapped_column(
-        Enum(StrategyScopeType, name="strategy_scope_type", create_type=False),
+        Enum(StrategyScopeType, name="strategy_scope_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=StrategyScopeType.GLOBAL,
         nullable=False,
     )
@@ -129,7 +129,7 @@ class AlgorithmStrategy(Base):
         comment="Algorithm parameters",
     )
     status: Mapped[StrategyStatus] = mapped_column(
-        Enum(StrategyStatus, name="strategy_status", create_type=False),
+        Enum(StrategyStatus, name="strategy_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=StrategyStatus.DRAFT,
         nullable=False,
     )

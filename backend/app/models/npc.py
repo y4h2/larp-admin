@@ -55,7 +55,7 @@ class NPC(Base):
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role_type: Mapped[NPCRoleType] = mapped_column(
-        Enum(NPCRoleType, name="npc_role_type", create_type=False),
+        Enum(NPCRoleType, name="npc_role_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=NPCRoleType.OTHER,
         nullable=False,
     )
@@ -75,7 +75,7 @@ class NPC(Base):
         nullable=False,
     )
     status: Mapped[NPCStatus] = mapped_column(
-        Enum(NPCStatus, name="npc_status", create_type=False),
+        Enum(NPCStatus, name="npc_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=NPCStatus.ACTIVE,
         nullable=False,
     )

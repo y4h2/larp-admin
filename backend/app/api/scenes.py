@@ -9,10 +9,57 @@ from sqlalchemy import select
 from app.database import DBSession
 from app.models.scene import Scene, SceneType
 from app.models.script import Script
+from app.schemas.common import PaginatedResponse
 from app.schemas.scene import SceneCreate, SceneReorder, SceneResponse, SceneUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/scenes", response_model=PaginatedResponse[SceneResponse])
+async def list_scenes_by_query(
+    db: DBSession,
+    script_id: str,
+) -> PaginatedResponse[SceneResponse]:
+    """
+    List all scenes for a script (query param version).
+
+    Args:
+        db: Database session.
+        script_id: Script ID as query parameter.
+
+    Returns:
+        Paginated list of scenes ordered by sort_order.
+
+    Raises:
+        HTTPException: If script not found.
+    """
+    # Verify script exists
+    script_result = await db.execute(
+        select(Script)
+        .where(Script.id == script_id)
+        .where(Script.deleted_at.is_(None))
+    )
+    if not script_result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Script with id {script_id} not found",
+        )
+
+    result = await db.execute(
+        select(Scene)
+        .where(Scene.script_id == script_id)
+        .order_by(Scene.sort_order)
+    )
+    scenes = result.scalars().all()
+    items = [SceneResponse.model_validate(scene) for scene in scenes]
+
+    return PaginatedResponse.create(
+        items=items,
+        total=len(items),
+        page=1,
+        page_size=len(items) or 1,
+    )
 
 
 @router.get("/scripts/{script_id}/scenes", response_model=list[SceneResponse])

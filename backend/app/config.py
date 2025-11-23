@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Pagination
     default_page_size: int = 20
-    max_page_size: int = 100
+    max_page_size: int = 500
 
 
 @lru_cache
