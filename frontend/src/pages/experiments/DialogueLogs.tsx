@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Table,
   Card,
@@ -25,6 +26,7 @@ const { RangePicker } = DatePicker;
 const { Text, Paragraph } = Typography;
 
 export default function DialogueLogs() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<DialogueLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -82,7 +84,7 @@ export default function DialogueLogs() {
 
   const columns: TableProps<DialogueLog>['columns'] = [
     {
-      title: 'Session',
+      title: t('logs.session'),
       dataIndex: 'session_id',
       key: 'session_id',
       width: 120,
@@ -93,7 +95,7 @@ export default function DialogueLogs() {
       ),
     },
     {
-      title: 'Player Message',
+      title: t('logs.playerMessage'),
       dataIndex: 'player_message',
       key: 'player_message',
       ellipsis: true,
@@ -110,23 +112,23 @@ export default function DialogueLogs() {
       },
     },
     {
-      title: 'Matched Clues',
+      title: t('logs.matchedClues'),
       dataIndex: 'matched_clues',
       key: 'matched_clues',
       width: 120,
       render: (clues: MatchedClue[]) => (
-        <Tag color={clues.length > 0 ? 'success' : 'default'}>{clues.length} clues</Tag>
+        <Tag color={clues.length > 0 ? 'success' : 'default'}>{clues.length} {t('logs.clues')}</Tag>
       ),
     },
     {
-      title: 'Time',
+      title: t('logs.time'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 80,
       render: (_, record) => (
@@ -145,14 +147,14 @@ export default function DialogueLogs() {
   return (
     <div>
       <PageHeader
-        title="Dialogue Logs"
-        subtitle="View player-NPC dialogue history and clue matches"
+        title={t('logs.title')}
+        subtitle={t('logs.subtitle')}
       />
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
           <Input
-            placeholder="Session ID"
+            placeholder={t('logs.sessionId')}
             prefix={<SearchOutlined />}
             value={filters.session_id}
             onChange={(e) => setFilters({ ...filters, session_id: e.target.value, page: 1 })}
@@ -160,7 +162,7 @@ export default function DialogueLogs() {
             allowClear
           />
           <Select
-            placeholder="Script"
+            placeholder={t('strategy.script')}
             value={filters.script_id}
             onChange={(v) =>
               setFilters({ ...filters, script_id: v, scene_id: undefined, npc_id: undefined, page: 1 })
@@ -175,7 +177,7 @@ export default function DialogueLogs() {
             ))}
           </Select>
           <Select
-            placeholder="Scene"
+            placeholder={t('strategy.scene')}
             value={filters.scene_id}
             onChange={(v) => setFilters({ ...filters, scene_id: v, page: 1 })}
             style={{ width: 160 }}
@@ -225,13 +227,13 @@ export default function DialogueLogs() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} logs`,
+          showTotal: (total) => t('logs.totalLogs', { total }),
           onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 
       <Modal
-        title="Dialogue Log Details"
+        title={t('logs.logDetails')}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
@@ -240,30 +242,30 @@ export default function DialogueLogs() {
         {selectedLog && (
           <div>
             <Descriptions column={2} bordered size="small">
-              <Descriptions.Item label="Session ID" span={2}>
+              <Descriptions.Item label={t('logs.sessionId')} span={2}>
                 <Text code copyable>
                   {selectedLog.session_id}
                 </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Time">{formatDate(selectedLog.created_at)}</Descriptions.Item>
-              <Descriptions.Item label="Strategy">{selectedLog.strategy_id}</Descriptions.Item>
+              <Descriptions.Item label={t('logs.time')}>{formatDate(selectedLog.created_at)}</Descriptions.Item>
+              <Descriptions.Item label={t('logs.strategy')}>{selectedLog.strategy_id}</Descriptions.Item>
             </Descriptions>
 
-            <Card size="small" title="Player Message" style={{ marginTop: 16 }}>
+            <Card size="small" title={t('logs.playerMessage')} style={{ marginTop: 16 }}>
               <Paragraph>{selectedLog.player_message}</Paragraph>
             </Card>
 
-            <Card size="small" title="NPC Response" style={{ marginTop: 16 }}>
+            <Card size="small" title={t('logs.npcResponse')} style={{ marginTop: 16 }}>
               <Paragraph>{selectedLog.npc_response}</Paragraph>
             </Card>
 
             <Card
               size="small"
-              title={`Matched Clues (${selectedLog.matched_clues.length})`}
+              title={`${t('logs.matchedClues')} (${selectedLog.matched_clues.length})`}
               style={{ marginTop: 16 }}
             >
               {selectedLog.matched_clues.length === 0 ? (
-                <Text type="secondary">No clues matched</Text>
+                <Text type="secondary">{t('logs.noCluesMatched')}</Text>
               ) : (
                 <Collapse
                   items={selectedLog.matched_clues.map((mc, i) => ({
@@ -274,20 +276,20 @@ export default function DialogueLogs() {
                         <Tag color={mc.match_type === 'keyword' ? 'blue' : 'green'}>
                           {mc.match_type}
                         </Tag>
-                        <Tag>Score: {(mc.score * 100).toFixed(0)}%</Tag>
+                        <Tag>{t('debug.score')}: {(mc.score * 100).toFixed(0)}%</Tag>
                       </Space>
                     ),
                     children: (
                       <Descriptions size="small" column={2}>
                         {mc.keyword_matches && mc.keyword_matches.length > 0 && (
-                          <Descriptions.Item label="Keywords" span={2}>
+                          <Descriptions.Item label={t('debug.keywords')} span={2}>
                             {mc.keyword_matches.map((kw, j) => (
                               <Tag key={j}>{kw}</Tag>
                             ))}
                           </Descriptions.Item>
                         )}
                         {mc.embedding_similarity && (
-                          <Descriptions.Item label="Embedding Similarity">
+                          <Descriptions.Item label={t('debug.similarity')}>
                             {(mc.embedding_similarity * 100).toFixed(1)}%
                           </Descriptions.Item>
                         )}

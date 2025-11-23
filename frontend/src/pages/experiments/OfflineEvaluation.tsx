@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
@@ -30,6 +31,7 @@ interface EvaluationResult {
 }
 
 export default function OfflineEvaluation() {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<EvaluationResult[]>([]);
@@ -43,7 +45,7 @@ export default function OfflineEvaluation() {
 
   const handleEvaluate = async () => {
     if (fileList.length === 0) {
-      message.warning('Please upload a test dataset');
+      message.warning(t('evaluation.pleaseUploadDataset'));
       return;
     }
 
@@ -87,46 +89,46 @@ export default function OfflineEvaluation() {
       total_queries: 3,
     });
     setLoading(false);
-    message.success('Evaluation completed');
+    message.success(t('evaluation.evaluationCompleted'));
   };
 
   const columns: TableProps<EvaluationResult>['columns'] = [
     {
-      title: 'Query',
+      title: t('evaluation.query'),
       dataIndex: 'query',
       key: 'query',
       ellipsis: true,
     },
     {
-      title: 'Expected',
+      title: t('evaluation.expected'),
       dataIndex: 'expected_clues',
       key: 'expected_clues',
       width: 100,
       render: (clues) => clues.length,
     },
     {
-      title: 'Matched',
+      title: t('evaluation.matched'),
       dataIndex: 'matched_clues',
       key: 'matched_clues',
       width: 100,
       render: (clues) => clues.length,
     },
     {
-      title: 'Precision',
+      title: t('evaluation.precision'),
       dataIndex: 'precision',
       key: 'precision',
       width: 120,
       render: (p) => <Progress percent={Math.round(p * 100)} size="small" />,
     },
     {
-      title: 'Recall',
+      title: t('evaluation.recall'),
       dataIndex: 'recall',
       key: 'recall',
       width: 120,
       render: (r) => <Progress percent={Math.round(r * 100)} size="small" />,
     },
     {
-      title: 'F1 Score',
+      title: t('evaluation.f1Score'),
       dataIndex: 'f1_score',
       key: 'f1_score',
       width: 120,
@@ -137,24 +139,24 @@ export default function OfflineEvaluation() {
   return (
     <div>
       <PageHeader
-        title="Offline Evaluation"
-        subtitle="Evaluate algorithm performance against test datasets"
+        title={t('evaluation.title')}
+        subtitle={t('evaluation.subtitle')}
       />
 
       <Row gutter={24}>
         <Col span={8}>
-          <Card title="Evaluation Setup" size="small">
+          <Card title={t('evaluation.evaluationSetup')} size="small">
             <Form form={form} layout="vertical">
-              <Form.Item label="Strategy to Evaluate">
-                <Select placeholder="Select strategy">
-                  <Option value="keyword">Keyword Matching</Option>
-                  <Option value="semantic">Semantic Matching</Option>
-                  <Option value="hybrid">Hybrid Matching</Option>
+              <Form.Item label={t('evaluation.strategyToEvaluate')}>
+                <Select placeholder={t('evaluation.selectStrategy')}>
+                  <Option value="keyword">{t('evaluation.keywordMatching')}</Option>
+                  <Option value="semantic">{t('evaluation.semanticMatching')}</Option>
+                  <Option value="hybrid">{t('evaluation.hybridMatching')}</Option>
                 </Select>
               </Form.Item>
               <Form.Item
-                label="Test Dataset"
-                extra="Upload a JSON file with queries and expected clues"
+                label={t('evaluation.testDataset')}
+                extra={t('evaluation.testDatasetExtra')}
               >
                 <Upload
                   fileList={fileList}
@@ -163,7 +165,7 @@ export default function OfflineEvaluation() {
                   maxCount={1}
                   accept=".json"
                 >
-                  <Button icon={<UploadOutlined />}>Upload Dataset</Button>
+                  <Button icon={<UploadOutlined />}>{t('evaluation.uploadDataset')}</Button>
                 </Upload>
               </Form.Item>
               <Form.Item>
@@ -174,7 +176,7 @@ export default function OfflineEvaluation() {
                   loading={loading}
                   block
                 >
-                  Run Evaluation
+                  {t('evaluation.runEvaluation')}
                 </Button>
               </Form.Item>
             </Form>
@@ -182,7 +184,7 @@ export default function OfflineEvaluation() {
             <Divider />
 
             <Alert
-              message="Dataset Format"
+              message={t('evaluation.datasetFormat')}
               description={
                 <pre style={{ fontSize: 11, marginTop: 8 }}>
                   {JSON.stringify(
@@ -204,17 +206,17 @@ export default function OfflineEvaluation() {
 
         <Col span={16}>
           {summary && (
-            <Card title="Evaluation Summary" size="small" style={{ marginBottom: 16 }}>
+            <Card title={t('evaluation.evaluationSummary')} size="small" style={{ marginBottom: 16 }}>
               <Row gutter={16}>
                 <Col span={6}>
                   <Statistic
-                    title="Total Queries"
+                    title={t('evaluation.totalQueries')}
                     value={summary.total_queries}
                   />
                 </Col>
                 <Col span={6}>
                   <Statistic
-                    title="Avg Precision"
+                    title={t('evaluation.avgPrecision')}
                     value={(summary.avg_precision * 100).toFixed(1)}
                     suffix="%"
                     valueStyle={{ color: summary.avg_precision >= 0.8 ? '#3f8600' : '#cf1322' }}
@@ -222,7 +224,7 @@ export default function OfflineEvaluation() {
                 </Col>
                 <Col span={6}>
                   <Statistic
-                    title="Avg Recall"
+                    title={t('evaluation.avgRecall')}
                     value={(summary.avg_recall * 100).toFixed(1)}
                     suffix="%"
                     valueStyle={{ color: summary.avg_recall >= 0.8 ? '#3f8600' : '#cf1322' }}
@@ -230,7 +232,7 @@ export default function OfflineEvaluation() {
                 </Col>
                 <Col span={6}>
                   <Statistic
-                    title="Avg F1 Score"
+                    title={t('evaluation.avgF1Score')}
                     value={(summary.avg_f1 * 100).toFixed(1)}
                     suffix="%"
                     valueStyle={{ color: summary.avg_f1 >= 0.8 ? '#3f8600' : '#cf1322' }}
@@ -240,13 +242,13 @@ export default function OfflineEvaluation() {
             </Card>
           )}
 
-          <Card title="Detailed Results" size="small">
+          <Card title={t('evaluation.detailedResults')} size="small">
             <Table
               columns={columns}
               dataSource={results}
               rowKey="query"
               pagination={false}
-              locale={{ emptyText: 'Run an evaluation to see results' }}
+              locale={{ emptyText: t('evaluation.runEvaluationToSee') }}
             />
           </Card>
         </Col>

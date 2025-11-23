@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Table,
   Button,
@@ -27,6 +28,7 @@ import type { User } from '@/types';
 const { Option } = Select;
 
 export default function UserManagement() {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -74,27 +76,27 @@ export default function UserManagement() {
     try {
       if (editingUser) {
         await userApi.update(editingUser.id, values);
-        message.success('User updated');
+        message.success(t('users.userUpdated'));
       } else {
         await userApi.create(values as Partial<User> & { password: string });
-        message.success('User created');
+        message.success(t('users.userCreated'));
       }
       setModalVisible(false);
       setEditingUser(null);
       form.resetFields();
       refreshUsers();
     } catch {
-      message.error('Operation failed');
+      message.error(t('users.operationFailed'));
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await userApi.delete(id);
-      message.success('User deleted');
+      message.success(t('users.userDeleted'));
       refreshUsers();
     } catch {
-      message.error('Failed to delete user');
+      message.error(t('users.operationFailed'));
     }
   };
 
@@ -102,12 +104,12 @@ export default function UserManagement() {
     if (!selectedUserId) return;
     try {
       await userApi.resetPassword(selectedUserId, values.password);
-      message.success('Password reset successfully');
+      message.success(t('users.passwordResetSuccess'));
       setPasswordModalVisible(false);
       setSelectedUserId(null);
       passwordForm.resetFields();
     } catch {
-      message.error('Failed to reset password');
+      message.error(t('users.passwordResetFailed'));
     }
   };
 
@@ -128,38 +130,38 @@ export default function UserManagement() {
 
   const columns: TableProps<User>['columns'] = [
     {
-      title: 'Username',
+      title: t('users.username'),
       dataIndex: 'username',
       key: 'username',
     },
     {
-      title: 'Email',
+      title: t('users.email'),
       dataIndex: 'email',
       key: 'email',
     },
     {
-      title: 'Role',
+      title: t('users.role'),
       dataIndex: 'role',
       key: 'role',
       width: 100,
-      render: (role) => <Tag color={getRoleColor(role)}>{role}</Tag>,
+      render: (role) => <Tag color={getRoleColor(role)}>{t(`users.${role}`)}</Tag>,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status) => <StatusTag status={status} />,
     },
     {
-      title: 'Created',
+      title: t('users.created'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 150,
       render: (_, record) => (
@@ -176,13 +178,13 @@ export default function UserManagement() {
               setSelectedUserId(record.id);
               setPasswordModalVisible(true);
             }}
-            title="Reset Password"
+            title={t('users.resetPassword')}
           />
           <Popconfirm
-            title="Delete User"
-            description="Are you sure you want to delete this user?"
+            title={t('users.deleteUser')}
+            description={t('users.deleteUserConfirm')}
             onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
+            okText={t('common.delete')}
             okType="danger"
           >
             <Button type="text" danger icon={<DeleteOutlined />} />
@@ -195,18 +197,18 @@ export default function UserManagement() {
   return (
     <div>
       <PageHeader
-        title="Users & Permissions"
-        subtitle="Manage user accounts and access control"
+        title={t('users.title')}
+        subtitle={t('users.subtitle')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditModal()}>
-            Create User
+            {t('users.createUser')}
           </Button>
         }
       />
 
       <Space style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search users..."
+          placeholder={t('users.searchUsers')}
           prefix={<SearchOutlined />}
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
@@ -214,25 +216,25 @@ export default function UserManagement() {
           allowClear
         />
         <Select
-          placeholder="Role"
+          placeholder={t('users.role')}
           value={filters.role}
           onChange={(v) => setFilters({ ...filters, role: v, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="admin">Admin</Option>
-          <Option value="editor">Editor</Option>
-          <Option value="viewer">Viewer</Option>
+          <Option value="admin">{t('users.admin')}</Option>
+          <Option value="editor">{t('users.editor')}</Option>
+          <Option value="viewer">{t('users.viewer')}</Option>
         </Select>
         <Select
-          placeholder="Status"
+          placeholder={t('common.status')}
           value={filters.status}
           onChange={(v) => setFilters({ ...filters, status: v, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="active">Active</Option>
-          <Option value="inactive">Inactive</Option>
+          <Option value="active">{t('users.active')}</Option>
+          <Option value="inactive">{t('users.inactive')}</Option>
         </Select>
       </Space>
 
@@ -251,7 +253,7 @@ export default function UserManagement() {
       />
 
       <Modal
-        title={editingUser ? 'Edit User' : 'Create User'}
+        title={editingUser ? t('users.editUser') : t('users.createUser')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -263,64 +265,64 @@ export default function UserManagement() {
         <Form form={form} layout="vertical" onFinish={handleCreateOrUpdate}>
           <Form.Item
             name="username"
-            label="Username"
-            rules={[{ required: true, message: 'Please enter username' }]}
+            label={t('users.username')}
+            rules={[{ required: true, message: t('users.enterUsername') }]}
           >
-            <Input placeholder="Enter username" disabled={!!editingUser} />
+            <Input placeholder={t('users.enterUsername')} disabled={!!editingUser} />
           </Form.Item>
           <Form.Item
             name="email"
-            label="Email"
+            label={t('users.email')}
             rules={[
-              { required: true, message: 'Please enter email' },
-              { type: 'email', message: 'Please enter a valid email' },
+              { required: true, message: t('users.enterEmail') },
+              { type: 'email', message: t('users.validEmail') },
             ]}
           >
-            <Input placeholder="Enter email" />
+            <Input placeholder={t('users.enterEmail')} />
           </Form.Item>
           {!editingUser && (
             <Form.Item
               name="password"
-              label="Password"
+              label={t('users.password')}
               rules={[
-                { required: true, message: 'Please enter password' },
-                { min: 8, message: 'Password must be at least 8 characters' },
+                { required: true, message: t('users.enterPassword') },
+                { min: 8, message: t('users.passwordMinLength') },
               ]}
             >
-              <Input.Password placeholder="Enter password" />
+              <Input.Password placeholder={t('users.enterPassword')} />
             </Form.Item>
           )}
           <Form.Item
             name="role"
-            label="Role"
+            label={t('users.role')}
             rules={[{ required: true }]}
             initialValue="viewer"
           >
             <Select>
-              <Option value="admin">Admin</Option>
-              <Option value="editor">Editor</Option>
-              <Option value="viewer">Viewer</Option>
+              <Option value="admin">{t('users.admin')}</Option>
+              <Option value="editor">{t('users.editor')}</Option>
+              <Option value="viewer">{t('users.viewer')}</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="status" label="Status" initialValue="active">
+          <Form.Item name="status" label={t('common.status')} initialValue="active">
             <Select>
-              <Option value="active">Active</Option>
-              <Option value="inactive">Inactive</Option>
+              <Option value="active">{t('users.active')}</Option>
+              <Option value="inactive">{t('users.inactive')}</Option>
             </Select>
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                {editingUser ? 'Update' : 'Create'}
+                {editingUser ? t('common.save') : t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title="Reset Password"
+        title={t('users.resetPassword')}
         open={passwordModalVisible}
         onCancel={() => {
           setPasswordModalVisible(false);
@@ -332,38 +334,38 @@ export default function UserManagement() {
         <Form form={passwordForm} layout="vertical" onFinish={handleResetPassword}>
           <Form.Item
             name="password"
-            label="New Password"
+            label={t('users.newPassword')}
             rules={[
-              { required: true, message: 'Please enter new password' },
-              { min: 8, message: 'Password must be at least 8 characters' },
+              { required: true, message: t('users.enterNewPassword') },
+              { min: 8, message: t('users.passwordMinLength') },
             ]}
           >
-            <Input.Password placeholder="Enter new password" />
+            <Input.Password placeholder={t('users.enterNewPassword')} />
           </Form.Item>
           <Form.Item
             name="confirmPassword"
-            label="Confirm Password"
+            label={t('users.confirmPassword')}
             dependencies={['password']}
             rules={[
-              { required: true, message: 'Please confirm password' },
+              { required: true, message: t('users.confirmNewPassword') },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('password') === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error('Passwords do not match'));
+                  return Promise.reject(new Error(t('users.passwordsNotMatch')));
                 },
               }),
             ]}
           >
-            <Input.Password placeholder="Confirm new password" />
+            <Input.Password placeholder={t('users.confirmNewPassword')} />
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Reset Password
+                {t('users.resetPassword')}
               </Button>
-              <Button onClick={() => setPasswordModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setPasswordModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

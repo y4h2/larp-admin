@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Table,
   Button,
@@ -36,6 +37,7 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 export default function ABTestConfigPage() {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [tests, setTests] = useState<ABTestConfig[]>([]);
@@ -99,42 +101,42 @@ export default function ABTestConfigPage() {
         start_at: dateRange?.[0]?.toISOString(),
         end_at: dateRange?.[1]?.toISOString(),
       });
-      message.success('A/B test created');
+      message.success(t('abtest.testCreated'));
       setModalVisible(false);
       form.resetFields();
       refreshTests();
     } catch {
-      message.error('Failed to create A/B test');
+      message.error(t('abtest.createFailed'));
     }
   };
 
   const handleStart = async (id: string) => {
     try {
       await abTestApi.start(id);
-      message.success('A/B test started');
+      message.success(t('abtest.testStarted'));
       refreshTests();
     } catch {
-      message.error('Failed to start A/B test');
+      message.error(t('abtest.startFailed'));
     }
   };
 
   const handleStop = async (id: string) => {
     try {
       await abTestApi.stop(id);
-      message.success('A/B test stopped');
+      message.success(t('abtest.testStopped'));
       refreshTests();
     } catch {
-      message.error('Failed to stop A/B test');
+      message.error(t('abtest.stopFailed'));
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await abTestApi.delete(id);
-      message.success('A/B test deleted');
+      message.success(t('abtest.testDeleted'));
       refreshTests();
     } catch {
-      message.error('Failed to delete A/B test');
+      message.error(t('abtest.deleteFailed'));
     }
   };
 
@@ -145,7 +147,7 @@ export default function ABTestConfigPage() {
       setTestResults(results);
       setResultsModalVisible(true);
     } catch {
-      message.error('Failed to load results');
+      message.error(t('abtest.loadResultsFailed'));
     }
   };
 
@@ -155,38 +157,38 @@ export default function ABTestConfigPage() {
 
   const columns: TableProps<ABTestConfig>['columns'] = [
     {
-      title: 'Name',
+      title: t('common.name'),
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: 'Strategy A',
+      title: t('abtest.strategyA'),
       dataIndex: 'strategy_a_id',
       key: 'strategy_a_id',
       render: (id) => <Tag color="blue">{getStrategyName(id)}</Tag>,
     },
     {
-      title: 'Strategy B',
+      title: t('abtest.strategyB'),
       dataIndex: 'strategy_b_id',
       key: 'strategy_b_id',
       render: (id) => <Tag color="green">{getStrategyName(id)}</Tag>,
     },
     {
-      title: 'Traffic Split',
+      title: t('abtest.trafficSplit'),
       dataIndex: 'traffic_split',
       key: 'traffic_split',
       width: 120,
       render: (split) => `${(split * 100).toFixed(0)}% / ${((1 - split) * 100).toFixed(0)}%`,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status) => <StatusTag status={status} />,
     },
     {
-      title: 'Period',
+      title: t('abtest.testPeriod'),
       key: 'period',
       width: 200,
       render: (_, record) =>
@@ -195,7 +197,7 @@ export default function ABTestConfigPage() {
           : '-',
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 180,
       render: (_, record) => (
@@ -205,7 +207,7 @@ export default function ABTestConfigPage() {
               type="text"
               icon={<PlayCircleOutlined />}
               onClick={() => handleStart(record.id)}
-              title="Start"
+              title={t('abtest.start')}
             />
           )}
           {record.status === 'running' && (
@@ -213,7 +215,7 @@ export default function ABTestConfigPage() {
               type="text"
               icon={<PauseCircleOutlined />}
               onClick={() => handleStop(record.id)}
-              title="Stop"
+              title={t('abtest.stop')}
             />
           )}
           {(record.status === 'running' || record.status === 'completed') && (
@@ -221,11 +223,11 @@ export default function ABTestConfigPage() {
               type="text"
               icon={<BarChartOutlined />}
               onClick={() => handleViewResults(record)}
-              title="View Results"
+              title={t('abtest.viewResults')}
             />
           )}
           <Popconfirm
-            title="Delete A/B Test"
+            title={t('abtest.deleteTest')}
             onConfirm={() => handleDelete(record.id)}
             disabled={record.status === 'running'}
           >
@@ -244,26 +246,26 @@ export default function ABTestConfigPage() {
   return (
     <div>
       <PageHeader
-        title="A/B Test Configuration"
-        subtitle="Compare algorithm strategies with controlled experiments"
+        title={t('abtest.title')}
+        subtitle={t('abtest.subtitle')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-            Create A/B Test
+            {t('abtest.createTest')}
           </Button>
         }
       />
 
       <Space style={{ marginBottom: 16 }}>
         <Select
-          placeholder="Status"
+          placeholder={t('common.status')}
           value={filters.status}
           onChange={(v) => setFilters({ ...filters, status: v, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="draft">Draft</Option>
-          <Option value="running">Running</Option>
-          <Option value="completed">Completed</Option>
+          <Option value="draft">{t('script.draft')}</Option>
+          <Option value="running">{t('abtest.running')}</Option>
+          <Option value="completed">{t('abtest.completed')}</Option>
         </Select>
       </Space>
 
@@ -282,7 +284,7 @@ export default function ABTestConfigPage() {
       />
 
       <Modal
-        title="Create A/B Test"
+        title={t('abtest.createTest')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -293,20 +295,20 @@ export default function ABTestConfigPage() {
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="name"
-            label="Test Name"
+            label={t('abtest.testName')}
             rules={[{ required: true }]}
           >
-            <Input placeholder="Enter test name" />
+            <Input placeholder={t('abtest.enterTestName')} />
           </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea placeholder="Enter description" rows={2} />
+          <Form.Item name="description" label={t('common.description')}>
+            <Input.TextArea placeholder={t('script.enterDescription')} rows={2} />
           </Form.Item>
           <Form.Item
             name="strategy_a_id"
-            label="Strategy A (Control)"
+            label={t('abtest.strategyAControl')}
             rules={[{ required: true }]}
           >
-            <Select placeholder="Select control strategy">
+            <Select placeholder={t('abtest.selectControlStrategy')}>
               {strategies.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.name}
@@ -316,10 +318,10 @@ export default function ABTestConfigPage() {
           </Form.Item>
           <Form.Item
             name="strategy_b_id"
-            label="Strategy B (Variant)"
+            label={t('abtest.strategyBVariant')}
             rules={[{ required: true }]}
           >
-            <Select placeholder="Select variant strategy">
+            <Select placeholder={t('abtest.selectVariantStrategy')}>
               {strategies.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.name}
@@ -329,27 +331,27 @@ export default function ABTestConfigPage() {
           </Form.Item>
           <Form.Item
             name="traffic_split"
-            label="Traffic Split (Strategy A %)"
+            label={t('abtest.trafficSplitLabel')}
             initialValue={50}
           >
             <Slider marks={{ 0: '0%', 50: '50%', 100: '100%' }} />
           </Form.Item>
-          <Form.Item name="date_range" label="Test Period">
+          <Form.Item name="date_range" label={t('abtest.testPeriod')}>
             <RangePicker showTime />
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Create
+                {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title="A/B Test Results"
+        title={t('abtest.testResults')}
         open={resultsModalVisible}
         onCancel={() => setResultsModalVisible(false)}
         footer={null}
@@ -358,26 +360,26 @@ export default function ABTestConfigPage() {
         {selectedTest && testResults && (
           <div>
             <Descriptions bordered size="small" column={2}>
-              <Descriptions.Item label="Test Name" span={2}>
+              <Descriptions.Item label={t('abtest.testName')} span={2}>
                 {selectedTest.name}
               </Descriptions.Item>
-              <Descriptions.Item label="Strategy A">
+              <Descriptions.Item label={t('abtest.strategyA')}>
                 {getStrategyName(selectedTest.strategy_a_id)}
               </Descriptions.Item>
-              <Descriptions.Item label="Strategy B">
+              <Descriptions.Item label={t('abtest.strategyB')}>
                 {getStrategyName(selectedTest.strategy_b_id)}
               </Descriptions.Item>
             </Descriptions>
 
             <Row gutter={16} style={{ marginTop: 24 }}>
               <Col span={12}>
-                <Card title="Strategy A" size="small">
+                <Card title={t('abtest.strategyA')} size="small">
                   <Statistic
-                    title="Total Matches"
+                    title={t('abtest.totalMatches')}
                     value={testResults.strategy_a_stats.total_matches}
                   />
                   <Statistic
-                    title="Average Score"
+                    title={t('abtest.averageScore')}
                     value={(testResults.strategy_a_stats.avg_score * 100).toFixed(1)}
                     suffix="%"
                     style={{ marginTop: 16 }}
@@ -385,13 +387,13 @@ export default function ABTestConfigPage() {
                 </Card>
               </Col>
               <Col span={12}>
-                <Card title="Strategy B" size="small">
+                <Card title={t('abtest.strategyB')} size="small">
                   <Statistic
-                    title="Total Matches"
+                    title={t('abtest.totalMatches')}
                     value={testResults.strategy_b_stats.total_matches}
                   />
                   <Statistic
-                    title="Average Score"
+                    title={t('abtest.averageScore')}
                     value={(testResults.strategy_b_stats.avg_score * 100).toFixed(1)}
                     suffix="%"
                     style={{ marginTop: 16 }}
@@ -400,14 +402,14 @@ export default function ABTestConfigPage() {
               </Col>
             </Row>
 
-            <Card title="Significance Test" size="small" style={{ marginTop: 16 }}>
+            <Card title={t('abtest.significanceTest')} size="small" style={{ marginTop: 16 }}>
               <Descriptions column={2}>
-                <Descriptions.Item label="P-Value">
+                <Descriptions.Item label={t('abtest.pValue')}>
                   {testResults.significance_test.p_value.toFixed(4)}
                 </Descriptions.Item>
-                <Descriptions.Item label="Statistically Significant">
+                <Descriptions.Item label={t('abtest.statisticallySignificant')}>
                   <Tag color={testResults.significance_test.significant ? 'success' : 'warning'}>
-                    {testResults.significance_test.significant ? 'Yes' : 'No'}
+                    {testResults.significance_test.significant ? t('abtest.yes') : t('abtest.no')}
                   </Tag>
                 </Descriptions.Item>
               </Descriptions>

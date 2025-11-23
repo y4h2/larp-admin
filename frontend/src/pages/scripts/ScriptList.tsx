@@ -20,6 +20,7 @@ import {
   InboxOutlined,
   EditOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { PageHeader, StatusTag } from '@/components/common';
 import { useScripts } from '@/hooks';
 import { formatDate } from '@/utils';
@@ -28,6 +29,7 @@ import type { Script } from '@/types';
 const { Option } = Select;
 
 export default function ScriptList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const {
@@ -99,19 +101,19 @@ export default function ScriptList() {
     {
       key: 'edit',
       icon: <EditOutlined />,
-      label: 'Edit',
+      label: t('common.edit'),
       onClick: () => navigate(`/scripts/${record.id}`),
     },
     {
       key: 'copy',
       icon: <CopyOutlined />,
-      label: 'Copy',
+      label: t('common.copy'),
       onClick: () => handleCopy(record.id),
     },
     {
       key: 'archive',
       icon: <InboxOutlined />,
-      label: 'Archive',
+      label: t('common.archive'),
       onClick: () => handleArchive(record.id),
       disabled: record.status === 'archived',
     },
@@ -119,13 +121,13 @@ export default function ScriptList() {
     {
       key: 'delete',
       icon: <DeleteOutlined />,
-      label: 'Delete',
+      label: t('common.delete'),
       danger: true,
       onClick: () => {
         Modal.confirm({
-          title: 'Delete Script',
-          content: `Are you sure you want to delete "${record.name}"? This action cannot be undone.`,
-          okText: 'Delete',
+          title: t('script.deleteScript'),
+          content: t('script.deleteConfirm', { name: record.name }),
+          okText: t('common.delete'),
           okType: 'danger',
           onOk: () => handleDelete(record.id),
         });
@@ -135,7 +137,7 @@ export default function ScriptList() {
 
   const columns: TableProps<Script>['columns'] = [
     {
-      title: 'Name',
+      title: t('common.name'),
       dataIndex: 'name',
       key: 'name',
       render: (text, record) => (
@@ -143,34 +145,34 @@ export default function ScriptList() {
       ),
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status) => <StatusTag status={status} />,
     },
     {
-      title: 'Version',
+      title: t('common.version'),
       dataIndex: 'version',
       key: 'version',
       width: 80,
       render: (version) => `v${version}`,
     },
     {
-      title: 'Creator',
+      title: t('common.creator'),
       dataIndex: 'created_by',
       key: 'created_by',
       width: 120,
     },
     {
-      title: 'Updated',
+      title: t('common.updatedAt'),
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 180,
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 80,
       render: (_, record) => (
@@ -184,18 +186,18 @@ export default function ScriptList() {
   return (
     <div>
       <PageHeader
-        title="Script Management"
-        subtitle="Manage game scripts and their scenes"
+        title={t('script.title')}
+        subtitle={t('script.subtitle')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-            Create Script
+            {t('script.createScript')}
           </Button>
         }
       />
 
       <Space style={{ marginBottom: 16 }}>
         <Input
-          placeholder="Search scripts..."
+          placeholder={t('script.searchPlaceholder')}
           prefix={<SearchOutlined />}
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
@@ -203,16 +205,16 @@ export default function ScriptList() {
           allowClear
         />
         <Select
-          placeholder="Status"
+          placeholder={t('common.status')}
           value={filters.status}
           onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="draft">Draft</Option>
-          <Option value="test">Testing</Option>
-          <Option value="online">Online</Option>
-          <Option value="archived">Archived</Option>
+          <Option value="draft">{t('script.draft')}</Option>
+          <Option value="test">{t('script.test')}</Option>
+          <Option value="online">{t('script.online')}</Option>
+          <Option value="archived">{t('script.archived')}</Option>
         </Select>
       </Space>
 
@@ -226,14 +228,14 @@ export default function ScriptList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} scripts`,
+          showTotal: (total) => t('script.totalScripts', { total }),
           onChange: (page, pageSize) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 
       <Modal
-        title="Create Script"
+        title={t('script.createScript')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -244,20 +246,20 @@ export default function ScriptList() {
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="name"
-            label="Script Name"
-            rules={[{ required: true, message: 'Please enter script name' }]}
+            label={t('script.scriptName')}
+            rules={[{ required: true, message: t('script.enterScriptName') }]}
           >
-            <Input placeholder="Enter script name" />
+            <Input placeholder={t('script.enterScriptName')} />
           </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea placeholder="Enter description" rows={3} />
+          <Form.Item name="description" label={t('common.description')}>
+            <Input.TextArea placeholder={t('script.enterDescription')} rows={3} />
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Create
+                {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

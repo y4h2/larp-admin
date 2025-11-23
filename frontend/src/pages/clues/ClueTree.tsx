@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Select,
@@ -103,6 +104,7 @@ const nodeTypes: NodeTypes = {
 };
 
 export default function ClueTree() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { scripts, fetchScripts } = useScripts();
@@ -136,11 +138,11 @@ export default function ClueTree() {
       const data = await clueApi.getTree(scriptId, sceneId || undefined);
       setTreeData(data);
     } catch {
-      message.error('Failed to load clue tree');
+      message.error(t('common.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [scriptId, sceneId]);
+  }, [scriptId, sceneId, t]);
 
   useEffect(() => {
     if (scriptId) {
@@ -263,13 +265,13 @@ export default function ClueTree() {
 
       try {
         await clueApi.updateDependencies(params.target, newPrerequisites);
-        message.success('Dependency added');
+        message.success(t('clue.dependencyAdded'));
         fetchTree();
       } catch {
-        message.error('Failed to add dependency');
+        message.error(t('common.saveFailed'));
       }
     },
-    [treeData, fetchTree]
+    [treeData, fetchTree, t]
   );
 
   const selectedClue = useMemo(() => {
@@ -285,8 +287,8 @@ export default function ClueTree() {
   return (
     <div>
       <PageHeader
-        title="Clue Tree Visualization"
-        subtitle="View and manage clue dependencies"
+        title={t('clue.treeTitle')}
+        subtitle={t('clue.treeSubtitle')}
         breadcrumbs={[
           { title: 'Clues', path: '/clues' },
           { title: 'Clue Tree' },
@@ -294,7 +296,7 @@ export default function ClueTree() {
         extra={
           <Space>
             <Button icon={<SyncOutlined />} onClick={fetchTree} disabled={!scriptId}>
-              Refresh
+              {t('clue.refresh')}
             </Button>
           </Space>
         }
@@ -303,7 +305,7 @@ export default function ClueTree() {
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
           <Select
-            placeholder="Select Script"
+            placeholder={t('script.title')}
             value={scriptId || undefined}
             onChange={(value) => {
               setSearchParams({ script_id: value });
@@ -317,7 +319,7 @@ export default function ClueTree() {
             ))}
           </Select>
           <Select
-            placeholder="Filter by Scene"
+            placeholder={t('clue.filterByScene')}
             value={sceneId || undefined}
             onChange={(value) => {
               const params: Record<string, string> = { script_id: scriptId! };
@@ -337,7 +339,7 @@ export default function ClueTree() {
 
           {treeData && (
             <Text type="secondary">
-              {treeData.nodes.length} clues, {treeData.edges.length} dependencies
+              {treeData.nodes.length} clues, {treeData.edges.length} {t('clue.dependencies')}
             </Text>
           )}
         </Space>
@@ -348,25 +350,25 @@ export default function ClueTree() {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
-          message="Quality Issues Detected"
+          message={t('clue.qualityIssues')}
           description={
             <Space direction="vertical">
               {treeData!.issues.dead_clues.length > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
-                  Dead Clues (unreachable): {treeData!.issues.dead_clues.length}
+                  {t('clue.deadClues')}: {treeData!.issues.dead_clues.length}
                 </span>
               )}
               {treeData!.issues.orphan_clues.length > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
-                  Orphan Clues (no dependencies): {treeData!.issues.orphan_clues.length}
+                  {t('clue.orphanClues')}: {treeData!.issues.orphan_clues.length}
                 </span>
               )}
               {treeData!.issues.cycles.length > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
-                  Circular Dependencies: {treeData!.issues.cycles.length}
+                  {t('clue.circularDependencies')}: {treeData!.issues.cycles.length}
                 </span>
               )}
             </Space>
@@ -377,7 +379,7 @@ export default function ClueTree() {
 
       {!scriptId ? (
         <Card>
-          <Empty description="Please select a script to view its clue tree" />
+          <Empty description={t('clue.selectScriptToView')} />
         </Card>
       ) : loading ? (
         <Card>
@@ -387,7 +389,7 @@ export default function ClueTree() {
         </Card>
       ) : !treeData || treeData.nodes.length === 0 ? (
         <Card>
-          <Empty description="No clues found for this script" />
+          <Empty description={t('clue.noCluesFound')} />
         </Card>
       ) : (
         <Card bodyStyle={{ padding: 0 }}>
@@ -416,7 +418,7 @@ export default function ClueTree() {
       )}
 
       <Drawer
-        title="Clue Details"
+        title={t('clue.clueDetails')}
         placement="right"
         width={400}
         open={drawerVisible}
@@ -437,12 +439,12 @@ export default function ClueTree() {
               <ImportanceTag importance={selectedClue.importance} />
             </Descriptions.Item>
             <Descriptions.Item label="Stage">{selectedClue.stage}</Descriptions.Item>
-            <Descriptions.Item label="Status">
+            <Descriptions.Item label={t('common.status')}>
               <StatusTag status={selectedClue.status} />
             </Descriptions.Item>
-            <Descriptions.Item label="Prerequisites">
+            <Descriptions.Item label={t('clue.prerequisites')}>
               {selectedClue.prerequisite_clue_ids.length === 0 ? (
-                <Text type="secondary">None (root clue)</Text>
+                <Text type="secondary">{t('clue.noneRoot')}</Text>
               ) : (
                 <Space direction="vertical">
                   {selectedClue.prerequisite_clue_ids.map((id) => {
@@ -460,9 +462,9 @@ export default function ClueTree() {
                 </Space>
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="Dependents">
+            <Descriptions.Item label={t('clue.dependents')}>
               {selectedClue.dependent_clue_ids.length === 0 ? (
-                <Text type="secondary">None (leaf clue)</Text>
+                <Text type="secondary">{t('clue.noneLeaf')}</Text>
               ) : (
                 <Space direction="vertical">
                   {selectedClue.dependent_clue_ids.map((id) => {

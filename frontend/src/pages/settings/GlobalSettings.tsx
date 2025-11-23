@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
@@ -17,6 +18,7 @@ import type { GlobalSettings as GlobalSettingsType, AlgorithmStrategy } from '@/
 const { Option } = Select;
 
 export default function GlobalSettings() {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,9 +47,9 @@ export default function GlobalSettings() {
     setSaving(true);
     try {
       await settingsApi.update(values);
-      message.success('Settings saved successfully');
+      message.success(t('settings.settingsSaved'));
     } catch {
-      message.error('Failed to save settings');
+      message.error(t('settings.settingsSaveFailed'));
     } finally {
       setSaving(false);
     }

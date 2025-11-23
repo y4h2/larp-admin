@@ -38,6 +38,7 @@ import {
   HolderOutlined,
   NodeIndexOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { PageHeader, StatusTag } from '@/components/common';
 import { scriptApi, sceneApi } from '@/api';
 import { formatDate } from '@/utils';
@@ -49,9 +50,10 @@ interface SortableItemProps {
   scene: Scene;
   onEdit: (scene: Scene) => void;
   onDelete: (id: string) => void;
+  noDescriptionText: string;
 }
 
-function SortableItem({ scene, onEdit, onDelete }: SortableItemProps) {
+function SortableItem({ scene, onEdit, onDelete, noDescriptionText }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: scene.id,
   });
@@ -93,7 +95,7 @@ function SortableItem({ scene, onEdit, onDelete }: SortableItemProps) {
           />
         }
         title={scene.name}
-        description={scene.description || 'No description'}
+        description={scene.description || noDescriptionText}
       />
       <StatusTag status={scene.status} />
     </List.Item>
@@ -101,6 +103,7 @@ function SortableItem({ scene, onEdit, onDelete }: SortableItemProps) {
 }
 
 export default function ScriptDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -132,12 +135,12 @@ export default function ScriptDetail() {
       setScenes(scenesData.items.sort((a, b) => a.sort_order - b.sort_order));
       form.setFieldsValue(scriptData);
     } catch {
-      message.error('Failed to load script');
+      message.error(t('common.loadFailed'));
       navigate('/scripts');
     } finally {
       setLoading(false);
     }
-  }, [id, form, navigate]);
+  }, [id, form, navigate, t]);
 
   useEffect(() => {
     fetchData();
@@ -149,9 +152,9 @@ export default function ScriptDetail() {
     try {
       const updated = await scriptApi.update(id, values);
       setScript(updated);
-      message.success('Script saved successfully');
+      message.success(t('common.saveSuccess'));
     } catch {
-      message.error('Failed to save script');
+      message.error(t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -172,7 +175,7 @@ export default function ScriptDetail() {
     } catch {
       // Revert on error
       setScenes(scenes);
-      message.error('Failed to reorder scenes');
+      message.error(t('common.saveFailed'));
     }
   };
 
@@ -182,37 +185,37 @@ export default function ScriptDetail() {
     try {
       if (editingScene) {
         await sceneApi.update(editingScene.id, values);
-        message.success('Scene updated successfully');
+        message.success(t('common.saveSuccess'));
       } else {
         await sceneApi.create({
           ...values,
           script_id: id,
           sort_order: scenes.length,
         });
-        message.success('Scene created successfully');
+        message.success(t('common.saveSuccess'));
       }
       setSceneModalVisible(false);
       setEditingScene(null);
       sceneForm.resetFields();
       fetchData();
     } catch {
-      message.error('Failed to save scene');
+      message.error(t('common.saveFailed'));
     }
   };
 
   const handleSceneDelete = async (sceneId: string) => {
     Modal.confirm({
-      title: 'Delete Scene',
-      content: 'Are you sure you want to delete this scene? This will also affect related clues and NPCs.',
-      okText: 'Delete',
+      title: t('scene.deleteScene'),
+      content: t('scene.deleteConfirm'),
+      okText: t('common.delete'),
       okType: 'danger',
       onOk: async () => {
         try {
           await sceneApi.delete(sceneId);
-          message.success('Scene deleted successfully');
+          message.success(t('common.saveSuccess'));
           fetchData();
         } catch {
-          message.error('Failed to delete scene');
+          message.error(t('common.saveFailed'));
         }
       },
     });
@@ -237,16 +240,16 @@ export default function ScriptDetail() {
   }
 
   if (!script) {
-    return <Empty description="Script not found" />;
+    return <Empty description={t('script.notFound')} />;
   }
 
   return (
     <div>
       <PageHeader
         title={script.name}
-        subtitle={`Version ${script.version} - Last updated ${formatDate(script.updated_at)}`}
+        subtitle={`${t('common.version')} ${script.version} - ${t('common.updatedAt')} ${formatDate(script.updated_at)}`}
         breadcrumbs={[
-          { title: 'Scripts', path: '/scripts' },
+          { title: t('script.title'), path: '/scripts' },
           { title: script.name },
         ]}
         extra={
@@ -255,10 +258,10 @@ export default function ScriptDetail() {
               icon={<NodeIndexOutlined />}
               onClick={() => navigate(`/clues/tree?script_id=${script.id}`)}
             >
-              View Clue Tree
+              {t('script.viewClueTree')}
             </Button>
             <Button type="primary" loading={saving} onClick={() => form.submit()}>
-              Save
+              {t('common.save')}
             </Button>
           </Space>
         }
@@ -269,26 +272,26 @@ export default function ScriptDetail() {
         items={[
           {
             key: 'basic',
-            label: 'Basic Info',
+            label: t('common.basicInfo'),
             children: (
               <Card>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                   <Form.Item
                     name="name"
-                    label="Script Name"
-                    rules={[{ required: true, message: 'Please enter script name' }]}
+                    label={t('script.scriptName')}
+                    rules={[{ required: true, message: t('script.enterScriptName') }]}
                   >
-                    <Input placeholder="Enter script name" />
+                    <Input placeholder={t('script.enterScriptName')} />
                   </Form.Item>
-                  <Form.Item name="description" label="Description">
-                    <Input.TextArea placeholder="Enter description" rows={4} />
+                  <Form.Item name="description" label={t('common.description')}>
+                    <Input.TextArea placeholder={t('script.enterDescription')} rows={4} />
                   </Form.Item>
-                  <Form.Item name="status" label="Status">
+                  <Form.Item name="status" label={t('common.status')}>
                     <Select>
-                      <Option value="draft">Draft</Option>
-                      <Option value="test">Testing</Option>
-                      <Option value="online">Online</Option>
-                      <Option value="archived">Archived</Option>
+                      <Option value="draft">{t('script.draft')}</Option>
+                      <Option value="test">{t('script.test')}</Option>
+                      <Option value="online">{t('script.online')}</Option>
+                      <Option value="archived">{t('script.archived')}</Option>
                     </Select>
                   </Form.Item>
                 </Form>
@@ -297,18 +300,18 @@ export default function ScriptDetail() {
           },
           {
             key: 'scenes',
-            label: `Scenes (${scenes.length})`,
+            label: `${t('scene.title')} (${scenes.length})`,
             children: (
               <Card
-                title="Scene Management"
+                title={t('scene.management')}
                 extra={
                   <Button type="primary" icon={<PlusOutlined />} onClick={() => openSceneModal()}>
-                    Add Scene
+                    {t('scene.addScene')}
                   </Button>
                 }
               >
                 {scenes.length === 0 ? (
-                  <Empty description="No scenes yet" />
+                  <Empty description={t('scene.noScenes')} />
                 ) : (
                   <DndContext
                     sensors={sensors}
@@ -327,6 +330,7 @@ export default function ScriptDetail() {
                             scene={scene}
                             onEdit={openSceneModal}
                             onDelete={handleSceneDelete}
+                            noDescriptionText={t('scene.noDescription')}
                           />
                         )}
                       />
@@ -340,7 +344,7 @@ export default function ScriptDetail() {
       />
 
       <Modal
-        title={editingScene ? 'Edit Scene' : 'Create Scene'}
+        title={editingScene ? t('scene.editScene') : t('scene.createScene')}
         open={sceneModalVisible}
         onCancel={() => {
           setSceneModalVisible(false);
@@ -352,26 +356,26 @@ export default function ScriptDetail() {
         <Form form={sceneForm} layout="vertical" onFinish={handleSceneSave}>
           <Form.Item
             name="name"
-            label="Scene Name"
-            rules={[{ required: true, message: 'Please enter scene name' }]}
+            label={t('scene.sceneName')}
+            rules={[{ required: true, message: t('scene.enterSceneName') }]}
           >
-            <Input placeholder="Enter scene name" />
+            <Input placeholder={t('scene.enterSceneName')} />
           </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea placeholder="Enter description" rows={3} />
+          <Form.Item name="description" label={t('common.description')}>
+            <Input.TextArea placeholder={t('script.enterDescription')} rows={3} />
           </Form.Item>
-          <Form.Item name="status" label="Status" initialValue="active">
+          <Form.Item name="status" label={t('common.status')} initialValue="active">
             <Select>
-              <Option value="active">Active</Option>
-              <Option value="archived">Archived</Option>
+              <Option value="active">{t('npc.active')}</Option>
+              <Option value="archived">{t('npc.archived')}</Option>
             </Select>
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                {editingScene ? 'Update' : 'Create'}
+                {editingScene ? t('common.save') : t('common.create')}
               </Button>
-              <Button onClick={() => setSceneModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setSceneModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

@@ -17,6 +17,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { PageHeader, StatusTag, RoleTypeTag } from '@/components/common';
 import { useNpcs, useScripts, useScenes } from '@/hooks';
 import { formatDate } from '@/utils';
@@ -25,6 +26,7 @@ import type { NPC } from '@/types';
 const { Option } = Select;
 
 export default function NpcList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
@@ -91,7 +93,7 @@ export default function NpcList() {
 
   const columns: TableProps<NPC>['columns'] = [
     {
-      title: 'Name',
+      title: t('common.name'),
       dataIndex: 'name',
       key: 'name',
       render: (text, record) => (
@@ -99,42 +101,42 @@ export default function NpcList() {
       ),
     },
     {
-      title: 'Role',
+      title: t('npc.role'),
       dataIndex: 'role_type',
       key: 'role_type',
       width: 100,
       render: (roleType) => <RoleTypeTag roleType={roleType} />,
     },
     {
-      title: 'Job',
+      title: t('npc.job'),
       dataIndex: 'job',
       key: 'job',
       width: 120,
       render: (job) => job || '-',
     },
     {
-      title: 'Age',
+      title: t('npc.age'),
       dataIndex: 'age',
       key: 'age',
       width: 60,
       render: (age) => age || '-',
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status) => <StatusTag status={status} />,
     },
     {
-      title: 'Updated',
+      title: t('common.updatedAt'),
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 180,
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 120,
       render: (_, record) => (
@@ -145,10 +147,10 @@ export default function NpcList() {
             onClick={() => navigate(`/npcs/${record.id}`)}
           />
           <Popconfirm
-            title="Delete NPC"
-            description="Are you sure you want to delete this NPC?"
+            title={t('npc.deleteNpc')}
+            description={t('npc.deleteConfirm')}
             onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
+            okText={t('common.delete')}
             okType="danger"
           >
             <Button type="text" danger icon={<DeleteOutlined />} />
@@ -161,18 +163,18 @@ export default function NpcList() {
   return (
     <div>
       <PageHeader
-        title="NPC Management"
-        subtitle="Manage game NPCs and their configurations"
+        title={t('npc.title')}
+        subtitle={t('npc.subtitle')}
         extra={
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-            Create NPC
+            {t('npc.createNpc')}
           </Button>
         }
       />
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
-          placeholder="Search NPCs..."
+          placeholder={t('npc.searchPlaceholder')}
           prefix={<SearchOutlined />}
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
@@ -180,7 +182,7 @@ export default function NpcList() {
           allowClear
         />
         <Select
-          placeholder="Select Script"
+          placeholder={t('npc.selectScript')}
           value={filters.script_id}
           onChange={(value) =>
             setFilters({ ...filters, script_id: value, scene_id: undefined, page: 1 })
@@ -195,7 +197,7 @@ export default function NpcList() {
           ))}
         </Select>
         <Select
-          placeholder="Select Scene"
+          placeholder={t('npc.selectScene')}
           value={filters.scene_id}
           onChange={(value) => setFilters({ ...filters, scene_id: value, page: 1 })}
           style={{ width: 180 }}
@@ -209,25 +211,25 @@ export default function NpcList() {
           ))}
         </Select>
         <Select
-          placeholder="Role Type"
+          placeholder={t('npc.roleType')}
           value={filters.role_type}
           onChange={(value) => setFilters({ ...filters, role_type: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="suspect">Suspect</Option>
-          <Option value="witness">Witness</Option>
-          <Option value="other">Other</Option>
+          <Option value="suspect">{t('npc.suspect')}</Option>
+          <Option value="witness">{t('npc.witness')}</Option>
+          <Option value="other">{t('npc.other')}</Option>
         </Select>
         <Select
-          placeholder="Status"
+          placeholder={t('common.status')}
           value={filters.status}
           onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="active">Active</Option>
-          <Option value="archived">Archived</Option>
+          <Option value="active">{t('npc.active')}</Option>
+          <Option value="archived">{t('npc.archived')}</Option>
         </Select>
       </Space>
 
@@ -241,14 +243,14 @@ export default function NpcList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} NPCs`,
+          showTotal: (total) => t('npc.totalNpcs', { total }),
           onChange: (page, pageSize) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 
       <Modal
-        title="Create NPC"
+        title={t('npc.createNpc')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -259,11 +261,11 @@ export default function NpcList() {
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="script_id"
-            label="Script"
-            rules={[{ required: true, message: 'Please select a script' }]}
+            label={t('script.title')}
+            rules={[{ required: true, message: t('npc.pleaseSelectScript') }]}
             initialValue={filters.script_id}
           >
-            <Select placeholder="Select script">
+            <Select placeholder={t('npc.selectScript')}>
               {scripts.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.name}
@@ -273,37 +275,37 @@ export default function NpcList() {
           </Form.Item>
           <Form.Item
             name="name"
-            label="NPC Name"
-            rules={[{ required: true, message: 'Please enter NPC name' }]}
+            label={t('npc.npcName')}
+            rules={[{ required: true, message: t('npc.enterNpcName') }]}
           >
-            <Input placeholder="Enter NPC name" />
+            <Input placeholder={t('npc.enterNpcName')} />
           </Form.Item>
-          <Form.Item name="name_en" label="English Name">
-            <Input placeholder="Enter English name (optional)" />
+          <Form.Item name="name_en" label={t('npc.englishName')}>
+            <Input placeholder={t('npc.enterEnglishName')} />
           </Form.Item>
           <Form.Item
             name="role_type"
-            label="Role Type"
-            rules={[{ required: true, message: 'Please select role type' }]}
+            label={t('npc.roleType')}
+            rules={[{ required: true, message: t('npc.pleaseSelectRoleType') }]}
           >
-            <Select placeholder="Select role type">
-              <Option value="suspect">Suspect</Option>
-              <Option value="witness">Witness</Option>
-              <Option value="other">Other</Option>
+            <Select placeholder={t('npc.roleType')}>
+              <Option value="suspect">{t('npc.suspect')}</Option>
+              <Option value="witness">{t('npc.witness')}</Option>
+              <Option value="other">{t('npc.other')}</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="age" label="Age">
-            <Input type="number" placeholder="Enter age" />
+          <Form.Item name="age" label={t('npc.age')}>
+            <Input type="number" placeholder={t('npc.enterAge')} />
           </Form.Item>
-          <Form.Item name="job" label="Job">
-            <Input placeholder="Enter job title" />
+          <Form.Item name="job" label={t('npc.job')}>
+            <Input placeholder={t('npc.enterJob')} />
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Create
+                {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

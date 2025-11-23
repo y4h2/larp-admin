@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Table,
   Card,
@@ -21,6 +22,7 @@ const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
 export default function AuditLogs() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -70,27 +72,27 @@ export default function AuditLogs() {
 
   const getResourceTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      script: 'Script',
-      scene: 'Scene',
+      script: t('strategy.script'),
+      scene: t('strategy.scene'),
       npc: 'NPC',
-      clue: 'Clue',
-      strategy: 'Strategy',
-      user: 'User',
-      settings: 'Settings',
+      clue: t('debug.clue'),
+      strategy: t('algorithm.strategy'),
+      user: t('audit.user'),
+      settings: t('settings.title'),
     };
     return labels[type] || type;
   };
 
   const columns: TableProps<AuditLog>['columns'] = [
     {
-      title: 'Time',
+      title: t('audit.time'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
       render: (date) => formatDate(date),
     },
     {
-      title: 'User',
+      title: t('audit.user'),
       dataIndex: 'user_id',
       key: 'user_id',
       width: 120,
@@ -100,21 +102,21 @@ export default function AuditLogs() {
       },
     },
     {
-      title: 'Action',
+      title: t('audit.action'),
       dataIndex: 'action',
       key: 'action',
       width: 120,
       render: (action) => <Tag color={getActionColor(action)}>{action}</Tag>,
     },
     {
-      title: 'Resource',
+      title: t('audit.resource'),
       dataIndex: 'resource_type',
       key: 'resource_type',
       width: 100,
       render: (type) => <Tag>{getResourceTypeLabel(type)}</Tag>,
     },
     {
-      title: 'Resource ID',
+      title: t('audit.resourceId'),
       dataIndex: 'resource_id',
       key: 'resource_id',
       width: 150,
@@ -125,17 +127,17 @@ export default function AuditLogs() {
       ),
     },
     {
-      title: 'Changes',
+      title: t('audit.changes'),
       dataIndex: 'changes',
       key: 'changes',
       ellipsis: true,
       render: (changes) => {
         const keys = Object.keys(changes || {});
-        return keys.length > 0 ? `${keys.length} field(s) changed` : '-';
+        return keys.length > 0 ? `${keys.length} ${t('audit.fieldsChanged')}` : '-';
       },
     },
     {
-      title: 'Details',
+      title: t('audit.details'),
       key: 'actions',
       width: 80,
       render: (_, record) => (
@@ -145,7 +147,7 @@ export default function AuditLogs() {
             setModalVisible(true);
           }}
         >
-          View
+          {t('audit.view')}
         </a>
       ),
     },
@@ -154,14 +156,14 @@ export default function AuditLogs() {
   return (
     <div>
       <PageHeader
-        title="Audit Logs"
-        subtitle="Track all changes made to the system"
+        title={t('audit.title')}
+        subtitle={t('audit.subtitle')}
       />
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
           <Select
-            placeholder="User"
+            placeholder={t('audit.user')}
             value={filters.user_id}
             onChange={(v) => setFilters({ ...filters, user_id: v, page: 1 })}
             style={{ width: 150 }}
@@ -174,31 +176,31 @@ export default function AuditLogs() {
             ))}
           </Select>
           <Select
-            placeholder="Resource Type"
+            placeholder={t('audit.resourceType')}
             value={filters.resource_type}
             onChange={(v) => setFilters({ ...filters, resource_type: v, page: 1 })}
             style={{ width: 140 }}
             allowClear
           >
-            <Option value="script">Script</Option>
-            <Option value="scene">Scene</Option>
+            <Option value="script">{t('strategy.script')}</Option>
+            <Option value="scene">{t('strategy.scene')}</Option>
             <Option value="npc">NPC</Option>
-            <Option value="clue">Clue</Option>
-            <Option value="strategy">Strategy</Option>
-            <Option value="user">User</Option>
-            <Option value="settings">Settings</Option>
+            <Option value="clue">{t('debug.clue')}</Option>
+            <Option value="strategy">{t('algorithm.strategy')}</Option>
+            <Option value="user">{t('audit.user')}</Option>
+            <Option value="settings">{t('settings.title')}</Option>
           </Select>
           <Select
-            placeholder="Action"
+            placeholder={t('audit.action')}
             value={filters.action}
             onChange={(v) => setFilters({ ...filters, action: v, page: 1 })}
             style={{ width: 120 }}
             allowClear
           >
-            <Option value="create">Create</Option>
-            <Option value="update">Update</Option>
-            <Option value="delete">Delete</Option>
-            <Option value="archive">Archive</Option>
+            <Option value="create">{t('audit.create')}</Option>
+            <Option value="update">{t('audit.update')}</Option>
+            <Option value="delete">{t('audit.delete')}</Option>
+            <Option value="archive">{t('audit.archive')}</Option>
           </Select>
           <RangePicker
             onChange={(dates) => {
@@ -223,13 +225,13 @@ export default function AuditLogs() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} logs`,
+          showTotal: (total) => t('audit.totalLogs', { total }),
           onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 
       <Modal
-        title="Audit Log Details"
+        title={t('audit.logDetails')}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
@@ -238,24 +240,24 @@ export default function AuditLogs() {
         {selectedLog && (
           <div>
             <Descriptions column={2} bordered size="small">
-              <Descriptions.Item label="Time">{formatDate(selectedLog.created_at)}</Descriptions.Item>
-              <Descriptions.Item label="User">
+              <Descriptions.Item label={t('audit.time')}>{formatDate(selectedLog.created_at)}</Descriptions.Item>
+              <Descriptions.Item label={t('audit.user')}>
                 {users.find((u) => u.id === selectedLog.user_id)?.username || selectedLog.user_id}
               </Descriptions.Item>
-              <Descriptions.Item label="Action">
+              <Descriptions.Item label={t('audit.action')}>
                 <Tag color={getActionColor(selectedLog.action)}>{selectedLog.action}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Resource">
+              <Descriptions.Item label={t('audit.resource')}>
                 <Tag>{getResourceTypeLabel(selectedLog.resource_type)}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Resource ID" span={2}>
+              <Descriptions.Item label={t('audit.resourceId')} span={2}>
                 <Text code copyable>
                   {selectedLog.resource_id}
                 </Text>
               </Descriptions.Item>
             </Descriptions>
 
-            <Card title="Changes" size="small" style={{ marginTop: 16 }}>
+            <Card title={t('audit.changes')} size="small" style={{ marginTop: 16 }}>
               <pre
                 style={{
                   background: '#f5f5f5',

@@ -17,6 +17,7 @@ import {
 } from 'antd';
 import type { TableProps } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag } from '@/components/common';
 import { npcApi, clueApi } from '@/api';
 import { useScripts, useScenes } from '@/hooks';
@@ -27,6 +28,7 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 export default function NpcDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -53,12 +55,12 @@ export default function NpcDetail() {
       setSelectedScriptId(npcData.script_id);
       form.setFieldsValue(npcData);
     } catch {
-      message.error('Failed to load NPC');
+      message.error(t('common.loadFailed'));
       navigate('/npcs');
     } finally {
       setLoading(false);
     }
-  }, [id, form, navigate]);
+  }, [id, form, navigate, t]);
 
   useEffect(() => {
     fetchScripts();
@@ -80,9 +82,9 @@ export default function NpcDetail() {
     try {
       const updated = await npcApi.update(id, values);
       setNpc(updated);
-      message.success('NPC saved successfully');
+      message.success(t('common.saveSuccess'));
     } catch {
-      message.error('Failed to save NPC');
+      message.error(t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -90,7 +92,7 @@ export default function NpcDetail() {
 
   const clueColumns: TableProps<Clue>['columns'] = [
     {
-      title: 'Title',
+      title: t('clue.internalTitle'),
       dataIndex: 'title_internal',
       key: 'title_internal',
       render: (text, record) => (
@@ -98,27 +100,27 @@ export default function NpcDetail() {
       ),
     },
     {
-      title: 'Type',
+      title: t('clue.type'),
       dataIndex: 'clue_type',
       key: 'clue_type',
       width: 100,
       render: (type) => <ClueTypeTag type={type} />,
     },
     {
-      title: 'Importance',
+      title: t('clue.importance'),
       dataIndex: 'importance',
       key: 'importance',
       width: 100,
       render: (importance) => <ImportanceTag importance={importance} />,
     },
     {
-      title: 'Stage',
+      title: t('clue.stage'),
       dataIndex: 'stage',
       key: 'stage',
       width: 80,
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 80,
@@ -135,16 +137,16 @@ export default function NpcDetail() {
   }
 
   if (!npc) {
-    return <Empty description="NPC not found" />;
+    return <Empty description={t('npc.notFound')} />;
   }
 
   return (
     <div>
       <PageHeader
         title={npc.name}
-        subtitle={`${npc.job || 'No job'} - ${npc.role_type}`}
+        subtitle={`${npc.job || t('npc.noJob')} - ${t(`npc.${npc.role_type}`)}`}
         breadcrumbs={[
-          { title: 'NPCs', path: '/npcs' },
+          { title: t('npc.title'), path: '/npcs' },
           { title: npc.name },
         ]}
         extra={
@@ -154,7 +156,7 @@ export default function NpcDetail() {
             loading={saving}
             onClick={() => form.submit()}
           >
-            Save
+            {t('common.save')}
           </Button>
         }
       />
@@ -164,7 +166,7 @@ export default function NpcDetail() {
         items={[
           {
             key: 'basic',
-            label: 'Basic Info',
+            label: t('common.basicInfo'),
             children: (
               <Card>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
@@ -172,44 +174,44 @@ export default function NpcDetail() {
                     <Col span={12}>
                       <Form.Item
                         name="name"
-                        label="Name"
-                        rules={[{ required: true, message: 'Please enter NPC name' }]}
+                        label={t('common.name')}
+                        rules={[{ required: true, message: t('npc.enterNpcName') }]}
                       >
-                        <Input placeholder="Enter NPC name" />
+                        <Input placeholder={t('npc.enterNpcName')} />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item name="name_en" label="English Name">
-                        <Input placeholder="Enter English name" />
+                      <Form.Item name="name_en" label={t('npc.englishName')}>
+                        <Input placeholder={t('npc.enterEnglishName')} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="age" label="Age">
-                        <Input type="number" placeholder="Enter age" />
+                      <Form.Item name="age" label={t('npc.age')}>
+                        <Input type="number" placeholder={t('npc.enterAge')} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="job" label="Job">
-                        <Input placeholder="Enter job title" />
+                      <Form.Item name="job" label={t('npc.job')}>
+                        <Input placeholder={t('npc.enterJob')} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
                       <Form.Item
                         name="role_type"
-                        label="Role Type"
+                        label={t('npc.roleType')}
                         rules={[{ required: true }]}
                       >
                         <Select>
-                          <Option value="suspect">Suspect</Option>
-                          <Option value="witness">Witness</Option>
-                          <Option value="other">Other</Option>
+                          <Option value="suspect">{t('npc.suspect')}</Option>
+                          <Option value="witness">{t('npc.witness')}</Option>
+                          <Option value="other">{t('npc.other')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item
                         name="script_id"
-                        label="Script"
+                        label={t('script.title')}
                         rules={[{ required: true }]}
                       >
                         <Select
@@ -227,8 +229,8 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item name="scene_id" label="Scene">
-                        <Select allowClear placeholder="Select scene (optional)">
+                      <Form.Item name="scene_id" label={t('common.scene')}>
+                        <Select allowClear placeholder={`${t('npc.selectScene')} (${t('common.optional')})`}>
                           {scenes.map((s) => (
                             <Option key={s.id} value={s.id}>
                               {s.name}
@@ -238,10 +240,10 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="status" label="Status">
+                      <Form.Item name="status" label={t('common.status')}>
                         <Select>
-                          <Option value="active">Active</Option>
-                          <Option value="archived">Archived</Option>
+                          <Option value="active">{t('npc.active')}</Option>
+                          <Option value="archived">{t('npc.archived')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
@@ -252,29 +254,29 @@ export default function NpcDetail() {
           },
           {
             key: 'personality',
-            label: 'Character',
+            label: t('common.character'),
             children: (
               <Card>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
-                  <Form.Item name="personality" label="Personality">
+                  <Form.Item name="personality" label={t('npc.personality')}>
                     <TextArea
-                      placeholder="Describe the NPC's personality traits, behaviors, and quirks"
+                      placeholder={t('npc.personalityPlaceholder')}
                       rows={4}
                     />
                   </Form.Item>
-                  <Form.Item name="speech_style" label="Speech Style">
+                  <Form.Item name="speech_style" label={t('npc.speechStyle')}>
                     <TextArea
-                      placeholder="Describe how the NPC speaks - formal, casual, specific phrases, accent, etc."
+                      placeholder={t('npc.speechStylePlaceholder')}
                       rows={4}
                     />
                   </Form.Item>
                   <Form.Item
                     name="background_story"
-                    label="Background Story"
-                    extra={<Text type="secondary">Supports Markdown formatting</Text>}
+                    label={t('npc.backgroundStory')}
+                    extra={<Text type="secondary">{t('npc.supportsMarkdown')}</Text>}
                   >
                     <TextArea
-                      placeholder="Write the NPC's background story, history, motivations, and secrets"
+                      placeholder={t('npc.backgroundPlaceholder')}
                       rows={10}
                     />
                   </Form.Item>
@@ -284,16 +286,16 @@ export default function NpcDetail() {
           },
           {
             key: 'prompt',
-            label: 'System Prompt',
+            label: t('common.systemPrompt'),
             children: (
               <Card>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                   <Form.Item
                     name="system_prompt_template"
-                    label="System Prompt Template"
+                    label={t('npc.systemPromptTemplate')}
                     extra={
                       <Text type="secondary">
-                        Available variables: {'{name}'}, {'{personality}'}, {'{speech_style}'},{' '}
+                        {t('npc.availableVariables')}: {'{name}'}, {'{personality}'}, {'{speech_style}'},{' '}
                         {'{background_story}'}, {'{current_scene}'}, {'{unlocked_clues}'}
                       </Text>
                     }
@@ -322,7 +324,7 @@ Stay in character and respond naturally to the player's questions.`}
           },
           {
             key: 'clues',
-            label: `Related Clues (${relatedClues.length})`,
+            label: `${t('npc.relatedClues')} (${relatedClues.length})`,
             children: (
               <Card>
                 <Table
@@ -330,7 +332,7 @@ Stay in character and respond naturally to the player's questions.`}
                   dataSource={relatedClues}
                   rowKey="id"
                   pagination={false}
-                  locale={{ emptyText: 'No clues associated with this NPC' }}
+                  locale={{ emptyText: t('npc.noCluesAssociated') }}
                 />
               </Card>
             ),

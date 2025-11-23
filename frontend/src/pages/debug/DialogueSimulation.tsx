@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
@@ -36,6 +37,7 @@ interface ChatMessage {
 }
 
 export default function DialogueSimulation() {
+  const { t } = useTranslation();
   const [scripts, setScripts] = useState<Script[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [npcs, setNpcs] = useState<NPC[]>([]);
@@ -84,7 +86,7 @@ export default function DialogueSimulation() {
 
   const handleSimulate = async () => {
     if (!selectedScriptId || !selectedNpcId || !selectedStrategyId || !playerMessage.trim()) {
-      message.warning('Please fill in all required fields');
+      message.warning(t('debug.fillAllFields'));
       return;
     }
 
@@ -115,7 +117,7 @@ export default function DialogueSimulation() {
 
       setPlayerMessage('');
     } catch {
-      message.error('Simulation failed');
+      message.error(t('debug.simulationFailed'));
     } finally {
       setLoading(false);
     }
@@ -183,13 +185,13 @@ export default function DialogueSimulation() {
   return (
     <div>
       <PageHeader
-        title="Dialogue Simulation"
-        subtitle="Test clue matching with simulated player dialogue"
+        title={t('debug.simulation')}
+        subtitle={t('debug.simulationSubtitle')}
       />
 
       <Row gutter={24}>
         <Col span={8}>
-          <Card title="Configuration" size="small">
+          <Card title={t('debug.configuration')} size="small">
             <Form layout="vertical">
               <Form.Item label="Script" required>
                 <Select
@@ -276,11 +278,11 @@ export default function DialogueSimulation() {
         </Col>
         <Col span={16}>
           <Card
-            title="Simulation Chat"
+            title={t('debug.simulationChat')}
             size="small"
             extra={
               <Button icon={<ClearOutlined />} onClick={handleClearHistory}>
-                Clear
+                {t('debug.clear')}
               </Button>
             }
           >

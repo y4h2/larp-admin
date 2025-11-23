@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
@@ -41,6 +42,7 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 export default function ClueDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -94,12 +96,12 @@ export default function ClueDetail() {
       setScenes(scenesData.items);
       setAllClues(cluesData.items.filter((c) => c.id !== id));
     } catch {
-      message.error('Failed to load clue');
+      message.error(t('common.loadFailed'));
       navigate('/clues');
     } finally {
       setLoading(false);
     }
-  }, [id, form, navigate]);
+  }, [id, form, navigate, t]);
 
   useEffect(() => {
     fetchScripts();
@@ -167,9 +169,9 @@ export default function ClueDetail() {
 
       const updated = await clueApi.update(id, updateData);
       setClue(updated);
-      message.success('Clue saved successfully');
+      message.success(t('common.saveSuccess'));
     } catch {
-      message.error('Failed to save clue');
+      message.error(t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -198,8 +200,8 @@ export default function ClueDetail() {
   const handleRestoreVersion = async (versionId: string) => {
     if (!id) return;
     Modal.confirm({
-      title: 'Restore Version',
-      content: 'Are you sure you want to restore this version? Current changes will be overwritten.',
+      title: t('clue.restoreVersion'),
+      content: t('clue.restoreConfirm'),
       onOk: async () => {
         try {
           await restoreVersion(id, versionId);
@@ -214,18 +216,18 @@ export default function ClueDetail() {
 
   const versionColumns: TableProps<ClueVersion>['columns'] = [
     {
-      title: 'Version',
+      title: t('common.version'),
       dataIndex: 'version',
       key: 'version',
       render: (v) => `v${v}`,
     },
     {
-      title: 'Modified By',
+      title: t('clue.modifiedBy'),
       dataIndex: 'created_by',
       key: 'created_by',
     },
     {
-      title: 'Date',
+      title: t('clue.date'),
       dataIndex: 'created_at',
       key: 'created_at',
       render: (date) => formatDate(date),
@@ -240,7 +242,7 @@ export default function ClueDetail() {
           onClick={() => handleRestoreVersion(record.id)}
           disabled={record.version === clue?.version}
         >
-          Restore
+          {t('clue.restore')}
         </Button>
       ),
     },
@@ -255,7 +257,7 @@ export default function ClueDetail() {
   }
 
   if (!clue) {
-    return <Empty description="Clue not found" />;
+    return <Empty description={t('clue.notFound')} />;
   }
 
   return (
@@ -270,7 +272,7 @@ export default function ClueDetail() {
         extra={
           <Space>
             <Button icon={<HistoryOutlined />} onClick={handleViewVersions}>
-              Version History
+              {t('clue.versionHistory')}
             </Button>
             <Button
               type="primary"
@@ -278,7 +280,7 @@ export default function ClueDetail() {
               loading={saving}
               onClick={() => form.submit()}
             >
-              Save
+              {t('common.save')}
             </Button>
           </Space>
         }
@@ -290,7 +292,7 @@ export default function ClueDetail() {
           items={[
             {
               key: 'basic',
-              label: 'Basic Info',
+              label: t('common.basicInfo'),
               children: (
                 <Card>
                   <Row gutter={24}>
@@ -356,7 +358,7 @@ export default function ClueDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="script_id" label="Script" rules={[{ required: true }]}>
+                      <Form.Item name="script_id" label={t('script.title')} rules={[{ required: true }]}>
                         <Select
                           onChange={(value) => {
                             setSelectedScriptId(value);
@@ -384,7 +386,7 @@ export default function ClueDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="status" label="Status">
+                      <Form.Item name="status" label={t('common.status')}>
                         <Select>
                           <Option value="draft">Draft</Option>
                           <Option value="active">Active</Option>
@@ -409,10 +411,10 @@ export default function ClueDetail() {
             },
             {
               key: 'conditions',
-              label: 'Unlock Conditions',
+              label: t('clue.unlockConditions'),
               children: (
                 <Space direction="vertical" style={{ width: '100%' }} size="large">
-                  <Card title="Text Conditions (Keywords)">
+                  <Card title={t('clue.textConditions')}>
                     <Collapse
                       items={keywordLists.map((condition, index) => ({
                         key: index,
@@ -452,15 +454,15 @@ export default function ClueDetail() {
                                 onChange={(v) => updateKeywordCondition(index, { requirement: v })}
                                 style={{ width: 120 }}
                               >
-                                <Option value="must">Must Match</Option>
-                                <Option value="should">Should Match</Option>
+                                <Option value="must">{t('clue.mustMatch')}</Option>
+                                <Option value="should">{t('clue.shouldMatch')}</Option>
                               </Select>
                             </Space>
                             <Select
                               mode="tags"
                               value={condition.keywords}
                               onChange={(v) => updateKeywordCondition(index, { keywords: v })}
-                              placeholder="Enter keywords and press Enter"
+                              placeholder={t('clue.enterKeywords')}
                               style={{ width: '100%' }}
                             />
                           </Space>
@@ -473,17 +475,17 @@ export default function ClueDetail() {
                       onClick={addKeywordCondition}
                       style={{ marginTop: 16 }}
                     >
-                      Add Keyword Condition
+                      {t('clue.addKeywordCondition')}
                     </Button>
 
                     <Divider />
 
-                    <Form.Item label="Blacklist Keywords">
+                    <Form.Item label={t('clue.blacklistKeywords')}>
                       <Select
                         mode="tags"
                         value={blacklist}
                         onChange={setBlacklist}
-                        placeholder="Keywords that should NOT trigger this clue"
+                        placeholder={t('clue.blacklistPlaceholder')}
                         style={{ width: '100%' }}
                       />
                     </Form.Item>
@@ -492,11 +494,11 @@ export default function ClueDetail() {
                   <Card
                     title={
                       <Space>
-                        <span>Semantic Conditions</span>
+                        <span>{t('clue.semanticConditions')}</span>
                         <Switch
                           checked={semanticEnabled}
                           onChange={setSemanticEnabled}
-                          checkedChildren="Enabled"
+                          checkedChildren={t('clue.enabled')}
                           unCheckedChildren="Disabled"
                         />
                       </Space>
@@ -507,8 +509,8 @@ export default function ClueDetail() {
                         <Col span={24}>
                           <Form.Item
                             name="semantic_queries"
-                            label="Target Queries"
-                            extra="Questions/phrases that should semantically match to unlock this clue"
+                            label={t('clue.targetQueries')}
+                            extra={t('clue.targetQueriesExtra')}
                           >
                             <Select
                               mode="tags"
@@ -520,7 +522,7 @@ export default function ClueDetail() {
                         <Col span={8}>
                           <Form.Item
                             name="semantic_threshold"
-                            label="Similarity Threshold"
+                            label={t('clue.similarityThreshold')}
                             initialValue={0.8}
                           >
                             <InputNumber
@@ -538,11 +540,11 @@ export default function ClueDetail() {
                   <Card
                     title={
                       <Space>
-                        <span>State Conditions</span>
+                        <span>{t('clue.stateConditions')}</span>
                         <Switch
                           checked={stateEnabled}
                           onChange={setStateEnabled}
-                          checkedChildren="Enabled"
+                          checkedChildren={t('clue.enabled')}
                           unCheckedChildren="Disabled"
                         />
                       </Space>
@@ -553,8 +555,8 @@ export default function ClueDetail() {
                         <Col span={16}>
                           <Form.Item
                             name="prerequisite_clue_ids"
-                            label="Prerequisite Clues"
-                            extra="Clues that must be unlocked before this one"
+                            label={t('clue.prerequisiteClues')}
+                            extra={t('clue.prerequisiteCluesExtra')}
                           >
                             <Select
                               mode="multiple"
@@ -573,8 +575,8 @@ export default function ClueDetail() {
                         <Col span={8}>
                           <Form.Item
                             name="stage_lock"
-                            label="Minimum Stage"
-                            extra="Player must reach this stage"
+                            label={t('clue.minimumStage')}
+                            extra={t('clue.minimumStageExtra')}
                           >
                             <InputNumber min={1} style={{ width: '100%' }} />
                           </Form.Item>
@@ -587,15 +589,15 @@ export default function ClueDetail() {
             },
             {
               key: 'effects',
-              label: 'Trigger Effects',
+              label: t('clue.triggerEffects'),
               children: (
                 <Card>
                   <Row gutter={24}>
                     <Col span={24}>
                       <Form.Item
                         name="display_text"
-                        label="Display Text"
-                        extra="Custom text to show when clue is unlocked (leave empty to use content)"
+                        label={t('clue.displayText')}
+                        extra={t('clue.displayTextExtra')}
                         initialValue={clue.effects.display_text}
                       >
                         <TextArea rows={4} placeholder="Custom display text" />
@@ -604,7 +606,7 @@ export default function ClueDetail() {
                     <Col span={8}>
                       <Form.Item
                         name="one_time_trigger"
-                        label="One-time Trigger"
+                        label={t('clue.oneTimeTrigger')}
                         valuePropName="checked"
                         initialValue={clue.effects.one_time_trigger}
                       >
@@ -620,7 +622,7 @@ export default function ClueDetail() {
       </Form>
 
       <Modal
-        title="Version History"
+        title={t('clue.versionHistory')}
         open={versionModalVisible}
         onCancel={() => setVersionModalVisible(false)}
         footer={null}

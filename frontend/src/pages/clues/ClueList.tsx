@@ -19,6 +19,7 @@ import {
   DeleteOutlined,
   NodeIndexOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag } from '@/components/common';
 import { useClues, useScripts, useScenes, useNpcs } from '@/hooks';
 import { formatDate } from '@/utils';
@@ -27,6 +28,7 @@ import type { Clue } from '@/types';
 const { Option } = Select;
 
 export default function ClueList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
@@ -103,7 +105,7 @@ export default function ClueList() {
 
   const columns: TableProps<Clue>['columns'] = [
     {
-      title: 'Internal Title',
+      title: t('clue.internalTitle'),
       dataIndex: 'title_internal',
       key: 'title_internal',
       render: (text, record) => (
@@ -111,27 +113,27 @@ export default function ClueList() {
       ),
     },
     {
-      title: 'Player Title',
+      title: t('clue.playerTitle'),
       dataIndex: 'title_player',
       key: 'title_player',
       ellipsis: true,
     },
     {
-      title: 'Type',
+      title: t('clue.type'),
       dataIndex: 'clue_type',
       key: 'clue_type',
       width: 100,
       render: (type) => <ClueTypeTag type={type} />,
     },
     {
-      title: 'Importance',
+      title: t('clue.importance'),
       dataIndex: 'importance',
       key: 'importance',
       width: 100,
       render: (importance) => <ImportanceTag importance={importance} />,
     },
     {
-      title: 'Stage',
+      title: t('clue.stage'),
       dataIndex: 'stage',
       key: 'stage',
       width: 70,
@@ -156,28 +158,28 @@ export default function ClueList() {
       ),
     },
     {
-      title: 'Status',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       width: 80,
       render: (status) => <StatusTag status={status} />,
     },
     {
-      title: 'Version',
+      title: t('common.version'),
       dataIndex: 'version',
       key: 'version',
       width: 70,
       render: (v) => `v${v}`,
     },
     {
-      title: 'Updated',
+      title: t('common.updatedAt'),
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 160,
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       width: 100,
       render: (_, record) => (
@@ -188,10 +190,10 @@ export default function ClueList() {
             onClick={() => navigate(`/clues/${record.id}`)}
           />
           <Popconfirm
-            title="Delete Clue"
-            description="Are you sure you want to delete this clue?"
+            title={t('clue.deleteClue')}
+            description={t('clue.deleteConfirm')}
             onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
+            okText={t('common.delete')}
             okType="danger"
           >
             <Button type="text" danger icon={<DeleteOutlined />} />
@@ -204,18 +206,18 @@ export default function ClueList() {
   return (
     <div>
       <PageHeader
-        title="Clue Management"
-        subtitle="Manage game clues and their unlock conditions"
+        title={t('clue.title')}
+        subtitle={t('clue.subtitle')}
         extra={
           <Space>
             <Button
               icon={<NodeIndexOutlined />}
               onClick={() => navigate(`/clues/tree${filters.script_id ? `?script_id=${filters.script_id}` : ''}`)}
             >
-              View Tree
+              {t('common.viewTree')}
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-              Create Clue
+              {t('clue.createClue')}
             </Button>
           </Space>
         }
@@ -223,7 +225,7 @@ export default function ClueList() {
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
-          placeholder="Search clues..."
+          placeholder={t('clue.searchPlaceholder')}
           prefix={<SearchOutlined />}
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
@@ -231,7 +233,7 @@ export default function ClueList() {
           allowClear
         />
         <Select
-          placeholder="Select Script"
+          placeholder={t('clue.selectScript')}
           value={filters.script_id}
           onChange={(value) =>
             setFilters({ ...filters, script_id: value, scene_id: undefined, npc_id: undefined, page: 1 })
@@ -246,7 +248,7 @@ export default function ClueList() {
           ))}
         </Select>
         <Select
-          placeholder="Select Scene"
+          placeholder={t('clue.selectScene')}
           value={filters.scene_id}
           onChange={(value) => setFilters({ ...filters, scene_id: value, page: 1 })}
           style={{ width: 160 }}
@@ -260,7 +262,7 @@ export default function ClueList() {
           ))}
         </Select>
         <Select
-          placeholder="Select NPC"
+          placeholder={t('clue.selectNpc')}
           value={filters.npc_id}
           onChange={(value) => setFilters({ ...filters, npc_id: value, page: 1 })}
           style={{ width: 140 }}
@@ -274,31 +276,31 @@ export default function ClueList() {
           ))}
         </Select>
         <Select
-          placeholder="Type"
+          placeholder={t('clue.type')}
           value={filters.clue_type}
           onChange={(value) => setFilters({ ...filters, clue_type: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="evidence">Evidence</Option>
-          <Option value="testimony">Testimony</Option>
-          <Option value="world_info">World Info</Option>
-          <Option value="decoy">Decoy</Option>
+          <Option value="evidence">{t('clue.evidence')}</Option>
+          <Option value="testimony">{t('clue.testimony')}</Option>
+          <Option value="world_info">{t('clue.worldInfo')}</Option>
+          <Option value="decoy">{t('clue.decoy')}</Option>
         </Select>
         <Select
-          placeholder="Importance"
+          placeholder={t('clue.importance')}
           value={filters.importance}
           onChange={(value) => setFilters({ ...filters, importance: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="critical">Critical</Option>
-          <Option value="major">Major</Option>
-          <Option value="minor">Minor</Option>
-          <Option value="easter_egg">Easter Egg</Option>
+          <Option value="critical">{t('clue.critical')}</Option>
+          <Option value="major">{t('clue.major')}</Option>
+          <Option value="minor">{t('clue.minor')}</Option>
+          <Option value="easter_egg">{t('clue.easterEgg')}</Option>
         </Select>
         <Input
-          placeholder="Stage"
+          placeholder={t('clue.stage')}
           type="number"
           value={filters.stage}
           onChange={(e) =>
@@ -307,15 +309,15 @@ export default function ClueList() {
           style={{ width: 80 }}
         />
         <Select
-          placeholder="Status"
+          placeholder={t('common.status')}
           value={filters.status}
           onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
           style={{ width: 100 }}
           allowClear
         >
-          <Option value="draft">Draft</Option>
-          <Option value="active">Active</Option>
-          <Option value="disabled">Disabled</Option>
+          <Option value="draft">{t('clue.draft')}</Option>
+          <Option value="active">{t('clue.active')}</Option>
+          <Option value="disabled">{t('clue.disabled')}</Option>
         </Select>
       </Space>
 
@@ -330,14 +332,14 @@ export default function ClueList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} clues`,
+          showTotal: (total) => t('clue.totalClues', { total }),
           onChange: (page, pageSize) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 
       <Modal
-        title="Create Clue"
+        title={t('clue.createClue')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -349,12 +351,12 @@ export default function ClueList() {
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="script_id"
-            label="Script"
-            rules={[{ required: true, message: 'Please select a script' }]}
+            label={t('script.title')}
+            rules={[{ required: true, message: t('clue.pleaseSelectScript') }]}
             initialValue={filters.script_id}
           >
             <Select
-              placeholder="Select script"
+              placeholder={t('clue.selectScript')}
               onChange={(value) => {
                 if (value) {
                   fetchScenes({ script_id: value });
@@ -369,8 +371,8 @@ export default function ClueList() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="scene_id" label="Scene">
-            <Select placeholder="Select scene (optional)" allowClear>
+          <Form.Item name="scene_id" label={t('common.scene')}>
+            <Select placeholder={`${t('clue.selectScene')} (${t('common.optional')})`} allowClear>
               {scenes.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.name}
@@ -380,55 +382,55 @@ export default function ClueList() {
           </Form.Item>
           <Form.Item
             name="title_internal"
-            label="Internal Title"
-            rules={[{ required: true, message: 'Please enter internal title' }]}
+            label={t('clue.internalTitle')}
+            rules={[{ required: true, message: t('clue.pleaseEnterInternalTitle') }]}
           >
-            <Input placeholder="For internal reference" />
+            <Input placeholder={t('clue.internalTitlePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="title_player"
-            label="Player Title"
-            rules={[{ required: true, message: 'Please enter player title' }]}
+            label={t('clue.playerTitle')}
+            rules={[{ required: true, message: t('clue.pleaseEnterPlayerTitle') }]}
           >
-            <Input placeholder="Title shown to players" />
+            <Input placeholder={t('clue.playerTitlePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="content_text"
-            label="Content"
-            rules={[{ required: true, message: 'Please enter content' }]}
+            label={t('clue.content')}
+            rules={[{ required: true, message: t('clue.pleaseEnterContent') }]}
           >
-            <Input.TextArea placeholder="Clue content text" rows={3} />
+            <Input.TextArea placeholder={t('clue.contentPlaceholder')} rows={3} />
           </Form.Item>
           <Space style={{ width: '100%' }} size={16}>
             <Form.Item
               name="clue_type"
-              label="Type"
+              label={t('clue.type')}
               rules={[{ required: true }]}
               style={{ width: 180 }}
             >
-              <Select placeholder="Select type">
-                <Option value="evidence">Evidence</Option>
-                <Option value="testimony">Testimony</Option>
-                <Option value="world_info">World Info</Option>
-                <Option value="decoy">Decoy</Option>
+              <Select placeholder={t('clue.type')}>
+                <Option value="evidence">{t('clue.evidence')}</Option>
+                <Option value="testimony">{t('clue.testimony')}</Option>
+                <Option value="world_info">{t('clue.worldInfo')}</Option>
+                <Option value="decoy">{t('clue.decoy')}</Option>
               </Select>
             </Form.Item>
             <Form.Item
               name="importance"
-              label="Importance"
+              label={t('clue.importance')}
               rules={[{ required: true }]}
               style={{ width: 180 }}
             >
-              <Select placeholder="Select importance">
-                <Option value="critical">Critical</Option>
-                <Option value="major">Major</Option>
-                <Option value="minor">Minor</Option>
-                <Option value="easter_egg">Easter Egg</Option>
+              <Select placeholder={t('clue.importance')}>
+                <Option value="critical">{t('clue.critical')}</Option>
+                <Option value="major">{t('clue.major')}</Option>
+                <Option value="minor">{t('clue.minor')}</Option>
+                <Option value="easter_egg">{t('clue.easterEgg')}</Option>
               </Select>
             </Form.Item>
             <Form.Item
               name="stage"
-              label="Stage"
+              label={t('clue.stage')}
               initialValue={1}
               style={{ width: 100 }}
             >
@@ -437,9 +439,9 @@ export default function ClueList() {
           </Space>
           <Form.Item
             name="npc_ids"
-            label="Associated NPCs"
+            label={t('clue.associatedNpcs')}
           >
-            <Select mode="multiple" placeholder="Select NPCs">
+            <Select mode="multiple" placeholder={t('clue.selectNpc')}>
               {npcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
@@ -447,19 +449,19 @@ export default function ClueList() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="content_type" label="Content Type" initialValue="text">
+          <Form.Item name="content_type" label={t('clue.contentType')} initialValue="text">
             <Select>
-              <Option value="text">Text</Option>
-              <Option value="image">Image</Option>
-              <Option value="structured">Structured</Option>
+              <Option value="text">{t('common.text')}</Option>
+              <Option value="image">{t('common.image')}</Option>
+              <Option value="structured">{t('common.structured')}</Option>
             </Select>
           </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Create
+                {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

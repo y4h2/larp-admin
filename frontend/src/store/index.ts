@@ -98,9 +98,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
 interface UIState {
   sidebarCollapsed: boolean;
   theme: 'light' | 'dark';
+  language: 'en' | 'zh';
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
+  setLanguage: (language: 'en' | 'zh') => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -108,9 +110,11 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       sidebarCollapsed: false,
       theme: 'light',
+      language: 'zh',
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setTheme: (theme) => set({ theme }),
+      setLanguage: (language) => set({ language }),
     }),
     {
       name: 'larp-admin-ui',

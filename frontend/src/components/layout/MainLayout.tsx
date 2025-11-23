@@ -25,7 +25,9 @@ import {
   AimOutlined,
   GlobalOutlined,
   AuditOutlined,
+  TranslationOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store';
 
 const { Header, Sider, Content } = Layout;
@@ -46,37 +48,6 @@ function getItem(
   } as MenuItem;
 }
 
-const menuItems: MenuItem[] = [
-  getItem('Script Management', 'scripts', <BookOutlined />, [
-    getItem('Script List', '/scripts', <FileTextOutlined />),
-  ]),
-  getItem('NPC Management', 'npcs', <TeamOutlined />, [
-    getItem('NPC List', '/npcs', <UserOutlined />),
-  ]),
-  getItem('Clue Management', 'clues', <SearchOutlined />, [
-    getItem('Clue List', '/clues', <FileTextOutlined />),
-    getItem('Clue Tree', '/clues/tree', <NodeIndexOutlined />),
-  ]),
-  getItem('Algorithm', 'algorithms', <RobotOutlined />, [
-    getItem('Implementations', '/algorithms/implementations', <FunctionOutlined />),
-    getItem('Strategies', '/algorithms/strategies', <ControlOutlined />),
-  ]),
-  getItem('Experiment', 'experiments', <ExperimentOutlined />, [
-    getItem('Dialogue Logs', '/experiments/logs', <CommentOutlined />),
-    getItem('Offline Evaluation', '/experiments/evaluation', <LineChartOutlined />),
-    getItem('A/B Test Config', '/experiments/ab-tests', <SplitCellsOutlined />),
-  ]),
-  getItem('Debug Tools', 'debug', <BugOutlined />, [
-    getItem('Dialogue Simulation', '/debug/simulation', <MessageOutlined />),
-    getItem('Single Clue Debug', '/debug/clue', <AimOutlined />),
-  ]),
-  getItem('Settings', 'settings', <SettingOutlined />, [
-    getItem('Global Strategy', '/settings/global', <GlobalOutlined />),
-    getItem('Users & Permissions', '/settings/users', <TeamOutlined />),
-    getItem('Audit Logs', '/settings/audit-logs', <AuditOutlined />),
-  ]),
-];
-
 // Get all keys for default open
 const getAllParentKeys = (items: MenuItem[]): string[] => {
   const keys: string[] = [];
@@ -88,11 +59,50 @@ const getAllParentKeys = (items: MenuItem[]): string[] => {
   return keys;
 };
 
+// Menu items generator function that uses translations
+const getMenuItems = (t: (key: string) => string): MenuItem[] => [
+  getItem(t('menu.scriptManagement'), 'scripts', <BookOutlined />, [
+    getItem(t('menu.scriptList'), '/scripts', <FileTextOutlined />),
+  ]),
+  getItem(t('menu.npcManagement'), 'npcs', <TeamOutlined />, [
+    getItem(t('menu.npcList'), '/npcs', <UserOutlined />),
+  ]),
+  getItem(t('menu.clueManagement'), 'clues', <SearchOutlined />, [
+    getItem(t('menu.clueList'), '/clues', <FileTextOutlined />),
+    getItem(t('menu.clueTree'), '/clues/tree', <NodeIndexOutlined />),
+  ]),
+  getItem(t('menu.algorithm'), 'algorithms', <RobotOutlined />, [
+    getItem(t('menu.implementations'), '/algorithms/implementations', <FunctionOutlined />),
+    getItem(t('menu.strategies'), '/algorithms/strategies', <ControlOutlined />),
+  ]),
+  getItem(t('menu.experiment'), 'experiments', <ExperimentOutlined />, [
+    getItem(t('menu.dialogueLogs'), '/experiments/logs', <CommentOutlined />),
+    getItem(t('menu.offlineEvaluation'), '/experiments/evaluation', <LineChartOutlined />),
+    getItem(t('menu.abTestConfig'), '/experiments/ab-tests', <SplitCellsOutlined />),
+  ]),
+  getItem(t('menu.debugTools'), 'debug', <BugOutlined />, [
+    getItem(t('menu.dialogueSimulation'), '/debug/simulation', <MessageOutlined />),
+    getItem(t('menu.singleClueDebug'), '/debug/clue', <AimOutlined />),
+  ]),
+  getItem(t('menu.settings'), 'settings', <SettingOutlined />, [
+    getItem(t('menu.globalStrategy'), '/settings/global', <GlobalOutlined />),
+    getItem(t('menu.usersPermissions'), '/settings/users', <TeamOutlined />),
+    getItem(t('menu.auditLogs'), '/settings/audit-logs', <AuditOutlined />),
+  ]),
+];
+
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
+  const { t, i18n } = useTranslation();
+  const { sidebarCollapsed, setSidebarCollapsed, language, setLanguage } = useUIStore();
+  const menuItems = getMenuItems(t);
   const [openKeys, setOpenKeys] = useState<string[]>(getAllParentKeys(menuItems));
+
+  const handleLanguageChange = (lang: 'en' | 'zh') => {
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+  };
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -105,11 +115,28 @@ export default function MainLayout() {
   };
 
   const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', label: 'Profile', icon: <UserOutlined /> },
-    { key: 'history', label: 'Activity History', icon: <HistoryOutlined /> },
+    { key: 'profile', label: t('user.profile'), icon: <UserOutlined /> },
+    { key: 'history', label: t('user.activityHistory'), icon: <HistoryOutlined /> },
     { type: 'divider' },
-    { key: 'logout', label: 'Logout', danger: true },
+    { key: 'logout', label: t('user.logout'), danger: true },
   ];
+
+  const languageMenuItems: MenuProps['items'] = [
+    {
+      key: 'en',
+      label: t('language.en'),
+      disabled: language === 'en',
+    },
+    {
+      key: 'zh',
+      label: t('language.zh'),
+      disabled: language === 'zh',
+    },
+  ];
+
+  const handleLanguageMenuClick: MenuProps['onClick'] = ({ key }) => {
+    handleLanguageChange(key as 'en' | 'zh');
+  };
 
   const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'logout') {
@@ -159,7 +186,7 @@ export default function MainLayout() {
             borderBottom: '1px solid rgba(255,255,255,0.1)',
           }}
         >
-          {sidebarCollapsed ? 'MM' : 'Murder Mystery Admin'}
+          {sidebarCollapsed ? t('app.shortTitle') : t('app.title')}
         </div>
         <Menu
           theme="dark"
@@ -191,11 +218,16 @@ export default function MainLayout() {
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ fontSize: 16, width: 48, height: 48 }}
           />
-          <Space>
+          <Space size="middle">
+            <Dropdown menu={{ items: languageMenuItems, onClick: handleLanguageMenuClick }} placement="bottomRight">
+              <Button type="text" icon={<TranslationOutlined />}>
+                {language === 'zh' ? '中文' : 'EN'}
+              </Button>
+            </Dropdown>
             <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar icon={<UserOutlined />} />
-                <span>Admin</span>
+                <span>{t('user.admin')}</span>
               </Space>
             </Dropdown>
           </Space>
