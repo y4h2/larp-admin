@@ -233,7 +233,7 @@ export default function ClueDetail() {
       render: (date) => formatDate(date),
     },
     {
-      title: 'Actions',
+      title: t('common.actions'),
       key: 'actions',
       render: (_, record) => (
         <Button
@@ -299,61 +299,61 @@ export default function ClueDetail() {
                     <Col span={12}>
                       <Form.Item
                         name="title_internal"
-                        label="Internal Title"
+                        label={t('clue.internalTitle')}
                         rules={[{ required: true }]}
                       >
-                        <Input placeholder="For internal reference" />
+                        <Input placeholder={t('clue.internalTitlePlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item
                         name="title_player"
-                        label="Player Title"
+                        label={t('clue.playerTitle')}
                         rules={[{ required: true }]}
                       >
-                        <Input placeholder="Title shown to players" />
+                        <Input placeholder={t('clue.playerTitlePlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col span={24}>
                       <Form.Item
                         name="content_text"
-                        label="Content"
+                        label={t('clue.content')}
                         rules={[{ required: true }]}
                       >
-                        <TextArea rows={4} placeholder="Clue content" />
+                        <TextArea rows={4} placeholder={t('clue.contentPlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col span={6}>
-                      <Form.Item name="clue_type" label="Type" rules={[{ required: true }]}>
+                      <Form.Item name="clue_type" label={t('clue.type')} rules={[{ required: true }]}>
                         <Select>
-                          <Option value="evidence">Evidence</Option>
-                          <Option value="testimony">Testimony</Option>
-                          <Option value="world_info">World Info</Option>
-                          <Option value="decoy">Decoy</Option>
+                          <Option value="evidence">{t('clue.evidence')}</Option>
+                          <Option value="testimony">{t('clue.testimony')}</Option>
+                          <Option value="world_info">{t('clue.worldInfo')}</Option>
+                          <Option value="decoy">{t('clue.decoy')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
                     <Col span={6}>
-                      <Form.Item name="importance" label="Importance" rules={[{ required: true }]}>
+                      <Form.Item name="importance" label={t('clue.importance')} rules={[{ required: true }]}>
                         <Select>
-                          <Option value="critical">Critical</Option>
-                          <Option value="major">Major</Option>
-                          <Option value="minor">Minor</Option>
-                          <Option value="easter_egg">Easter Egg</Option>
+                          <Option value="critical">{t('clue.critical')}</Option>
+                          <Option value="major">{t('clue.major')}</Option>
+                          <Option value="minor">{t('clue.minor')}</Option>
+                          <Option value="easter_egg">{t('clue.easterEgg')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
                     <Col span={6}>
-                      <Form.Item name="stage" label="Stage">
+                      <Form.Item name="stage" label={t('clue.stage')}>
                         <InputNumber min={1} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col span={6}>
-                      <Form.Item name="content_type" label="Content Type">
+                      <Form.Item name="content_type" label={t('clue.contentType')}>
                         <Select>
-                          <Option value="text">Text</Option>
-                          <Option value="image">Image</Option>
-                          <Option value="structured">Structured</Option>
+                          <Option value="text">{t('common.text')}</Option>
+                          <Option value="image">{t('common.image')}</Option>
+                          <Option value="structured">{t('common.structured')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
@@ -375,8 +375,8 @@ export default function ClueDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item name="scene_id" label="Scene">
-                        <Select allowClear placeholder="Optional">
+                      <Form.Item name="scene_id" label={t('common.scene')}>
+                        <Select allowClear placeholder={t('common.optional')}>
                           {scenes.map((s) => (
                             <Option key={s.id} value={s.id}>
                               {s.name}
@@ -388,15 +388,15 @@ export default function ClueDetail() {
                     <Col span={8}>
                       <Form.Item name="status" label={t('common.status')}>
                         <Select>
-                          <Option value="draft">Draft</Option>
-                          <Option value="active">Active</Option>
-                          <Option value="disabled">Disabled</Option>
+                          <Option value="draft">{t('clue.draft')}</Option>
+                          <Option value="active">{t('clue.active')}</Option>
+                          <Option value="disabled">{t('clue.disabled')}</Option>
                         </Select>
                       </Form.Item>
                     </Col>
                     <Col span={24}>
-                      <Form.Item name="npc_ids" label="Associated NPCs">
-                        <Select mode="multiple" placeholder="Select NPCs">
+                      <Form.Item name="npc_ids" label={t('clue.associatedNpcs')}>
+                        <Select mode="multiple" placeholder={t('clue.selectNpc')}>
                           {npcs.map((n) => (
                             <Option key={n.id} value={n.id}>
                               {n.name} ({n.role_type})
@@ -499,7 +499,7 @@ export default function ClueDetail() {
                           checked={semanticEnabled}
                           onChange={setSemanticEnabled}
                           checkedChildren={t('clue.enabled')}
-                          unCheckedChildren="Disabled"
+                          unCheckedChildren={t('clue.disabled')}
                         />
                       </Space>
                     }
@@ -514,7 +514,7 @@ export default function ClueDetail() {
                           >
                             <Select
                               mode="tags"
-                              placeholder="Enter target queries"
+                              placeholder={t('clue.enterTargetQueries')}
                               style={{ width: '100%' }}
                             />
                           </Form.Item>
@@ -545,7 +545,7 @@ export default function ClueDetail() {
                           checked={stateEnabled}
                           onChange={setStateEnabled}
                           checkedChildren={t('clue.enabled')}
-                          unCheckedChildren="Disabled"
+                          unCheckedChildren={t('clue.disabled')}
                         />
                       </Space>
                     }
@@ -560,7 +560,7 @@ export default function ClueDetail() {
                           >
                             <Select
                               mode="multiple"
-                              placeholder="Select prerequisite clues"
+                              placeholder={t('clue.selectPrerequisiteClues')}
                               style={{ width: '100%' }}
                               optionFilterProp="children"
                             >
@@ -600,7 +600,7 @@ export default function ClueDetail() {
                         extra={t('clue.displayTextExtra')}
                         initialValue={clue.effects?.display_text}
                       >
-                        <TextArea rows={4} placeholder="Custom display text" />
+                        <TextArea rows={4} placeholder={t('clue.displayTextPlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>

@@ -425,20 +425,20 @@ export default function ClueTree() {
         onClose={() => setDrawerVisible(false)}
         extra={
           <Button type="primary" onClick={() => navigate(`/clues/${selectedClueId}`)}>
-            Edit Clue
+            {t('clue.editClue')}
           </Button>
         }
       >
         {selectedClue && (
           <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label="Title">{selectedClue.title}</Descriptions.Item>
-            <Descriptions.Item label="Type">
+            <Descriptions.Item label={t('common.name')}>{selectedClue.title}</Descriptions.Item>
+            <Descriptions.Item label={t('clue.type')}>
               <ClueTypeTag type={selectedClue.clue_type} />
             </Descriptions.Item>
-            <Descriptions.Item label="Importance">
+            <Descriptions.Item label={t('clue.importance')}>
               <ImportanceTag importance={selectedClue.importance} />
             </Descriptions.Item>
-            <Descriptions.Item label="Stage">{selectedClue.stage}</Descriptions.Item>
+            <Descriptions.Item label={t('clue.stage')}>{selectedClue.stage}</Descriptions.Item>
             <Descriptions.Item label={t('common.status')}>
               <StatusTag status={selectedClue.status} />
             </Descriptions.Item>
