@@ -1,6 +1,5 @@
-import { Tree, Typography, Tooltip, Empty } from 'antd';
+import { Row, Col, Typography, Tooltip, Empty, Tag, Spin } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import type { DataNode } from 'antd/es/tree';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { templateApi } from '@/api';
@@ -31,51 +30,16 @@ export default function VariablePanel({ onInsert }: VariablePanelProps) {
     fetchVariables();
   }, []);
 
-  const convertToTreeData = (cats: VariableCategory[]): DataNode[] => {
-    return cats.map((category, catIndex) => ({
-      key: `cat-${catIndex}`,
-      title: (
-        <Tooltip title={category.description}>
-          <Text strong>{category.name}</Text>
-        </Tooltip>
-      ),
-      selectable: false,
-      children: category.variables.map((variable, varIndex) => ({
-        key: `var-${catIndex}-${varIndex}`,
-        title: (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              paddingRight: 8,
-            }}
-          >
-            <Text code style={{ cursor: 'pointer' }}>
-              {`{${variable.name}}`}
-            </Text>
-            {variable.description && (
-              <Tooltip title={`${variable.description}${variable.example ? ` (${t('template.example')}: ${variable.example})` : ''}`}>
-                <InfoCircleOutlined style={{ color: '#999', marginLeft: 4 }} />
-              </Tooltip>
-            )}
-          </div>
-        ),
-        isLeaf: true,
-        variable,
-      })),
-    }));
-  };
-
-  const handleSelect = (_: React.Key[], info: { node: DataNode & { variable?: VariableInfo } }) => {
-    if (info.node.variable) {
-      onInsert(`{${info.node.variable.name}}`);
-    }
+  const handleClick = (variable: VariableInfo) => {
+    onInsert(`{${variable.name}}`);
   };
 
   if (loading) {
-    return <div style={{ padding: 16, textAlign: 'center' }}>{t('common.loading')}</div>;
+    return (
+      <div style={{ padding: 24, textAlign: 'center' }}>
+        <Spin size="small" />
+      </div>
+    );
   }
 
   if (categories.length === 0) {
@@ -83,18 +47,44 @@ export default function VariablePanel({ onInsert }: VariablePanelProps) {
   }
 
   return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0' }}>
+    <div>
+      <div style={{ marginBottom: 12 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           {t('template.clickToInsert')}
         </Text>
       </div>
-      <Tree
-        treeData={convertToTreeData(categories)}
-        defaultExpandAll
-        onSelect={handleSelect}
-        style={{ padding: 8 }}
-      />
+      <Row gutter={[24, 16]}>
+        {categories.map((category, catIndex) => (
+          <Col key={catIndex} xs={24} sm={12} md={8} lg={6}>
+            <div style={{ marginBottom: 8 }}>
+              <Tooltip title={category.description}>
+                <Text strong style={{ fontSize: 13 }}>
+                  {category.name}
+                </Text>
+              </Tooltip>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {category.variables.map((variable, varIndex) => (
+                <Tooltip
+                  key={varIndex}
+                  title={`${variable.description || ''}${variable.example ? ` (${t('template.example')}: ${variable.example})` : ''}`}
+                >
+                  <Tag
+                    color="blue"
+                    style={{ cursor: 'pointer', marginBottom: 4 }}
+                    onClick={() => handleClick(variable)}
+                  >
+                    {`{${variable.name}}`}
+                    {variable.description && (
+                      <InfoCircleOutlined style={{ marginLeft: 4, fontSize: 10 }} />
+                    )}
+                  </Tag>
+                </Tooltip>
+              ))}
+            </div>
+          </Col>
+        ))}
+      </Row>
     </div>
   );
 }

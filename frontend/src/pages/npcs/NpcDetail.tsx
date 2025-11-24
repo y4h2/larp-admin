@@ -7,7 +7,6 @@ import {
   Select,
   Button,
   Tabs,
-  Table,
   Spin,
   Empty,
   Row,
@@ -15,10 +14,9 @@ import {
   message,
   Typography,
 } from 'antd';
-import type { TableProps } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag } from '@/components/common';
+import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { npcApi, clueApi } from '@/api';
 import { useScripts, useScenes } from '@/hooks';
 import type { NPC, Clue } from '@/types';
@@ -90,7 +88,7 @@ export default function NpcDetail() {
     }
   };
 
-  const clueColumns: TableProps<Clue>['columns'] = [
+  const clueColumns: ResizableColumn<Clue>[] = [
     {
       title: t('clue.internalTitle'),
       dataIndex: 'title_internal',
@@ -327,12 +325,11 @@ Stay in character and respond naturally to the player's questions.`}
             label: `${t('npc.relatedClues')} (${relatedClues.length})`,
             children: (
               <Card>
-                <Table
+                <ResizableTable
                   columns={clueColumns}
                   dataSource={relatedClues}
                   rowKey="id"
                   pagination={false}
-                  locale={{ emptyText: t('npc.noCluesAssociated') }}
                 />
               </Card>
             ),

@@ -5,7 +5,6 @@ import {
   Form,
   Select,
   Button,
-  Table,
   Upload,
   Alert,
   Progress,
@@ -15,9 +14,9 @@ import {
   Divider,
   message,
 } from 'antd';
-import type { TableProps, UploadFile } from 'antd';
+import type { UploadFile } from 'antd';
 import { UploadOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 
 const { Option } = Select;
 
@@ -92,7 +91,7 @@ export default function OfflineEvaluation() {
     message.success(t('evaluation.evaluationCompleted'));
   };
 
-  const columns: TableProps<EvaluationResult>['columns'] = [
+  const columns: ResizableColumn<EvaluationResult>[] = [
     {
       title: t('evaluation.query'),
       dataIndex: 'query',
@@ -243,12 +242,11 @@ export default function OfflineEvaluation() {
           )}
 
           <Card title={t('evaluation.detailedResults')} size="small">
-            <Table
+            <ResizableTable
               columns={columns}
               dataSource={results}
               rowKey="query"
               pagination={false}
-              locale={{ emptyText: t('evaluation.runEvaluationToSee') }}
             />
           </Card>
         </Col>

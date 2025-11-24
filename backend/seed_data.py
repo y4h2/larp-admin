@@ -142,11 +142,12 @@ async def seed_data():
             "system_prompt_template": "你是托马斯·威尔逊，庄园的老园丁。{extra_context}",
         })
 
-        # Script 1 Clues
+        # Script 1 Clues - with prereq_clue_ids for dependency tree
+        # Root clues (no prerequisites)
         clue1_1_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue1_1_id,
             "script_id": script1_id,
@@ -163,12 +164,13 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
             "status": "active",
+            "prereq_clue_ids": [],  # Root clue
         })
 
         clue1_2_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue1_2_id,
             "script_id": script1_id,
@@ -185,12 +187,14 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
             "status": "active",
+            "prereq_clue_ids": [],  # Root clue
         })
 
+        # Level 2: Requires blood stain clue
         clue1_3_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue1_3_id,
             "script_id": script1_id,
@@ -207,34 +211,14 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {"npc1_1": "nervous"}}),
             "status": "active",
+            "prereq_clue_ids": [clue1_1_id],  # Requires: 血迹喷溅模式
         })
 
-        clue1_4_id = str(uuid4())
-        await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
-        """), {
-            "id": clue1_4_id,
-            "script_id": script1_id,
-            "scene_id": scene1_2_id,
-            "title_internal": "管家的证词",
-            "title_player": "管家的说法",
-            "content_text": "管家声称案发时他正在厨房检查第二天的菜单，但厨娘表示当晚根本没见到他...",
-            "content_type": "text",
-            "clue_type": "testimony",
-            "importance": "major",
-            "unlock_conditions": json.dumps({
-                "keyword_list": ["管家", "艾德华", "当晚", "在哪"],
-                "semantic_conditions": [{"query": "询问管家的不在场证明", "threshold": 0.7}]
-            }),
-            "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
-            "status": "active",
-        })
-
+        # Level 2: Requires blood stain clue
         clue1_5_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue1_5_id,
             "script_id": script1_id,
@@ -251,17 +235,31 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
             "status": "active",
+            "prereq_clue_ids": [clue1_1_id],  # Requires: 血迹喷溅模式
         })
 
-        # Clue relations
+        # Level 3: Requires whiskey glass and will draft
+        clue1_4_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clue_relations (id, prerequisite_clue_id, dependent_clue_id, relation_type)
-            VALUES (:id, :prerequisite_clue_id, :dependent_clue_id, :relation_type)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
-            "id": str(uuid4()),
-            "prerequisite_clue_id": clue1_1_id,
-            "dependent_clue_id": clue1_3_id,
-            "relation_type": "required",
+            "id": clue1_4_id,
+            "script_id": script1_id,
+            "scene_id": scene1_2_id,
+            "title_internal": "管家的证词",
+            "title_player": "管家的说法",
+            "content_text": "管家声称案发时他正在厨房检查第二天的菜单，但厨娘表示当晚根本没见到他...",
+            "content_type": "text",
+            "clue_type": "testimony",
+            "importance": "major",
+            "unlock_conditions": json.dumps({
+                "keyword_list": ["管家", "艾德华", "当晚", "在哪"],
+                "semantic_conditions": [{"query": "询问管家的不在场证明", "threshold": 0.7}]
+            }),
+            "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
+            "status": "active",
+            "prereq_clue_ids": [clue1_2_id, clue1_3_id],  # Requires: 威士忌酒杯 + 遗嘱草稿
         })
 
         # ============ Script 2: Cyberpunk 2087 ============
@@ -334,11 +332,11 @@ async def seed_data():
             "system_prompt_template": "你是林凯，一位年轻的CTO。{extra_context}",
         })
 
-        # Script 2 Clues
+        # Script 2 Clues - with prereq_clue_ids
         clue2_1_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue2_1_id,
             "script_id": script2_id,
@@ -355,12 +353,13 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {"npc2_2": "defensive"}}),
             "status": "active",
+            "prereq_clue_ids": [],  # Root clue
         })
 
         clue2_2_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue2_2_id,
             "script_id": script2_id,
@@ -377,6 +376,7 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {}}),
             "status": "active",
+            "prereq_clue_ids": [clue2_1_id],  # Requires: 被删除的日志
         })
 
         # ============ Script 3: Ancient Tomb ============
@@ -430,11 +430,11 @@ async def seed_data():
             "system_prompt_template": "你是赵明远教授，一位痴迷于古代文明的考古学家。{extra_context}",
         })
 
-        # Script 3 Clue
+        # Script 3 Clue - with prereq_clue_ids
         clue3_1_id = str(uuid4())
         await session.execute(text("""
-            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status)
-            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status)
+            INSERT INTO clues (id, script_id, scene_id, title_internal, title_player, content_text, content_type, clue_type, importance, unlock_conditions, effects, status, prereq_clue_ids)
+            VALUES (:id, :script_id, :scene_id, :title_internal, :title_player, :content_text, :content_type, :clue_type, :importance, :unlock_conditions, :effects, :status, :prereq_clue_ids)
         """), {
             "id": clue3_1_id,
             "script_id": script3_id,
@@ -451,6 +451,7 @@ async def seed_data():
             }),
             "effects": json.dumps({"unlock_clues": [], "npc_reactions": {"npc3_1": "interested"}}),
             "status": "active",
+            "prereq_clue_ids": [],  # Root clue
         })
 
         await session.commit()

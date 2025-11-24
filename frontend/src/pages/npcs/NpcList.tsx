@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Table,
   Button,
   Space,
   Input,
@@ -10,7 +9,6 @@ import {
   Form,
   Popconfirm,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -18,7 +16,7 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, RoleTypeTag } from '@/components/common';
+import { PageHeader, StatusTag, RoleTypeTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useNpcs, useScripts, useScenes } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { NPC } from '@/types';
@@ -91,7 +89,7 @@ export default function NpcList() {
     }
   };
 
-  const columns: TableProps<NPC>['columns'] = [
+  const columns: ResizableColumn<NPC>[] = [
     {
       title: t('common.name'),
       dataIndex: 'name',
@@ -233,7 +231,7 @@ export default function NpcList() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={npcs}
         rowKey="id"
@@ -243,8 +241,8 @@ export default function NpcList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => t('npc.totalNpcs', { total }),
-          onChange: (page, pageSize) =>
+          showTotal: (total: number) => t('npc.totalNpcs', { total }),
+          onChange: (page: number, pageSize: number) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />

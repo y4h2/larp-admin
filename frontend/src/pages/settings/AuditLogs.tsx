@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Table,
   Card,
   Select,
   Space,
@@ -11,8 +10,7 @@ import {
   Descriptions,
   Typography,
 } from 'antd';
-import type { TableProps } from 'antd';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { auditLogApi, userApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { AuditLog, User } from '@/types';
@@ -83,7 +81,7 @@ export default function AuditLogs() {
     return labels[type] || type;
   };
 
-  const columns: TableProps<AuditLog>['columns'] = [
+  const columns: ResizableColumn<AuditLog>[] = [
     {
       title: t('audit.time'),
       dataIndex: 'created_at',
@@ -215,7 +213,7 @@ export default function AuditLogs() {
         </Space>
       </Card>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={logs}
         rowKey="id"
@@ -225,8 +223,8 @@ export default function AuditLogs() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => t('audit.totalLogs', { total }),
-          onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
+          showTotal: (total: number) => t('audit.totalLogs', { total }),
+          onChange: (page: number, pageSize: number) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 

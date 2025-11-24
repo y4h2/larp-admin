@@ -14,6 +14,9 @@ import {
   Tag,
   Typography,
   message,
+  Modal,
+  Dropdown,
+  Checkbox,
 } from 'antd';
 import {
   ReactFlow,
@@ -26,6 +29,7 @@ import {
   type Edge,
   type Connection,
   type NodeTypes,
+  type EdgeChange,
   Handle,
   Position,
   MarkerType,
@@ -35,6 +39,8 @@ import {
   WarningOutlined,
   ExclamationCircleOutlined,
   SyncOutlined,
+  DeleteOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, ImportanceTag, StatusTag } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
@@ -44,17 +50,82 @@ import { clueTypeColors, importanceColors } from '@/utils';
 const { Option } = Select;
 const { Text } = Typography;
 
+// Available fields that can be shown on clue nodes
+type ClueNodeField =
+  | 'title_internal'
+  | 'title_player'
+  | 'clue_type'
+  | 'importance'
+  | 'stage'
+  | 'status'
+  | 'scene_id'
+  | 'content_text'
+  | 'content_type'
+  | 'npc_ids'
+  | 'prereq_clue_ids'
+  | 'version'
+  | 'created_at'
+  | 'updated_at';
+
+const DEFAULT_VISIBLE_FIELDS: ClueNodeField[] = ['title_internal', 'clue_type', 'importance', 'stage'];
+
+// All available fields with their i18n keys
+const ALL_CLUE_FIELDS: { field: ClueNodeField; labelKey: string }[] = [
+  { field: 'title_internal', labelKey: 'clue.internalTitle' },
+  { field: 'title_player', labelKey: 'clue.playerTitle' },
+  { field: 'clue_type', labelKey: 'clue.type' },
+  { field: 'importance', labelKey: 'clue.importance' },
+  { field: 'stage', labelKey: 'clue.stage' },
+  { field: 'status', labelKey: 'common.status' },
+  { field: 'scene_id', labelKey: 'common.scene' },
+  { field: 'content_text', labelKey: 'clue.content' },
+  { field: 'content_type', labelKey: 'clue.contentType' },
+  { field: 'npc_ids', labelKey: 'clue.associatedNpcs' },
+  { field: 'prereq_clue_ids', labelKey: 'clue.prerequisites' },
+  { field: 'version', labelKey: 'common.version' },
+  { field: 'created_at', labelKey: 'common.createdAt' },
+  { field: 'updated_at', labelKey: 'common.updatedAt' },
+];
+
 interface ClueNodeData {
   clue: ClueTreeNode;
   onClick: (clueId: string) => void;
+  visibleFields: ClueNodeField[];
+  sceneName?: string;
+}
+
+// Helper to format date for display
+function formatShortDate(dateStr?: string): string {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 // Custom node component for clues
 function ClueNode({ data }: { data: ClueNodeData }) {
-  const { clue, onClick } = data;
+  const { clue, onClick, visibleFields, sceneName } = data;
 
   const borderColor = clueTypeColors[clue.clue_type] || '#d9d9d9';
   const bgColor = clue.status === 'disabled' ? '#f5f5f5' : '#fff';
+
+  // Check which fields to show
+  const showTitleInternal = visibleFields.includes('title_internal');
+  const showTitlePlayer = visibleFields.includes('title_player');
+  const showType = visibleFields.includes('clue_type');
+  const showImportance = visibleFields.includes('importance');
+  const showStage = visibleFields.includes('stage');
+  const showStatus = visibleFields.includes('status');
+  const showScene = visibleFields.includes('scene_id');
+  const showContentText = visibleFields.includes('content_text');
+  const showContentType = visibleFields.includes('content_type');
+  const showNpcIds = visibleFields.includes('npc_ids');
+  const showPrereqIds = visibleFields.includes('prereq_clue_ids');
+  const showVersion = visibleFields.includes('version');
+  const showCreatedAt = visibleFields.includes('created_at');
+  const showUpdatedAt = visibleFields.includes('updated_at');
+
+  const hasTags = showType || showImportance || showStage || showContentType || showVersion;
+  const hasTitle = showTitleInternal || showTitlePlayer;
 
   return (
     <div
@@ -63,8 +134,8 @@ function ClueNode({ data }: { data: ClueNodeData }) {
         border: `2px solid ${borderColor}`,
         borderRadius: 8,
         background: bgColor,
-        minWidth: 150,
-        maxWidth: 200,
+        minWidth: 120,
+        maxWidth: 240,
         cursor: 'pointer',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       }}
@@ -72,24 +143,89 @@ function ClueNode({ data }: { data: ClueNodeData }) {
     >
       <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
 
-      <div style={{ marginBottom: 6 }}>
-        <Text strong ellipsis style={{ display: 'block', maxWidth: 170 }}>
-          {clue.title}
-        </Text>
-      </div>
+      {showTitleInternal && (
+        <div style={{ marginBottom: 4 }}>
+          <Text strong ellipsis style={{ display: 'block', maxWidth: 210 }}>
+            {clue.title_internal || clue.title}
+          </Text>
+        </div>
+      )}
 
-      <Space size={4} wrap>
-        <Tag color={clueTypeColors[clue.clue_type]} style={{ margin: 0 }}>
-          {clue.clue_type}
-        </Tag>
-        <Tag color={importanceColors[clue.importance]} style={{ margin: 0 }}>
-          {clue.importance}
-        </Tag>
-        <Tag style={{ margin: 0 }}>S{clue.stage}</Tag>
-      </Space>
+      {showTitlePlayer && (
+        <div style={{ marginBottom: hasTitle ? 4 : 0 }}>
+          <Text ellipsis style={{ display: 'block', maxWidth: 210, fontSize: 12, color: '#666' }}>
+            {clue.title_player}
+          </Text>
+        </div>
+      )}
 
-      {clue.status !== 'active' && (
-        <div style={{ marginTop: 6 }}>
+      {showScene && sceneName && (
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            📍 {sceneName}
+          </Text>
+        </div>
+      )}
+
+      {showContentText && clue.content_text && (
+        <div style={{ marginBottom: 4 }}>
+          <Text ellipsis style={{ display: 'block', maxWidth: 210, fontSize: 11, color: '#888' }}>
+            {clue.content_text.substring(0, 50)}
+            {clue.content_text.length > 50 ? '...' : ''}
+          </Text>
+        </div>
+      )}
+
+      {hasTags && (
+        <Space size={4} wrap style={{ marginBottom: 4 }}>
+          {showType && (
+            <Tag color={clueTypeColors[clue.clue_type]} style={{ margin: 0 }}>
+              {clue.clue_type}
+            </Tag>
+          )}
+          {showImportance && (
+            <Tag color={importanceColors[clue.importance]} style={{ margin: 0 }}>
+              {clue.importance}
+            </Tag>
+          )}
+          {showStage && <Tag style={{ margin: 0 }}>S{clue.stage}</Tag>}
+          {showContentType && clue.content_type && (
+            <Tag style={{ margin: 0 }}>{clue.content_type}</Tag>
+          )}
+          {showVersion && clue.version !== undefined && (
+            <Tag style={{ margin: 0 }}>v{clue.version}</Tag>
+          )}
+        </Space>
+      )}
+
+      {showNpcIds && clue.npc_ids && clue.npc_ids.length > 0 && (
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            👥 {clue.npc_ids.length} NPC(s)
+          </Text>
+        </div>
+      )}
+
+      {showPrereqIds && clue.prerequisite_clue_ids && clue.prerequisite_clue_ids.length > 0 && (
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            🔗 {clue.prerequisite_clue_ids.length} prereq(s)
+          </Text>
+        </div>
+      )}
+
+      {(showCreatedAt || showUpdatedAt) && (
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 10 }}>
+            {showCreatedAt && `📅 ${formatShortDate(clue.created_at)}`}
+            {showCreatedAt && showUpdatedAt && ' | '}
+            {showUpdatedAt && `✏️ ${formatShortDate(clue.updated_at)}`}
+          </Text>
+        </div>
+      )}
+
+      {showStatus && clue.status !== 'active' && (
+        <div style={{ marginTop: 4 }}>
           <StatusTag status={clue.status} />
         </div>
       )}
@@ -103,6 +239,47 @@ const nodeTypes: NodeTypes = {
   clueNode: ClueNode,
 };
 
+// Helper function to detect cycles in the dependency graph
+function detectCycle(
+  edges: Array<{ source: string; target: string }>,
+  newSource: string,
+  newTarget: string
+): boolean {
+  // Build adjacency list including the new edge
+  const adjacency = new Map<string, string[]>();
+
+  // Add existing edges
+  edges.forEach((edge) => {
+    const children = adjacency.get(edge.source) || [];
+    children.push(edge.target);
+    adjacency.set(edge.source, children);
+  });
+
+  // Add the new edge
+  const children = adjacency.get(newSource) || [];
+  children.push(newTarget);
+  adjacency.set(newSource, children);
+
+  // DFS to detect cycle: check if we can reach newSource from newTarget
+  const visited = new Set<string>();
+  const stack = [newTarget];
+
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current === newSource) {
+      // Found a path from newTarget back to newSource - this would create a cycle
+      return true;
+    }
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const neighbors = adjacency.get(current) || [];
+    stack.push(...neighbors);
+  }
+
+  return false;
+}
+
 export default function ClueTree() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -114,6 +291,7 @@ export default function ClueTree() {
   const [treeData, setTreeData] = useState<ClueTreeData | null>(null);
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [visibleFields, setVisibleFields] = useState<ClueNodeField[]>(DEFAULT_VISIBLE_FIELDS);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -136,7 +314,17 @@ export default function ClueTree() {
     setLoading(true);
     try {
       const data = await clueApi.getTree(scriptId, sceneId || undefined);
-      setTreeData(data);
+      // Normalize field names from backend (prerequisites -> prerequisite_clue_ids)
+      const normalizedData: ClueTreeData = {
+        ...data,
+        nodes: data.nodes.map((node) => ({
+          ...node,
+          title: node.title || node.title_internal || '',
+          prerequisite_clue_ids: node.prerequisite_clue_ids || node.prerequisites || [],
+          dependent_clue_ids: node.dependent_clue_ids || node.dependents || [],
+        })),
+      };
+      setTreeData(normalizedData);
     } catch {
       message.error(t('common.loadFailed'));
     } finally {
@@ -221,6 +409,7 @@ export default function ClueTree() {
 
       nodeIds.forEach((nodeId, index) => {
         const clueNode = nodeMap.get(nodeId)!;
+        const scene = clueNode.scene_id ? scenes.find((s) => s.id === clueNode.scene_id) : null;
         flowNodes.push({
           id: nodeId,
           type: 'clueNode',
@@ -231,6 +420,8 @@ export default function ClueTree() {
           data: {
             clue: clueNode,
             onClick: handleClueClick,
+            visibleFields,
+            sceneName: scene?.name,
           },
         });
       });
@@ -251,15 +442,33 @@ export default function ClueTree() {
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [treeData, setNodes, setEdges]);
+  }, [treeData, setNodes, setEdges, visibleFields, scenes]);
 
+  // Cycle detection and edge creation
   const onConnect = useCallback(
     async (params: Connection) => {
       if (!params.source || !params.target) return;
 
-      // Update dependencies in backend
+      // Prevent self-loop
+      if (params.source === params.target) {
+        message.error(t('clue.cannotSelfReference'));
+        return;
+      }
+
+      // Check for cycle
+      if (treeData && detectCycle(treeData.edges, params.source, params.target)) {
+        message.error(t('clue.cycleDetected'));
+        return;
+      }
+
+      // Check if edge already exists
       const targetNode = treeData?.nodes.find((n) => n.id === params.target);
       if (!targetNode) return;
+
+      if (targetNode.prerequisite_clue_ids?.includes(params.source)) {
+        message.warning(t('clue.dependencyExists'));
+        return;
+      }
 
       const newPrerequisites = [...(targetNode.prerequisite_clue_ids || []), params.source];
 
@@ -272,6 +481,68 @@ export default function ClueTree() {
       }
     },
     [treeData, fetchTree, t]
+  );
+
+  // Handle edge deletion
+  const handleEdgeDelete = useCallback(
+    async (source: string, target: string) => {
+      const targetNode = treeData?.nodes.find((n) => n.id === target);
+      if (!targetNode) return;
+
+      const newPrerequisites = (targetNode.prerequisite_clue_ids || []).filter(
+        (id) => id !== source
+      );
+
+      try {
+        await clueApi.updateDependencies(target, newPrerequisites);
+        message.success(t('clue.dependencyRemoved'));
+        fetchTree();
+      } catch {
+        message.error(t('common.saveFailed'));
+      }
+    },
+    [treeData, fetchTree, t]
+  );
+
+  // Handle edge changes (including deletion via backspace/delete key)
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange<Edge>[]) => {
+      const deleteChanges = changes.filter((change) => change.type === 'remove');
+      if (deleteChanges.length > 0) {
+        deleteChanges.forEach((change) => {
+          if (change.type === 'remove') {
+            const edge = edges.find((e) => e.id === change.id);
+            if (edge) {
+              Modal.confirm({
+                title: t('clue.confirmDeleteDependency'),
+                content: t('clue.deleteDependencyWarning'),
+                okText: t('common.confirm'),
+                cancelText: t('common.cancel'),
+                onOk: () => handleEdgeDelete(edge.source, edge.target),
+              });
+            }
+          }
+        });
+        return; // Don't apply delete changes directly - let the confirmation handle it
+      }
+      onEdgesChange(changes);
+    },
+    [edges, onEdgesChange, handleEdgeDelete, t]
+  );
+
+  // Handle edge click for deletion
+  const onEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      Modal.confirm({
+        title: t('clue.confirmDeleteDependency'),
+        content: t('clue.deleteDependencyWarning'),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        okButtonProps: { danger: true, icon: <DeleteOutlined /> },
+        onOk: () => handleEdgeDelete(edge.source, edge.target),
+      });
+    },
+    [handleEdgeDelete, t]
   );
 
   const selectedClue = useMemo(() => {
@@ -337,6 +608,36 @@ export default function ClueTree() {
             ))}
           </Select>
 
+          <Dropdown
+            trigger={['click']}
+            dropdownRender={() => (
+              <Card size="small" style={{ width: 220, maxHeight: 400, overflow: 'auto' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Text strong style={{ fontSize: 12 }}>{t('clue.displayFields')}</Text>
+                  {ALL_CLUE_FIELDS.map(({ field, labelKey }) => (
+                    <Checkbox
+                      key={field}
+                      checked={visibleFields.includes(field)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setVisibleFields([...visibleFields, field]);
+                        } else {
+                          setVisibleFields(visibleFields.filter((f) => f !== field));
+                        }
+                      }}
+                    >
+                      {t(labelKey)}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </Card>
+            )}
+          >
+            <Button icon={<SettingOutlined />}>
+              {t('clue.displayFields')}
+            </Button>
+          </Dropdown>
+
           {treeData && (
             <Text type="secondary">
               {treeData.nodes.length} clues, {treeData.edges.length} {t('clue.dependencies')}
@@ -398,11 +699,26 @@ export default function ClueTree() {
               nodes={nodes}
               edges={edges}
               onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
+              onEdgesChange={handleEdgesChange}
               onConnect={onConnect}
+              onEdgeClick={onEdgeClick}
               nodeTypes={nodeTypes}
               fitView
               attributionPosition="bottom-left"
+              defaultEdgeOptions={{
+                type: 'smoothstep',
+                animated: false,
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 20,
+                  height: 20,
+                },
+                style: {
+                  strokeWidth: 2,
+                  stroke: '#888',
+                  cursor: 'pointer',
+                },
+              }}
             >
               <Background />
               <Controls />
@@ -413,6 +729,9 @@ export default function ClueTree() {
                 }}
               />
             </ReactFlow>
+          </div>
+          <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0', fontSize: 12, color: '#888' }}>
+            {t('clue.treeHint')}
           </div>
         </Card>
       )}

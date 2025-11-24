@@ -244,7 +244,16 @@
     "dependents": "Dependents",
     "noneLeaf": "None (leaf clue)",
     "dependencyAdded": "Dependency added",
-    "dependencies": "dependencies"
+    "dependencyRemoved": "Dependency removed",
+    "dependencyExists": "Dependency already exists",
+    "cycleDetected": "Cannot add: this would create a circular dependency",
+    "cannotSelfReference": "A clue cannot depend on itself",
+    "confirmDeleteDependency": "Delete this dependency?",
+    "deleteDependencyWarning": "This will remove the dependency between two clues.",
+    "treeHint": "Drag from a node's bottom handle to another node's top to add dependency. Click an edge to delete it.",
+    "dependencies": "dependencies",
+    "displayFields": "Display Fields",
+    "fieldTitle": "Title"
   },
   "algorithm": {
     "title": "Algorithms",
@@ -560,6 +569,7 @@
   },
   "template": {
     "configuration": "Template Configuration",
+    "contextSelection": "Context Selection",
     "editor": "Template Editor",
     "preview": "Render Preview",
     "render": "Render",

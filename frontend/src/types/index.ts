@@ -92,6 +92,7 @@ export interface Clue {
   importance: 'critical' | 'major' | 'minor' | 'easter_egg';
   stage: number;
   npc_ids: string[];
+  prereq_clue_ids: string[];
   status: 'draft' | 'active' | 'disabled';
   unlock_conditions: UnlockConditions;
   effects: ClueEffects;

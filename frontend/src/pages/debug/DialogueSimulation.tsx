@@ -9,7 +9,6 @@ import {
   Space,
   Row,
   Col,
-  Table,
   Tag,
   Descriptions,
   Divider,
@@ -19,12 +18,11 @@ import {
   message,
   Tabs,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   SendOutlined,
   ClearOutlined,
 } from '@ant-design/icons';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { TemplateEditor, TemplatePreview, TemplateSelector } from '@/components/templates';
 import { simulationApi, scriptApi, sceneApi, npcApi, strategyApi, clueApi, templateApi } from '@/api';
 import type { Script, Scene, NPC, AlgorithmStrategy, Clue, SimulationResult, MatchedClue } from '@/types';
@@ -224,7 +222,7 @@ export default function DialogueSimulation() {
     }
   };
 
-  const matchedClueColumns: TableProps<MatchedClue>['columns'] = [
+  const matchedClueColumns: ResizableColumn<MatchedClue>[] = [
     {
       title: t('debug.clue'),
       dataIndex: 'clue_id',
@@ -438,7 +436,7 @@ export default function DialogueSimulation() {
                                       label: `${t('debug.matchDetails')} (${msg.result.matched_clues.length} ${t('logs.clues')})`,
                                       children: (
                                         <div>
-                                          <Table
+                                          <ResizableTable
                                             columns={matchedClueColumns}
                                             dataSource={msg.result.matched_clues}
                                             rowKey="clue_id"
@@ -500,6 +498,90 @@ export default function DialogueSimulation() {
             label: t('template.configuration'),
             children: (
               <Row gutter={24}>
+                <Col span={8}>
+                  <Card title={t('template.contextSelection')} size="small" style={{ marginBottom: 16 }}>
+                    <Form layout="vertical" size="small">
+                      <Form.Item label={t('script.title')} style={{ marginBottom: 12 }}>
+                        <Select
+                          placeholder={t('debug.selectScript')}
+                          value={selectedScriptId}
+                          onChange={(v) => {
+                            setSelectedScriptId(v);
+                            setSelectedSceneId(null);
+                            setSelectedNpcId(null);
+                            setUnlockedClueIds([]);
+                          }}
+                          allowClear
+                        >
+                          {scripts.map((s) => (
+                            <Option key={s.id} value={s.id}>
+                              {s.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item label={t('scene.title')} style={{ marginBottom: 12 }}>
+                        <Select
+                          placeholder={t('debug.selectScene')}
+                          value={selectedSceneId}
+                          onChange={setSelectedSceneId}
+                          allowClear
+                          disabled={!selectedScriptId}
+                        >
+                          {scenes.map((s) => (
+                            <Option key={s.id} value={s.id}>
+                              {s.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item label={t('npc.title')} style={{ marginBottom: 12 }}>
+                        <Select
+                          placeholder={t('debug.selectNpc')}
+                          value={selectedNpcId}
+                          onChange={setSelectedNpcId}
+                          allowClear
+                          disabled={!selectedScriptId}
+                        >
+                          {npcs.map((n) => (
+                            <Option key={n.id} value={n.id}>
+                              {n.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item label={t('debug.unlockedClues')} style={{ marginBottom: 12 }}>
+                        <Select
+                          mode="multiple"
+                          placeholder={t('clue.selectPrerequisiteClues')}
+                          value={unlockedClueIds}
+                          onChange={setUnlockedClueIds}
+                          maxTagCount={2}
+                          disabled={!selectedScriptId}
+                        >
+                          {clues.map((c) => (
+                            <Option key={c.id} value={c.id}>
+                              {c.title_internal}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                      <Form.Item label={t('debug.playerMessage')} style={{ marginBottom: 0 }}>
+                        <Input.TextArea
+                          placeholder={t('debug.enterPlayerMessage')}
+                          value={playerMessage}
+                          onChange={(e) => setPlayerMessage(e.target.value)}
+                          rows={2}
+                        />
+                      </Form.Item>
+                    </Form>
+                  </Card>
+                  <TemplatePreview
+                    templateContent={templateContent}
+                    context={templateContext}
+                    autoRender={false}
+                  />
+                </Col>
                 <Col span={16}>
                   <Card
                     title={t('template.editor')}
@@ -525,13 +607,6 @@ export default function DialogueSimulation() {
                       showVariablePanel={true}
                     />
                   </Card>
-                </Col>
-                <Col span={8}>
-                  <TemplatePreview
-                    templateContent={templateContent}
-                    context={templateContext}
-                    autoRender={false}
-                  />
                 </Col>
               </Row>
             ),

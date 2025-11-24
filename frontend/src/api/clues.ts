@@ -17,12 +17,27 @@ export interface ClueQueryParams {
 export interface ClueTreeNode {
   id: string;
   title: string;
+  title_internal?: string;
+  title_player?: string;
   clue_type: Clue['clue_type'];
   importance: Clue['importance'];
   stage: number;
   status: Clue['status'];
   prerequisite_clue_ids: string[];
   dependent_clue_ids: string[];
+  // Backend uses these field names
+  prerequisites?: string[];
+  dependents?: string[];
+  // Additional fields from Clue
+  scene_id?: string | null;
+  content_text?: string;
+  content_type?: 'text' | 'image' | 'structured';
+  npc_ids?: string[];
+  version?: number;
+  created_by?: string;
+  created_at?: string;
+  updated_by?: string;
+  updated_at?: string;
 }
 
 export interface ClueTreeData {

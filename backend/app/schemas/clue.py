@@ -89,6 +89,7 @@ class ClueBase(BaseModel):
     )
     stage: int = Field(default=1, ge=1, description="Story stage")
     npc_ids: list[str] = Field(default_factory=list, description="Related NPC IDs")
+    prereq_clue_ids: list[str] = Field(default_factory=list, description="Prerequisite clue IDs")
     unlock_conditions: dict[str, Any] = Field(
         default_factory=dict, description="Unlock conditions"
     )
@@ -119,6 +120,7 @@ class ClueUpdate(BaseModel):
     importance: Literal["critical", "major", "minor", "easter_egg"] | None = None
     stage: int | None = Field(None, ge=1)
     npc_ids: list[str] | None = None
+    prereq_clue_ids: list[str] | None = None
     status: Literal["draft", "active", "disabled"] | None = None
     unlock_conditions: dict[str, Any] | None = None
     effects: dict[str, Any] | None = None
@@ -167,6 +169,7 @@ class ClueTreeNode(BaseModel):
     """Schema for a node in the clue tree."""
 
     id: str
+    title: str  # Alias for title_internal for frontend compatibility
     title_internal: str
     title_player: str
     clue_type: str
@@ -179,11 +182,18 @@ class ClueTreeNode(BaseModel):
     dependents: list[str] = Field(default_factory=list)
 
 
+class ClueTreeEdge(BaseModel):
+    """Schema for an edge in the clue tree."""
+
+    source: str  # prerequisite clue id
+    target: str  # dependent clue id
+
+
 class ClueTreeResponse(BaseModel):
     """Schema for clue tree response."""
 
     nodes: list[ClueTreeNode]
-    edges: list[ClueRelationResponse]
+    edges: list[ClueTreeEdge]
 
 
 class ClueTreeValidation(BaseModel):

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Table,
   Button,
   Space,
   Input,
@@ -12,7 +11,6 @@ import {
   Popconfirm,
   message,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -20,7 +18,7 @@ import {
   DeleteOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { PageHeader, StatusTag } from '@/components/common';
+import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { userApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { User } from '@/types';
@@ -128,7 +126,7 @@ export default function UserManagement() {
     return colors[role];
   };
 
-  const columns: TableProps<User>['columns'] = [
+  const columns: ResizableColumn<User>[] = [
     {
       title: t('users.username'),
       dataIndex: 'username',
@@ -238,7 +236,7 @@ export default function UserManagement() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={users}
         rowKey="id"
@@ -248,7 +246,7 @@ export default function UserManagement() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
+          onChange: (page: number, pageSize: number) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 

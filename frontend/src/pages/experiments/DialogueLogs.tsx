@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Table,
   Card,
   Input,
   Select,
@@ -14,9 +13,8 @@ import {
   Typography,
   Collapse,
 } from 'antd';
-import type { TableProps } from 'antd';
 import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { logApi, scriptApi, sceneApi, npcApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { DialogueLog, Script, Scene, NPC, MatchedClue } from '@/types';
@@ -82,7 +80,7 @@ export default function DialogueLogs() {
     fetchLogs();
   }, [filters]);
 
-  const columns: TableProps<DialogueLog>['columns'] = [
+  const columns: ResizableColumn<DialogueLog>[] = [
     {
       title: t('logs.session'),
       dataIndex: 'session_id',
@@ -217,7 +215,7 @@ export default function DialogueLogs() {
         </Space>
       </Card>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={logs}
         rowKey="id"
@@ -227,8 +225,8 @@ export default function DialogueLogs() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => t('logs.totalLogs', { total }),
-          onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
+          showTotal: (total: number) => t('logs.totalLogs', { total }),
+          onChange: (page: number, pageSize: number) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 

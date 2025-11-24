@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Table,
   Button,
   Space,
   Modal,
@@ -19,7 +18,6 @@ import {
   Col,
   message,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   PlusOutlined,
   PlayCircleOutlined,
@@ -27,7 +25,7 @@ import {
   DeleteOutlined,
   BarChartOutlined,
 } from '@ant-design/icons';
-import { PageHeader, StatusTag } from '@/components/common';
+import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { abTestApi, strategyApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { ABTestConfig, AlgorithmStrategy } from '@/types';
@@ -155,7 +153,7 @@ export default function ABTestConfigPage() {
     return strategies.find((s) => s.id === id)?.name || id;
   };
 
-  const columns: TableProps<ABTestConfig>['columns'] = [
+  const columns: ResizableColumn<ABTestConfig>[] = [
     {
       title: t('common.name'),
       dataIndex: 'name',
@@ -269,7 +267,7 @@ export default function ABTestConfigPage() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={tests}
         rowKey="id"
@@ -279,7 +277,7 @@ export default function ABTestConfigPage() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          onChange: (page, pageSize) => setFilters({ ...filters, page, page_size: pageSize }),
+          onChange: (page: number, pageSize: number) => setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />
 

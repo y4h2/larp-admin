@@ -15,7 +15,6 @@ import {
   Col,
   Divider,
   Tag,
-  Table,
   Spin,
   Empty,
   Modal,
@@ -23,7 +22,6 @@ import {
   Typography,
   Collapse,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   SaveOutlined,
   PlusOutlined,
@@ -31,7 +29,7 @@ import {
   HistoryOutlined,
   RollbackOutlined,
 } from '@ant-design/icons';
-import { PageHeader } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { clueApi, npcApi, sceneApi } from '@/api';
 import { useScripts, useClueVersions } from '@/hooks';
 import { formatDate } from '@/utils';
@@ -214,7 +212,7 @@ export default function ClueDetail() {
     });
   };
 
-  const versionColumns: TableProps<ClueVersion>['columns'] = [
+  const versionColumns: ResizableColumn<ClueVersion>[] = [
     {
       title: t('common.version'),
       dataIndex: 'version',
@@ -628,7 +626,7 @@ export default function ClueDetail() {
         footer={null}
         width={700}
       >
-        <Table
+        <ResizableTable
           columns={versionColumns}
           dataSource={versions}
           rowKey="id"

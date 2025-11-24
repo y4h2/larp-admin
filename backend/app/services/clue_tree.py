@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.clue import Clue, ClueRelation
+from app.models.clue import Clue
 from app.schemas.clue import (
-    ClueRelationResponse,
     ClueTreeNode,
     ClueTreeResponse,
     ClueTreeValidation,
@@ -16,27 +15,33 @@ from app.schemas.clue import (
 
 
 @dataclass
+class ClueEdge:
+    """Represents an edge in the clue dependency graph."""
+
+    source: str  # prerequisite clue id
+    target: str  # dependent clue id
+
+
+@dataclass
 class ClueGraph:
     """Internal representation of clue dependency graph."""
 
     nodes: dict[str, Clue] = field(default_factory=dict)
-    edges: list[ClueRelation] = field(default_factory=list)
+    edges: list[ClueEdge] = field(default_factory=list)
     adjacency: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list))
     reverse_adjacency: dict[str, list[str]] = field(
         default_factory=lambda: defaultdict(list)
     )
 
     def add_node(self, clue: Clue) -> None:
-        """Add a clue node to the graph."""
+        """Add a clue node to the graph and build edges from prereq_clue_ids."""
         self.nodes[clue.id] = clue
-
-    def add_edge(self, relation: ClueRelation) -> None:
-        """Add a relation edge to the graph."""
-        self.edges.append(relation)
-        self.adjacency[relation.prerequisite_clue_id].append(relation.dependent_clue_id)
-        self.reverse_adjacency[relation.dependent_clue_id].append(
-            relation.prerequisite_clue_id
-        )
+        # Build edges from prereq_clue_ids
+        for prereq_id in clue.prereq_clue_ids or []:
+            edge = ClueEdge(source=prereq_id, target=clue.id)
+            self.edges.append(edge)
+            self.adjacency[prereq_id].append(clue.id)
+            self.reverse_adjacency[clue.id].append(prereq_id)
 
 
 class ClueTreeService:
@@ -73,6 +78,7 @@ class ClueTreeService:
 
             node = ClueTreeNode(
                 id=clue.id,
+                title=clue.title_internal,  # Frontend compatibility
                 title_internal=clue.title_internal,
                 title_player=clue.title_player,
                 clue_type=clue.clue_type.value,
@@ -87,13 +93,9 @@ class ClueTreeService:
             nodes.append(node)
 
         edges = [
-            ClueRelationResponse(
-                id=edge.id,
-                prerequisite_clue_id=edge.prerequisite_clue_id,
-                dependent_clue_id=edge.dependent_clue_id,
-                relation_type=edge.relation_type.value,
-            )
+            {"source": edge.source, "target": edge.target}
             for edge in graph.edges
+            if edge.source in graph.nodes  # Only include edges where both nodes exist
         ]
 
         return ClueTreeResponse(nodes=nodes, edges=edges)
@@ -146,7 +148,7 @@ class ClueTreeService:
         )
 
     async def _build_graph(self, script_id: str) -> ClueGraph:
-        """Build the clue graph for a script."""
+        """Build the clue graph for a script using prereq_clue_ids."""
         graph = ClueGraph()
 
         # Fetch all clues for the script
@@ -155,21 +157,9 @@ class ClueTreeService:
         )
         clues = clues_result.scalars().all()
 
+        # Add all nodes - edges are built automatically from prereq_clue_ids
         for clue in clues:
             graph.add_node(clue)
-
-        # Fetch all relations for clues in this script
-        clue_ids = [clue.id for clue in clues]
-        if clue_ids:
-            relations_result = await self.db.execute(
-                select(ClueRelation).where(
-                    ClueRelation.prerequisite_clue_id.in_(clue_ids)
-                )
-            )
-            relations = relations_result.scalars().all()
-
-            for relation in relations:
-                graph.add_edge(relation)
 
         return graph
 

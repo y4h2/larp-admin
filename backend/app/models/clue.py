@@ -127,6 +127,12 @@ class Clue(Base):
         nullable=False,
         comment="Related NPC IDs",
     )
+    prereq_clue_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(UUID(as_uuid=False)),
+        default=list,
+        nullable=False,
+        comment="Prerequisite clue IDs for dependency tree",
+    )
     status: Mapped[ClueStatus] = mapped_column(
         Enum(ClueStatus, name="clue_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ClueStatus.DRAFT,

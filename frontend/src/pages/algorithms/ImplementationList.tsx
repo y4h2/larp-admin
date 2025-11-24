@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Table, Card, Typography, Descriptions, Modal } from 'antd';
-import type { TableProps } from 'antd';
-import { PageHeader, StatusTag } from '@/components/common';
+import { Card, Typography, Descriptions, Modal } from 'antd';
+import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { algorithmApi } from '@/api';
 import type { AlgorithmImplementation } from '@/types';
 
@@ -28,7 +27,7 @@ export default function ImplementationList() {
     fetchData();
   }, []);
 
-  const columns: TableProps<AlgorithmImplementation>['columns'] = [
+  const columns: ResizableColumn<AlgorithmImplementation>[] = [
     {
       title: 'Name',
       dataIndex: 'name',
@@ -72,7 +71,7 @@ export default function ImplementationList() {
         subtitle="View available matching algorithm implementations (read-only)"
       />
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={implementations}
         rowKey="id"

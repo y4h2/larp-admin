@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Table,
   Button,
   Space,
   Input,
@@ -10,7 +9,7 @@ import {
   Form,
   Dropdown,
 } from 'antd';
-import type { MenuProps, TableProps } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -21,7 +20,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag } from '@/components/common';
+import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useScripts } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { Script } from '@/types';
@@ -135,7 +134,7 @@ export default function ScriptList() {
     },
   ];
 
-  const columns: TableProps<Script>['columns'] = [
+  const columns: ResizableColumn<Script>[] = [
     {
       title: t('common.name'),
       dataIndex: 'name',
@@ -218,7 +217,7 @@ export default function ScriptList() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={scripts}
         rowKey="id"
@@ -228,8 +227,8 @@ export default function ScriptList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => t('script.totalScripts', { total }),
-          onChange: (page, pageSize) =>
+          showTotal: (total: number) => t('script.totalScripts', { total }),
+          onChange: (page: number, pageSize: number) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />

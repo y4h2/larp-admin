@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Table,
   Button,
   Space,
   Input,
@@ -11,7 +10,6 @@ import {
   Tag,
   Popconfirm,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -20,7 +18,7 @@ import {
   NodeIndexOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag } from '@/components/common';
+import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useClues, useScripts, useScenes, useNpcs } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { Clue } from '@/types';
@@ -103,7 +101,7 @@ export default function ClueList() {
     }
   };
 
-  const columns: TableProps<Clue>['columns'] = [
+  const columns: ResizableColumn<Clue>[] = [
     {
       title: t('clue.internalTitle'),
       dataIndex: 'title_internal',
@@ -156,6 +154,30 @@ export default function ClueList() {
           {npcIds.length > 2 && <Tag>+{npcIds.length - 2}</Tag>}
         </Space>
       ),
+    },
+    {
+      title: t('clue.prerequisites'),
+      dataIndex: 'prereq_clue_ids',
+      key: 'prereq_clue_ids',
+      width: 150,
+      render: (prereqIds: string[]) => {
+        if (!prereqIds || prereqIds.length === 0) {
+          return <Tag color="green">{t('clue.noneRoot')}</Tag>;
+        }
+        return (
+          <Space size={[0, 4]} wrap>
+            {prereqIds.slice(0, 2).map((prereqId) => {
+              const prereq = clues.find((c) => c.id === prereqId);
+              return (
+                <Tag key={prereqId} style={{ margin: 0 }} color="blue">
+                  {prereq?.title_internal || prereqId.slice(0, 8)}
+                </Tag>
+              );
+            })}
+            {prereqIds.length > 2 && <Tag>+{prereqIds.length - 2}</Tag>}
+          </Space>
+        );
+      },
     },
     {
       title: t('common.status'),
@@ -321,7 +343,7 @@ export default function ClueList() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={clues}
         rowKey="id"
@@ -332,8 +354,8 @@ export default function ClueList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => t('clue.totalClues', { total }),
-          onChange: (page, pageSize) =>
+          showTotal: (total: number) => t('clue.totalClues', { total }),
+          onChange: (page: number, pageSize: number) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />

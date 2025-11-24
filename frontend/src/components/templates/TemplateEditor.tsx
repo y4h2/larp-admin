@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { Input, Card, Row, Col, Typography, Alert } from 'antd';
+import { Input, Typography, Alert, Collapse } from 'antd';
 import { useTranslation } from 'react-i18next';
 import VariablePanel from './VariablePanel';
 
@@ -56,63 +56,62 @@ export default function TemplateEditor({
   const extractedVariables = value.match(variablePattern) || [];
 
   return (
-    <Row gutter={16}>
-      <Col span={showVariablePanel ? 16 : 24}>
-        <div style={{ marginBottom: 8 }}>
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {t('template.syntaxHint')}
+        </Text>
+      </div>
+      <TextArea
+        ref={textAreaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || t('template.editorPlaceholder')}
+        autoSize={{ minRows, maxRows }}
+        style={{
+          fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace',
+          fontSize: 13,
+        }}
+      />
+      {extractedVariables.length > 0 && (
+        <div style={{ marginTop: 8 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('template.syntaxHint')}
+            {t('template.detectedVariables')} ({extractedVariables.length}):{' '}
           </Text>
-        </div>
-        <TextArea
-          ref={textAreaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder || t('template.editorPlaceholder')}
-          autoSize={{ minRows, maxRows }}
-          style={{
-            fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, monospace',
-            fontSize: 13,
-          }}
-        />
-        {extractedVariables.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t('template.detectedVariables')} ({extractedVariables.length}):{' '}
+          {extractedVariables.map((v, i) => (
+            <Text code key={i} style={{ marginRight: 4, fontSize: 11 }}>
+              {v}
             </Text>
-            {extractedVariables.map((v, i) => (
-              <Text code key={i} style={{ marginRight: 4, fontSize: 11 }}>
-                {v}
-              </Text>
-            ))}
-          </div>
-        )}
-        {warnings.length > 0 && (
-          <Alert
-            type="warning"
-            message={t('template.unresolvedVariables')}
-            description={
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
-                {warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            }
-            style={{ marginTop: 8 }}
-          />
-        )}
-      </Col>
-      {showVariablePanel && (
-        <Col span={8}>
-          <Card
-            title={t('template.availableVariables')}
-            size="small"
-            style={{ height: '100%' }}
-            bodyStyle={{ padding: 0, height: 'calc(100% - 38px)' }}
-          >
-            <VariablePanel onInsert={handleInsertVariable} />
-          </Card>
-        </Col>
+          ))}
+        </div>
       )}
-    </Row>
+      {warnings.length > 0 && (
+        <Alert
+          type="warning"
+          message={t('template.unresolvedVariables')}
+          description={
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          }
+          style={{ marginTop: 8 }}
+        />
+      )}
+      {showVariablePanel && (
+        <Collapse
+          style={{ marginTop: 16 }}
+          defaultActiveKey={['variables']}
+          items={[
+            {
+              key: 'variables',
+              label: t('template.availableVariables'),
+              children: <VariablePanel onInsert={handleInsertVariable} />,
+            },
+          ]}
+        />
+      )}
+    </div>
   );
 }

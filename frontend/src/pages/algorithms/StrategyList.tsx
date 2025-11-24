@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Table,
   Button,
   Space,
   Input,
@@ -12,7 +11,6 @@ import {
   Tag,
   message,
 } from 'antd';
-import type { TableProps } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -21,7 +19,7 @@ import {
   StarOutlined,
   StarFilled,
 } from '@ant-design/icons';
-import { PageHeader, StatusTag } from '@/components/common';
+import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
 import { strategyApi, algorithmApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { AlgorithmStrategy, AlgorithmImplementation } from '@/types';
@@ -125,7 +123,7 @@ export default function StrategyList() {
     return colors[type];
   };
 
-  const columns: TableProps<AlgorithmStrategy>['columns'] = [
+  const columns: ResizableColumn<AlgorithmStrategy>[] = [
     {
       title: 'Name',
       dataIndex: 'name',
@@ -263,7 +261,7 @@ export default function StrategyList() {
         </Select>
       </Space>
 
-      <Table
+      <ResizableTable
         columns={columns}
         dataSource={strategies}
         rowKey="id"
@@ -273,8 +271,8 @@ export default function StrategyList() {
           pageSize: filters.page_size,
           total,
           showSizeChanger: true,
-          showTotal: (total) => `Total ${total} strategies`,
-          onChange: (page, pageSize) =>
+          showTotal: (total: number) => `Total ${total} strategies`,
+          onChange: (page: number, pageSize: number) =>
             setFilters({ ...filters, page, page_size: pageSize }),
         }}
       />

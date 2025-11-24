@@ -244,7 +244,16 @@
     "dependents": "依赖此线索",
     "noneLeaf": "无（叶线索）",
     "dependencyAdded": "依赖已添加",
-    "dependencies": "个依赖"
+    "dependencyRemoved": "依赖已移除",
+    "dependencyExists": "依赖关系已存在",
+    "cycleDetected": "无法添加：这将导致循环依赖",
+    "cannotSelfReference": "线索不能依赖自身",
+    "confirmDeleteDependency": "确定删除此依赖？",
+    "deleteDependencyWarning": "这将移除两个线索之间的依赖关系。",
+    "treeHint": "拖拽节点底部的连接点到另一个节点顶部可添加依赖，点击连线可删除依赖",
+    "dependencies": "个依赖",
+    "displayFields": "显示字段",
+    "fieldTitle": "标题"
   },
   "algorithm": {
     "title": "算法",
@@ -560,6 +569,7 @@
   },
   "template": {
     "configuration": "模板配置",
+    "contextSelection": "上下文选择",
     "editor": "模板编辑器",
     "preview": "渲染预览",
     "render": "渲染",

@@ -266,6 +266,106 @@ async def update_clue(
     return ClueResponse.model_validate(clue)
 
 
+@router.put("/clues/{clue_id}/dependencies", response_model=ClueResponse)
+async def update_clue_dependencies(
+    db: DBSession,
+    clue_id: str,
+    data: dict,
+) -> ClueResponse:
+    """
+    Update the prerequisite clue IDs for a clue.
+
+    Args:
+        db: Database session.
+        clue_id: Clue ID.
+        data: Dictionary with prerequisite_clue_ids list.
+
+    Returns:
+        Updated clue.
+
+    Raises:
+        HTTPException: If clue not found or would create a cycle.
+    """
+    result = await db.execute(select(Clue).where(Clue.id == clue_id))
+    clue = result.scalars().first()
+
+    if not clue:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Clue with id {clue_id} not found",
+        )
+
+    new_prereq_ids = data.get("prerequisite_clue_ids", [])
+
+    # Validate all prerequisite clues exist
+    for prereq_id in new_prereq_ids:
+        prereq_result = await db.execute(select(Clue).where(Clue.id == prereq_id))
+        if not prereq_result.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Prerequisite clue with id {prereq_id} not found",
+            )
+
+    # Prevent self-reference
+    if clue_id in new_prereq_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A clue cannot depend on itself",
+        )
+
+    # Check for cycles using DFS
+    # Get all clues in the same script to build the graph
+    all_clues_result = await db.execute(
+        select(Clue).where(Clue.script_id == clue.script_id)
+    )
+    all_clues = list(all_clues_result.scalars().all())
+
+    # Build adjacency list (prereq -> dependents)
+    adjacency: dict[str, list[str]] = {}
+    for c in all_clues:
+        if c.id == clue_id:
+            # Use new prereq_ids for the clue being updated
+            for prereq_id in new_prereq_ids:
+                if prereq_id not in adjacency:
+                    adjacency[prereq_id] = []
+                adjacency[prereq_id].append(c.id)
+        else:
+            for prereq_id in c.prereq_clue_ids or []:
+                if prereq_id not in adjacency:
+                    adjacency[prereq_id] = []
+                adjacency[prereq_id].append(c.id)
+
+    # DFS to detect cycles starting from each new prerequisite
+    def has_cycle_to(start: str, target: str, visited: set) -> bool:
+        if start == target:
+            return True
+        if start in visited:
+            return False
+        visited.add(start)
+        for neighbor in adjacency.get(start, []):
+            if has_cycle_to(neighbor, target, visited):
+                return True
+        return False
+
+    # Check if any path from clue_id leads back to any prerequisite
+    for prereq_id in new_prereq_ids:
+        if has_cycle_to(clue_id, prereq_id, set()):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Adding prerequisite {prereq_id} would create a circular dependency",
+            )
+
+    # Update the clue
+    clue.prereq_clue_ids = new_prereq_ids
+    clue.version += 1
+
+    await db.flush()
+    await db.refresh(clue)
+
+    logger.info(f"Updated clue dependencies: {clue.id}")
+    return ClueResponse.model_validate(clue)
+
+
 @router.delete("/clues/{clue_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_clue(
     db: DBSession,
