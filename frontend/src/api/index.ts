@@ -5,3 +5,4 @@ export { clueApi } from './clues';
 export { algorithmApi, strategyApi } from './algorithms';
 export { simulationApi, logApi, abTestApi } from './simulation';
 export { settingsApi, userApi, auditLogApi } from './settings';
+export { templateApi } from './templates';
