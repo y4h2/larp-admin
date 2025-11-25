@@ -33,7 +33,7 @@ export default function PageHeader({ title, subtitle, breadcrumbs, extra }: Page
         />
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Title level={4} style={{ margin: 0 }}>
             {title}
           </Title>

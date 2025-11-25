@@ -151,7 +151,7 @@ export default function ChatPanel({
         {chatHistory.length === 0 ? (
           <Empty
             description={
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <span>{t('debug.startMessage')}</span>
                 {!canSend && (
                   <span style={{ color: '#faad14', fontSize: 12 }}>

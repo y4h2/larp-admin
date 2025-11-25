@@ -243,7 +243,7 @@ export default function ClueDetail() {
           </Form.Item>
 
           <Form.Item>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Space>
                 <Tag>{t('common.createdAt')}: {new Date(clue.created_at).toLocaleString()}</Tag>
                 <Tag>{t('common.updatedAt')}: {new Date(clue.updated_at).toLocaleString()}</Tag>

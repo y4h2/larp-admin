@@ -224,7 +224,7 @@ export default function StatusBar({
         children: presetHistory.map((h) => ({
           key: h.id,
           label: (
-            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={0} style={{ width: '100%' }}>
               <Text ellipsis style={{ maxWidth: 200 }}>{h.name}</Text>
               <Text type="secondary" style={{ fontSize: 11 }}>
                 {formatRelativeTime(h.createdAt)}

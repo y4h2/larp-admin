@@ -524,7 +524,7 @@ export default function DialogueSimulation() {
       dataIndex: 'match_reasons',
       key: 'match_reasons',
       render: (reasons: string[]) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           {reasons.map((r, i) => (
             <Text key={i} type="secondary" style={{ fontSize: 12 }}>{r}</Text>
           ))}
@@ -591,7 +591,7 @@ export default function DialogueSimulation() {
                   key: 'basic',
                   label: <span><SettingOutlined /><span style={{ marginLeft: 4 }}>{t('debug.basicConfig')}</span></span>,
                   children: (
-                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.selectScript')}</div>
                         <Select
@@ -643,7 +643,7 @@ export default function DialogueSimulation() {
                   key: 'matching',
                   label: <span><AimOutlined /><span style={{ marginLeft: 4 }}>{t('debug.matchingConfig')}</span></span>,
                   children: (
-                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.matchingStrategy')}</div>
                         <Select value={matchingStrategy} onChange={setMatchingStrategy} style={{ width: '100%' }}>
@@ -758,7 +758,7 @@ export default function DialogueSimulation() {
                     </span>
                   ),
                   children: (
-                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
                       <div style={{ padding: '8px 12px', background: enableNpcReply ? '#f6ffed' : '#fafafa', borderRadius: 6, border: enableNpcReply ? '1px solid #b7eb8f' : '1px solid #d9d9d9' }}>
                         <Space>
                           <Switch checked={enableNpcReply} onChange={setEnableNpcReply} size="small" />
@@ -848,7 +848,7 @@ export default function DialogueSimulation() {
                 <Alert
                   message={t('debug.debugSummary')}
                   description={
-                    <Space direction="vertical" size={0}>
+                    <Space orientation="vertical" size={0}>
                       <Text>{t('debug.totalCandidates')}: {String(lastDebugInfo.total_candidates ?? 0)}</Text>
                       <Text>{t('debug.totalMatched')}: {String(lastDebugInfo.total_matched ?? 0)}</Text>
                       <Text>{t('debug.totalTriggered')}: {String(lastDebugInfo.total_triggered ?? 0)}</Text>

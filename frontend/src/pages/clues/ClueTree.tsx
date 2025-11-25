@@ -46,6 +46,7 @@ import {
   SettingOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
+import dagre from 'dagre';
 import { PageHeader } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
 import { useScripts, useNpcs } from '@/hooks';
@@ -195,6 +196,8 @@ const nodeTypes: NodeTypes = {
 // Custom edge component with click handler
 interface ClickableEdgeData extends Record<string, unknown> {
   onDelete?: (source: string, target: string) => void;
+  edgeIndex?: number; // Index among edges with same target
+  totalEdgesToTarget?: number; // Total edges pointing to same target
 }
 
 function ClickableEdge(props: EdgeProps) {
@@ -213,16 +216,27 @@ function ClickableEdge(props: EdgeProps) {
     data,
   } = props;
 
-  const [edgePath] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  const [isHovered, setIsHovered] = useState(false);
 
   const edgeData = data as ClickableEdgeData | undefined;
+
+  // Calculate offset to separate overlapping edges
+  const edgeIndex = edgeData?.edgeIndex ?? 0;
+  const totalEdges = edgeData?.totalEdgesToTarget ?? 1;
+  // Spread edges horizontally: offset ranges from negative to positive
+  const offsetX = totalEdges > 1
+    ? (edgeIndex - (totalEdges - 1) / 2) * 25
+    : 0;
+
+  const [edgePath] = getSmoothStepPath({
+    sourceX: sourceX + offsetX,
+    sourceY,
+    sourcePosition,
+    targetX: targetX + offsetX,
+    targetY,
+    targetPosition,
+    borderRadius: 8,
+  });
 
   const handleClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -233,8 +247,29 @@ function ClickableEdge(props: EdgeProps) {
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd as string} style={style} />
-      {/* Invisible wider path for easier clicking */}
+      {/* Highlight glow effect on hover */}
+      {isHovered && (
+        <path
+          d={edgePath}
+          fill="none"
+          strokeWidth={8}
+          stroke="#ff4d4f"
+          strokeOpacity={0.4}
+          style={{ filter: 'blur(2px)' }}
+        />
+      )}
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd as string}
+        style={{
+          ...style,
+          stroke: isHovered ? '#ff4d4f' : (style?.stroke as string) || '#888',
+          strokeWidth: isHovered ? 3 : (style?.strokeWidth as number) || 2,
+          transition: 'stroke 0.2s, stroke-width 0.2s',
+        }}
+      />
+      {/* Invisible wider path for easier clicking and hover detection */}
       <path
         d={edgePath}
         fill="none"
@@ -242,6 +277,8 @@ function ClickableEdge(props: EdgeProps) {
         stroke="transparent"
         style={{ cursor: 'pointer' }}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       />
     </>
   );
@@ -376,102 +413,90 @@ export default function ClueTree() {
       setDrawerVisible(true);
     };
 
-    // Calculate positions using a simple layout algorithm
+    // Build node map for quick lookup
     const nodeMap = new Map<string, ClueTreeNode>();
-    const levelMap = new Map<string, number>();
-    const childrenMap = new Map<string, string[]>();
-
     treeData.nodes.forEach((node) => {
       nodeMap.set(node.id, node);
-      childrenMap.set(node.id, []);
     });
 
-    treeData.edges.forEach((edge) => {
-      const children = childrenMap.get(edge.source) || [];
-      children.push(edge.target);
-      childrenMap.set(edge.source, children);
+    // Use dagre for automatic graph layout
+    const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+    g.setGraph({
+      rankdir: 'TB', // Top to bottom
+      nodesep: 80,   // Horizontal spacing between nodes
+      ranksep: 120,  // Vertical spacing between ranks
+      marginx: 20,
+      marginy: 20,
     });
 
-    // Calculate levels (BFS from nodes without prerequisites)
-    const rootNodes = treeData.nodes.filter((n) => (n.prereq_clue_ids?.length ?? 0) === 0);
-    const queue: Array<{ id: string; level: number }> = rootNodes.map((n) => ({
-      id: n.id,
-      level: 0,
-    }));
-    const visited = new Set<string>();
-
-    while (queue.length > 0) {
-      const { id, level } = queue.shift()!;
-      if (visited.has(id)) continue;
-      visited.add(id);
-      levelMap.set(id, Math.max(levelMap.get(id) || 0, level));
-
-      const children = childrenMap.get(id) || [];
-      children.forEach((childId) => {
-        queue.push({ id: childId, level: level + 1 });
-      });
-    }
-
-    // Handle orphan nodes
+    // Add nodes to dagre graph
     treeData.nodes.forEach((node) => {
-      if (!levelMap.has(node.id)) {
-        levelMap.set(node.id, 0);
-      }
+      // Estimate node dimensions based on visible fields
+      const nodeWidth = 180;
+      const nodeHeight = 60 + visibleFields.length * 20;
+      g.setNode(node.id, { width: nodeWidth, height: nodeHeight });
     });
 
-    // Group nodes by level
-    const levelGroups = new Map<number, string[]>();
-    levelMap.forEach((level, nodeId) => {
-      const group = levelGroups.get(level) || [];
-      group.push(nodeId);
-      levelGroups.set(level, group);
+    // Add edges to dagre graph
+    treeData.edges.forEach((edge) => {
+      g.setEdge(edge.source, edge.target);
     });
 
-    // Create positioned nodes
-    const flowNodes: Node[] = [];
-    const xSpacing = 250;
-    const ySpacing = 150;
+    // Run dagre layout
+    dagre.layout(g);
 
-    levelGroups.forEach((nodeIds, level) => {
-      const totalWidth = (nodeIds.length - 1) * xSpacing;
-      const startX = -totalWidth / 2;
+    // Create positioned nodes from dagre results
+    const flowNodes: Node[] = treeData.nodes.map((node) => {
+      const nodeWithPosition = g.node(node.id);
+      return {
+        id: node.id,
+        type: 'clueNode',
+        position: {
+          x: nodeWithPosition.x - nodeWithPosition.width / 2,
+          y: nodeWithPosition.y - nodeWithPosition.height / 2,
+        },
+        data: {
+          clue: node,
+          onClick: handleClueClick,
+          visibleFields,
+          npcMap,
+        },
+      };
+    });
 
-      nodeIds.forEach((nodeId, index) => {
-        const clueNode = nodeMap.get(nodeId)!;
-        flowNodes.push({
-          id: nodeId,
-          type: 'clueNode',
-          position: {
-            x: startX + index * xSpacing,
-            y: level * ySpacing,
-          },
-          data: {
-            clue: clueNode,
-            onClick: handleClueClick,
-            visibleFields,
-            npcMap,
-          },
-        });
-      });
+    // Group edges by target to calculate offsets for overlapping edges
+    const edgesByTarget = new Map<string, typeof treeData.edges>();
+    treeData.edges.forEach((edge) => {
+      const existing = edgesByTarget.get(edge.target) || [];
+      existing.push(edge);
+      edgesByTarget.set(edge.target, existing);
     });
 
     // Create edges with persistent IDs based on source-target
-    const flowEdges: Edge[] = treeData.edges.map((edge) => ({
-      id: `${edge.source}->${edge.target}`,
-      source: edge.source,
-      target: edge.target,
-      type: 'clickable',
-      animated: false,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-      },
-      style: { stroke: '#888', strokeWidth: 2 },
-      data: {
-        onDelete: (source: string, target: string) => {
-          edgeDeleteHandlerRef.current?.(source, target);
+    const flowEdges: Edge[] = treeData.edges.map((edge) => {
+      const edgesToSameTarget = edgesByTarget.get(edge.target) || [];
+      const edgeIndex = edgesToSameTarget.findIndex(
+        (e) => e.source === edge.source && e.target === edge.target
+      );
+      return {
+        id: `${edge.source}->${edge.target}`,
+        source: edge.source,
+        target: edge.target,
+        type: 'clickable',
+        animated: false,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
         },
-      },
-    }));
+        style: { stroke: '#888', strokeWidth: 2 },
+        data: {
+          onDelete: (source: string, target: string) => {
+            edgeDeleteHandlerRef.current?.(source, target);
+          },
+          edgeIndex,
+          totalEdgesToTarget: edgesToSameTarget.length,
+        },
+      };
+    });
 
     setNodes(flowNodes);
     setEdges(flowEdges);
@@ -543,21 +568,44 @@ export default function ClueTree() {
       });
 
       // Update local edges display
-      const newEdge: Edge = {
-        id: `edge-new-${Date.now()}`,
-        source: params.source,
-        target: params.target,
-        type: 'clickable',
-        animated: true, // Animate to indicate unsaved
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: '#1890ff', strokeWidth: 2, strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
-        data: {
-          onDelete: (source: string, target: string) => {
-            edgeDeleteHandlerRef.current?.(source, target);
+      setEdges((eds) => {
+        // Count existing edges to the same target
+        const existingEdgesToTarget = eds.filter((e) => e.target === params.target);
+        const edgeIndex = existingEdgesToTarget.length;
+        const totalEdgesToTarget = edgeIndex + 1;
+
+        // Update totalEdgesToTarget for existing edges to same target
+        const updatedEdges = eds.map((e) => {
+          if (e.target === params.target) {
+            return {
+              ...e,
+              data: {
+                ...e.data,
+                totalEdgesToTarget,
+              },
+            };
+          }
+          return e;
+        });
+
+        const newEdge: Edge = {
+          id: `edge-new-${Date.now()}`,
+          source: params.source,
+          target: params.target,
+          type: 'clickable',
+          animated: true, // Animate to indicate unsaved
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { stroke: '#1890ff', strokeWidth: 2, strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
+          data: {
+            onDelete: (source: string, target: string) => {
+              edgeDeleteHandlerRef.current?.(source, target);
+            },
+            edgeIndex,
+            totalEdgesToTarget,
           },
-        },
-      };
-      setEdges((eds) => [...eds, newEdge]);
+        };
+        return [...updatedEdges, newEdge];
+      });
       message.info(t('clue.dependencyAddedUnsaved'));
     },
     [treeData, pendingChanges, getCurrentPrerequisites, setEdges, message, t]
@@ -724,7 +772,7 @@ export default function ClueTree() {
             trigger={['click']}
             popupRender={() => (
               <Card size="small" style={{ width: 220, maxHeight: 400, overflow: 'auto' }}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Text strong style={{ fontSize: 12 }}>{t('clue.displayFields')}</Text>
                   {ALL_CLUE_FIELDS.map(({ field, labelKey }) => (
                     <Checkbox
@@ -765,7 +813,7 @@ export default function ClueTree() {
           icon={<WarningOutlined />}
           message={t('clue.qualityIssues')}
           description={
-            <Space direction="vertical">
+            <Space orientation="vertical">
               {(treeData?.issues?.dead_clues?.length ?? 0) > 0 && (
                 <span>
                   <ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />
@@ -855,7 +903,7 @@ export default function ClueTree() {
       <Drawer
         title={t('clue.clueDetails')}
         placement="right"
-        width={400}
+        size="large"
         open={drawerVisible}
         onClose={() => setDrawerVisible(false)}
         extra={
@@ -876,7 +924,7 @@ export default function ClueTree() {
               {(selectedClue.prereq_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneRoot')}</Text>
               ) : (
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   {(selectedClue.prereq_clue_ids || []).map((id) => {
                     const prereq = treeData?.nodes.find((n) => n.id === id);
                     return (
@@ -896,7 +944,7 @@ export default function ClueTree() {
               {(selectedClue?.dependent_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneLeaf')}</Text>
               ) : (
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   {(selectedClue?.dependent_clue_ids || []).map((id) => {
                     const dep = treeData?.nodes.find((n) => n.id === id);
                     return (
