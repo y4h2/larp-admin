@@ -18,6 +18,7 @@ from app.schemas.simulate import (
     SimulateResponse,
 )
 from app.services.template_renderer import template_renderer
+from app.services.vector_matching import VectorClueRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -225,14 +226,12 @@ class MatchingService:
         context: MatchContext,
     ) -> list[MatchResult]:
         """
-        Match clues using embedding similarity.
-
-        Uses the embedding LLM config to compute similarity between player message
-        and clue content rendered via template (if provided).
+        Match clues using embedding similarity with LangChain and Chroma.
 
         Based on VectorClueRetrievalStrategy from data/sample/clue.py:
+        - Uses OpenAIEmbeddings and Chroma vector store
         - Renders clue content using template before embedding
-        - Computes cosine similarity between message and clue embeddings
+        - Uses similarity search for matching
         """
         results = []
 
@@ -253,42 +252,57 @@ class MatchingService:
             if template_content:
                 logger.info(f"Using template {context.template_id} for embedding")
 
-        # Get embedding for player message
-        try:
-            message_embedding = await self._get_embedding(
-                context.player_message,
-                embedding_config,
-            )
-        except Exception as e:
-            logger.error(f"Failed to get message embedding: {e}")
+        # Filter candidates by prerequisites
+        eligible_clues = [
+            c for c in candidates if self._check_prerequisites(c, context)
+        ]
+
+        if not eligible_clues:
             return results
 
-        # Match each clue
-        for clue in candidates:
-            # Check prerequisites first
-            if not self._check_prerequisites(clue, context):
-                continue
+        # Create vector retriever
+        retriever = VectorClueRetriever(embedding_config)
 
-            result = MatchResult(clue=clue)
+        try:
+            # Build embedding database with eligible (unlocked) clues
+            retriever.build_embedding_db(eligible_clues, template_content)
 
-            # Render clue content using template if available
-            clue_text = self._render_clue_for_embedding(clue, template_content)
+            # Search for matching clues
+            vector_results = retriever.retrieve_clues(
+                context.player_message,
+                k=len(eligible_clues),  # Get all results
+                score_threshold=0.0,
+            )
 
-            try:
-                clue_embedding = await self._get_embedding(clue_text, embedding_config)
-                similarity = self._cosine_similarity(message_embedding, clue_embedding)
-
-                if similarity > 0:
-                    result.score = similarity
-                    result.embedding_similarity = similarity
-                    result.match_reasons.append(
-                        f"Embedding similarity: {similarity:.3f}"
+            # Convert to MatchResult
+            for vr in vector_results:
+                clue = retriever.get_clue(vr.clue_id)
+                if clue:
+                    result = MatchResult(
+                        clue=clue,
+                        score=vr.score,
+                        embedding_similarity=vr.score,
+                        match_reasons=[
+                            f"Embedding similarity: {vr.score:.3f}",
+                        ],
                     )
                     if template_content:
                         result.match_reasons.append("Matched using template rendering")
                     results.append(result)
-            except Exception as e:
-                logger.error(f"Failed to get clue embedding for {clue.id}: {e}")
+
+            logger.info(f"Vector matching found {len(results)} results")
+
+        except Exception as e:
+            logger.error(f"Vector matching failed: {e}", exc_info=True)
+            # Fallback to keyword matching
+            for clue in eligible_clues:
+                result = self._match_clue(clue, context)
+                if result.score > 0:
+                    results.append(result)
+
+        finally:
+            # Always cleanup the Chroma collection after use
+            retriever.cleanup()
 
         return results
 
@@ -320,42 +334,6 @@ class MatchingService:
         result = await self.db.execute(query)
         template = result.scalars().first()
         return template.content if template else None
-
-    def _render_clue_for_embedding(
-        self, clue: Clue, template_content: str | None
-    ) -> str:
-        """
-        Render clue content for embedding.
-
-        If template is provided, renders the clue using the template.
-        Otherwise, uses the default: trigger_semantic_summary or detail or name.
-
-        Based on VectorClueRetrievalStrategy.build_embedding_db pattern.
-        """
-        if template_content:
-            # Build context for template rendering
-            clue_context = {
-                "clue": {
-                    "id": clue.id,
-                    "name": clue.name,
-                    "type": clue.type.value if clue.type else "text",
-                    "detail": clue.detail or "",
-                    "detail_for_npc": clue.detail_for_npc or "",
-                    "trigger_keywords": clue.trigger_keywords or [],
-                    "trigger_semantic_summary": clue.trigger_semantic_summary or "",
-                }
-            }
-            render_result = template_renderer.render(template_content, clue_context)
-            if not render_result.unresolved_variables:
-                return render_result.rendered_content
-            else:
-                logger.warning(
-                    f"Template has unresolved variables: {render_result.unresolved_variables}, "
-                    f"using default clue text"
-                )
-
-        # Default: use semantic summary or detail or name
-        return clue.trigger_semantic_summary or clue.detail or clue.name
 
     async def _match_with_llm(
         self,
@@ -429,33 +407,6 @@ class MatchingService:
         )
         result = await self.db.execute(query)
         return result.scalars().first()
-
-    async def _get_embedding(
-        self, text: str, config: LLMConfig
-    ) -> list[float]:
-        """Get embedding for text using configured embedding service."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{config.base_url}/embeddings",
-                headers={"Authorization": f"Bearer {config.api_key}"},
-                json={"model": config.model, "input": text},
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["data"][0]["embedding"]
-
-    def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
-        """Calculate cosine similarity between two vectors."""
-        import math
-
-        dot_product = sum(x * y for x, y in zip(a, b))
-        norm_a = math.sqrt(sum(x * x for x in a))
-        norm_b = math.sqrt(sum(x * x for x in b))
-
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-
-        return dot_product / (norm_a * norm_b)
 
     async def _build_llm_matching_prompt(
         self, template_id: str | None, clues: list[Clue]
