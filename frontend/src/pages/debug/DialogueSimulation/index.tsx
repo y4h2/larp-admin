@@ -67,6 +67,8 @@ export default function DialogueSimulation() {
     removeFromFavorites,
     clearHistory,
     getPresetById,
+    exportFavorites,
+    importFavorites,
   } = usePresets();
   const [clues, setClues] = useState<Clue[]>([]);
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
@@ -568,6 +570,14 @@ export default function DialogueSimulation() {
         onFavoriteNameChange={setFavoriteName}
         onFavoriteNoteChange={setFavoriteNote}
         onSaveToFavorites={handleSaveToFavorites}
+        onExportFavorites={exportFavorites}
+        onImportFavorites={(file) => {
+          importFavorites(
+            file,
+            (count) => message.success(t('debug.importSuccess', { count })),
+            (error) => message.error(t('debug.importFailed') + ': ' + error)
+          );
+        }}
       />
 
       <Row gutter={[16, 16]}>

@@ -289,7 +289,12 @@
     "maxTokensHint": "临时覆盖本次会话的最大令牌数",
     "selectScriptAndNpcFirst": "请先选择剧本和NPC",
     "toSend": "发送",
-    "newLine": "换行"
+    "newLine": "换行",
+    "exportPresets": "导出收藏",
+    "importPresets": "导入收藏",
+    "importSuccess": "成功导入 {{count}} 个预设",
+    "importFailed": "导入失败",
+    "exportChat": "导出对话"
   },
   "logs": {
     "title": "对话日志",

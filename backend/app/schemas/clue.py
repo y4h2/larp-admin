@@ -66,6 +66,11 @@ class ClueTreeNode(BaseModel):
     type: str
     npc_id: str
     prereq_clue_ids: list[str] = Field(default_factory=list)
+    dependent_clue_ids: list[str] = Field(default_factory=list)
+    detail: str | None = None
+    trigger_keywords: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class ClueTreeEdge(BaseModel):
@@ -75,11 +80,20 @@ class ClueTreeEdge(BaseModel):
     target: str  # dependent clue id
 
 
+class ClueTreeIssues(BaseModel):
+    """Schema for clue tree quality issues."""
+
+    dead_clues: list[str] = Field(default_factory=list, description="Clue IDs that are unreachable")
+    orphan_clues: list[str] = Field(default_factory=list, description="Clue IDs with no relations")
+    cycles: list[list[str]] = Field(default_factory=list, description="List of detected cycles")
+
+
 class ClueTreeResponse(BaseModel):
     """Schema for clue tree response."""
 
     nodes: list[ClueTreeNode]
     edges: list[ClueTreeEdge]
+    issues: ClueTreeIssues = Field(default_factory=ClueTreeIssues)
 
 
 class ClueTreeValidation(BaseModel):

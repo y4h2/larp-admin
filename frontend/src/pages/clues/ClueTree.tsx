@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,10 +13,9 @@ import {
   Descriptions,
   Tag,
   Typography,
-  message,
-  Modal,
   Dropdown,
   Checkbox,
+  App,
 } from 'antd';
 import {
   ReactFlow,
@@ -25,10 +24,14 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  BaseEdge,
+  getSmoothStepPath,
   type Node,
   type Edge,
+  type EdgeProps,
   type Connection,
   type NodeTypes,
+  type EdgeTypes,
   type EdgeChange,
   Handle,
   Position,
@@ -137,11 +140,11 @@ function ClueNode({ data }: { data: ClueNodeData }) {
         </div>
       )}
 
-      {showDetail && (clue as unknown as { detail?: string }).detail && (
+      {showDetail && clue.detail && (
         <div style={{ marginBottom: 4 }}>
           <Text ellipsis style={{ display: 'block', maxWidth: 210, fontSize: 11, color: '#888' }}>
-            {((clue as unknown as { detail?: string }).detail || '').substring(0, 50)}
-            {((clue as unknown as { detail?: string }).detail || '').length > 50 ? '...' : ''}
+            {(clue.detail || '').substring(0, 50)}
+            {(clue.detail || '').length > 50 ? '...' : ''}
           </Text>
         </div>
       )}
@@ -162,11 +165,10 @@ function ClueNode({ data }: { data: ClueNodeData }) {
         </div>
       )}
 
-      {showKeywords && (clue as unknown as { trigger_keywords?: string[] }).trigger_keywords &&
-       (clue as unknown as { trigger_keywords?: string[] }).trigger_keywords!.length > 0 && (
+      {showKeywords && clue.trigger_keywords && clue.trigger_keywords.length > 0 && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            🔑 {(clue as unknown as { trigger_keywords?: string[] }).trigger_keywords!.length} keyword(s)
+            🔑 {clue.trigger_keywords.length} keyword(s)
           </Text>
         </div>
       )}
@@ -174,9 +176,9 @@ function ClueNode({ data }: { data: ClueNodeData }) {
       {(showCreatedAt || showUpdatedAt) && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 10 }}>
-            {showCreatedAt && `📅 ${formatShortDate((clue as unknown as { created_at?: string }).created_at)}`}
+            {showCreatedAt && `📅 ${formatShortDate(clue.created_at)}`}
             {showCreatedAt && showUpdatedAt && ' | '}
-            {showUpdatedAt && `✏️ ${formatShortDate((clue as unknown as { updated_at?: string }).updated_at)}`}
+            {showUpdatedAt && `✏️ ${formatShortDate(clue.updated_at)}`}
           </Text>
         </div>
       )}
@@ -188,6 +190,65 @@ function ClueNode({ data }: { data: ClueNodeData }) {
 
 const nodeTypes: NodeTypes = {
   clueNode: ClueNode,
+};
+
+// Custom edge component with click handler
+interface ClickableEdgeData extends Record<string, unknown> {
+  onDelete?: (source: string, target: string) => void;
+}
+
+function ClickableEdge(props: EdgeProps) {
+  const {
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    style,
+    markerEnd,
+    source,
+    target,
+    data,
+  } = props;
+
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  const edgeData = data as ClickableEdgeData | undefined;
+
+  const handleClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (edgeData?.onDelete) {
+      edgeData.onDelete(source, target);
+    }
+  };
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd as string} style={style} />
+      {/* Invisible wider path for easier clicking */}
+      <path
+        d={edgePath}
+        fill="none"
+        strokeWidth={20}
+        stroke="transparent"
+        style={{ cursor: 'pointer' }}
+        onClick={handleClick}
+      />
+    </>
+  );
+}
+
+const edgeTypes: EdgeTypes = {
+  clickable: ClickableEdge,
 };
 
 // Helper function to detect cycles in the dependency graph
@@ -233,6 +294,7 @@ function detectCycle(
 
 export default function ClueTree() {
   const { t } = useTranslation();
+  const { modal, message } = App.useApp();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { scripts, fetchScripts } = useScripts();
@@ -249,6 +311,9 @@ export default function ClueTree() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // Ref to store the edge delete handler for use in edge components
+  const edgeDeleteHandlerRef = useRef<((source: string, target: string) => void) | undefined>(undefined);
 
   const hasUnsavedChanges = pendingChanges.size > 0;
 
@@ -294,7 +359,7 @@ export default function ClueTree() {
     } finally {
       setLoading(false);
     }
-  }, [scriptId, t]);
+  }, [scriptId, message, t]);
 
   useEffect(() => {
     if (scriptId) {
@@ -390,17 +455,22 @@ export default function ClueTree() {
       });
     });
 
-    // Create edges
-    const flowEdges: Edge[] = treeData.edges.map((edge, index) => ({
-      id: `edge-${index}`,
+    // Create edges with persistent IDs based on source-target
+    const flowEdges: Edge[] = treeData.edges.map((edge) => ({
+      id: `${edge.source}->${edge.target}`,
       source: edge.source,
       target: edge.target,
-      type: 'smoothstep',
+      type: 'clickable',
       animated: false,
       markerEnd: {
         type: MarkerType.ArrowClosed,
       },
-      style: { stroke: '#888' },
+      style: { stroke: '#888', strokeWidth: 2 },
+      data: {
+        onDelete: (source: string, target: string) => {
+          edgeDeleteHandlerRef.current?.(source, target);
+        },
+      },
     }));
 
     setNodes(flowNodes);
@@ -477,15 +547,20 @@ export default function ClueTree() {
         id: `edge-new-${Date.now()}`,
         source: params.source,
         target: params.target,
-        type: 'smoothstep',
+        type: 'clickable',
         animated: true, // Animate to indicate unsaved
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: '#1890ff', strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
+        style: { stroke: '#1890ff', strokeWidth: 2, strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
+        data: {
+          onDelete: (source: string, target: string) => {
+            edgeDeleteHandlerRef.current?.(source, target);
+          },
+        },
       };
       setEdges((eds) => [...eds, newEdge]);
       message.info(t('clue.dependencyAddedUnsaved'));
     },
-    [treeData, pendingChanges, getCurrentPrerequisites, setEdges, t]
+    [treeData, pendingChanges, getCurrentPrerequisites, setEdges, message, t]
   );
 
   // Handle edge deletion (now tracks locally instead of saving immediately)
@@ -505,8 +580,28 @@ export default function ClueTree() {
       setEdges((eds) => eds.filter((e) => !(e.source === source && e.target === target)));
       message.info(t('clue.dependencyRemovedUnsaved'));
     },
-    [getCurrentPrerequisites, setEdges, t]
+    [getCurrentPrerequisites, setEdges, message, t]
   );
+
+  // Show delete confirmation modal - used by edge click handler
+  const showDeleteConfirmModal = useCallback(
+    (source: string, target: string) => {
+      modal.confirm({
+        title: t('clue.confirmDeleteDependency'),
+        content: t('clue.deleteDependencyWarning'),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        okButtonProps: { danger: true, icon: <DeleteOutlined /> },
+        onOk: () => handleEdgeDelete(source, target),
+      });
+    },
+    [modal, handleEdgeDelete, t]
+  );
+
+  // Keep the ref updated
+  useEffect(() => {
+    edgeDeleteHandlerRef.current = showDeleteConfirmModal;
+  }, [showDeleteConfirmModal]);
 
   // Save all pending changes to backend
   const handleSaveChanges = useCallback(async () => {
@@ -528,11 +623,11 @@ export default function ClueTree() {
     } finally {
       setSaving(false);
     }
-  }, [pendingChanges, fetchTree, t]);
+  }, [pendingChanges, fetchTree, message, t]);
 
   // Discard all pending changes
   const handleDiscardChanges = useCallback(() => {
-    Modal.confirm({
+    modal.confirm({
       title: t('common.discardChanges'),
       content: t('common.discardChangesConfirm'),
       okText: t('common.confirm'),
@@ -543,7 +638,7 @@ export default function ClueTree() {
         fetchTree(); // Refresh to restore original state
       },
     });
-  }, [fetchTree, t]);
+  }, [modal, fetchTree, t]);
 
   // Handle edge changes (including deletion via backspace/delete key)
   const handleEdgesChange = useCallback(
@@ -563,21 +658,6 @@ export default function ClueTree() {
       onEdgesChange(changes);
     },
     [edges, onEdgesChange, handleEdgeDelete]
-  );
-
-  // Handle edge click for deletion
-  const onEdgeClick = useCallback(
-    (_event: React.MouseEvent, edge: Edge) => {
-      Modal.confirm({
-        title: t('clue.confirmDeleteDependency'),
-        content: t('clue.deleteDependencyWarning'),
-        okText: t('common.confirm'),
-        cancelText: t('common.cancel'),
-        okButtonProps: { danger: true, icon: <DeleteOutlined /> },
-        onOk: () => handleEdgeDelete(edge.source, edge.target),
-      });
-    },
-    [handleEdgeDelete, t]
   );
 
   const selectedClue = useMemo(() => {
@@ -642,7 +722,7 @@ export default function ClueTree() {
 
           <Dropdown
             trigger={['click']}
-            dropdownRender={() => (
+            popupRender={() => (
               <Card size="small" style={{ width: 220, maxHeight: 400, overflow: 'auto' }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Text strong style={{ fontSize: 12 }}>{t('clue.displayFields')}</Text>
@@ -725,7 +805,7 @@ export default function ClueTree() {
           <Empty description={t('clue.noCluesFound')} />
         </Card>
       ) : (
-        <Card bodyStyle={{ padding: 0 }}>
+        <Card styles={{ body: { padding: 0 } }}>
           <div style={{ height: 600 }}>
             <ReactFlow
               nodes={nodes}
@@ -733,13 +813,16 @@ export default function ClueTree() {
               onNodesChange={onNodesChange}
               onEdgesChange={handleEdgesChange}
               onConnect={onConnect}
-              onEdgeClick={onEdgeClick}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              edgesReconnectable={false}
+              deleteKeyCode={['Backspace', 'Delete']}
               fitView
               attributionPosition="bottom-left"
               defaultEdgeOptions={{
                 type: 'smoothstep',
                 animated: false,
+                interactionWidth: 20,
                 markerEnd: {
                   type: MarkerType.ArrowClosed,
                   width: 20,
@@ -810,11 +893,11 @@ export default function ClueTree() {
               )}
             </Descriptions.Item>
             <Descriptions.Item label={t('clue.dependents')}>
-              {((selectedClue as unknown as { dependent_clue_ids?: string[] }).dependent_clue_ids?.length ?? 0) === 0 ? (
+              {(selectedClue?.dependent_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneLeaf')}</Text>
               ) : (
                 <Space direction="vertical">
-                  {((selectedClue as unknown as { dependent_clue_ids?: string[] }).dependent_clue_ids || []).map((id) => {
+                  {(selectedClue?.dependent_clue_ids || []).map((id) => {
                     const dep = treeData?.nodes.find((n) => n.id === id);
                     return (
                       <Tag

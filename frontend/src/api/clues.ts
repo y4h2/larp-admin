@@ -21,6 +21,7 @@ export interface ClueTreeNode {
   trigger_keywords?: string[];
   created_at?: string;
   updated_at?: string;
+  dependent_clue_ids?: string[];
 }
 
 export interface ClueTreeData {

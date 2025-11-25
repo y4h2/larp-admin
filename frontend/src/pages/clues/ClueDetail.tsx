@@ -16,6 +16,7 @@ import {
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag } from '@/components/common';
 import { useClues, useScripts, useNpcs } from '@/hooks';
+import { clueApi } from '@/api';
 import type { Clue } from '@/types';
 
 const { Option } = Select;
@@ -33,10 +34,21 @@ export default function ClueDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [clue, setClue] = useState<Clue | null>(null);
+  const [siblingClues, setSiblingClues] = useState<Clue[]>([]);
 
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
+
+  // Fetch sibling clues when script_id changes
+  const fetchSiblingClues = async (scriptId: string) => {
+    try {
+      const result = await clueApi.list({ script_id: scriptId, page_size: 100 });
+      setSiblingClues(result.items);
+    } catch {
+      // Ignore errors
+    }
+  };
 
   useEffect(() => {
     const loadClue = async () => {
@@ -48,6 +60,7 @@ export default function ClueDetail() {
         form.setFieldsValue(data);
         if (data.script_id) {
           fetchNpcs({ script_id: data.script_id });
+          fetchSiblingClues(data.script_id);
         }
       } catch {
         // Error handled in hook
@@ -140,6 +153,9 @@ export default function ClueDetail() {
               onChange={(value) => {
                 if (value) {
                   fetchNpcs({ script_id: value });
+                  fetchSiblingClues(value);
+                  // Clear prerequisites when script changes since they're script-specific
+                  form.setFieldValue('prereq_clue_ids', []);
                 }
               }}
             >
@@ -216,7 +232,13 @@ export default function ClueDetail() {
             extra={t('clue.prerequisiteCluesExtra')}
           >
             <Select mode="multiple" placeholder={t('clue.selectPrerequisiteClues')}>
-              {/* Would need to fetch clues for this script to populate */}
+              {siblingClues
+                .filter((c) => c.id !== id)
+                .map((c) => (
+                  <Option key={c.id} value={c.id}>
+                    {c.name}
+                  </Option>
+                ))}
             </Select>
           </Form.Item>
 

@@ -289,7 +289,12 @@
     "maxTokensHint": "Override max tokens for this session",
     "selectScriptAndNpcFirst": "Please select a script and NPC first",
     "toSend": "to send",
-    "newLine": "new line"
+    "newLine": "new line",
+    "exportPresets": "Export favorites",
+    "importPresets": "Import favorites",
+    "importSuccess": "Successfully imported {{count}} presets",
+    "importFailed": "Import failed",
+    "exportChat": "Export chat"
   },
   "logs": {
     "title": "Dialogue Logs",

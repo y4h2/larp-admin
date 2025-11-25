@@ -14,11 +14,13 @@ from app.schemas.clue import (
     ClueCreate,
     ClueResponse,
     ClueTreeEdge,
+    ClueTreeIssues,
     ClueTreeNode,
     ClueTreeResponse,
     ClueUpdate,
 )
 from app.schemas.common import PaginatedResponse, PaginationParams
+from app.services.clue_tree import ClueTreeService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -302,7 +304,15 @@ async def get_clue_tree(
     )
     clues = list(clues_result.scalars().all())
 
-    # Build nodes
+    # Build reverse dependency map (prereq_id -> list of dependent clue ids)
+    dependent_map: dict[str, list[str]] = {}
+    for clue in clues:
+        for prereq_id in clue.prereq_clue_ids or []:
+            if prereq_id not in dependent_map:
+                dependent_map[prereq_id] = []
+            dependent_map[prereq_id].append(clue.id)
+
+    # Build nodes with all fields
     nodes = [
         ClueTreeNode(
             id=clue.id,
@@ -310,6 +320,11 @@ async def get_clue_tree(
             type=clue.type.value,
             npc_id=clue.npc_id,
             prereq_clue_ids=clue.prereq_clue_ids or [],
+            dependent_clue_ids=dependent_map.get(clue.id, []),
+            detail=clue.detail,
+            trigger_keywords=clue.trigger_keywords or [],
+            created_at=clue.created_at.isoformat() if clue.created_at else None,
+            updated_at=clue.updated_at.isoformat() if clue.updated_at else None,
         )
         for clue in clues
     ]
@@ -320,4 +335,13 @@ async def get_clue_tree(
         for prereq_id in clue.prereq_clue_ids or []:
             edges.append(ClueTreeEdge(source=prereq_id, target=clue.id))
 
-    return ClueTreeResponse(nodes=nodes, edges=edges)
+    # Validate tree and get issues
+    tree_service = ClueTreeService(db)
+    validation = await tree_service.validate_clue_tree(script_id)
+    issues = ClueTreeIssues(
+        dead_clues=validation.dead_clues,
+        orphan_clues=validation.orphan_clues,
+        cycles=validation.cycles,
+    )
+
+    return ClueTreeResponse(nodes=nodes, edges=edges, issues=issues)

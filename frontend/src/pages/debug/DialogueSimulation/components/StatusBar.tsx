@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   Card,
   Space,
@@ -18,6 +18,8 @@ import {
   DownOutlined,
   DeleteOutlined,
   EditOutlined,
+  ExportOutlined,
+  ImportOutlined,
 } from '@ant-design/icons';
 import type { Script, NPC, MatchingStrategy } from '@/types';
 import type { HistoryPreset, FavoritePreset } from '@/hooks/usePresets';
@@ -50,6 +52,8 @@ interface StatusBarProps {
   onFavoriteNameChange: (name: string) => void;
   onFavoriteNoteChange: (note: string) => void;
   onSaveToFavorites: () => void;
+  onExportFavorites: () => void;
+  onImportFavorites: (file: File) => void;
 }
 
 export default function StatusBar({
@@ -76,7 +80,10 @@ export default function StatusBar({
   onFavoriteNameChange,
   onFavoriteNoteChange,
   onSaveToFavorites,
+  onExportFavorites,
+  onImportFavorites,
 }: StatusBarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Format relative time for presets
   const formatRelativeTime = (timestamp: number): string => {
     const now = Date.now();
@@ -286,6 +293,35 @@ export default function StatusBar({
                 disabled={!selectedScript || !selectedNpc}
               />
             </Tooltip>
+            <Divider type="vertical" style={{ margin: '0 4px' }} />
+            <Tooltip title={t('debug.exportPresets')}>
+              <Button
+                size="small"
+                icon={<ExportOutlined />}
+                onClick={onExportFavorites}
+                disabled={presetFavorites.length === 0}
+              />
+            </Tooltip>
+            <Tooltip title={t('debug.importPresets')}>
+              <Button
+                size="small"
+                icon={<ImportOutlined />}
+                onClick={() => fileInputRef.current?.click()}
+              />
+            </Tooltip>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onImportFavorites(file);
+                  e.target.value = '';
+                }
+              }}
+            />
           </Space>
         </div>
       </Card>

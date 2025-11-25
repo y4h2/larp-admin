@@ -202,6 +202,91 @@ export function usePresets() {
     return null;
   }, [history, favorites]);
 
+  // Export favorites to JSON file
+  const exportFavorites = useCallback(() => {
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      favorites,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dialogue-presets-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [favorites]);
+
+  // Import favorites from JSON file
+  const importFavorites = useCallback((
+    file: File,
+    onSuccess: (count: number) => void,
+    onError: (error: string) => void
+  ) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+
+        // Validate structure
+        if (!data.favorites || !Array.isArray(data.favorites)) {
+          onError('Invalid file format: missing favorites array');
+          return;
+        }
+
+        // Validate each favorite
+        const validFavorites: FavoritePreset[] = [];
+        for (const fav of data.favorites) {
+          if (fav.name && fav.config && typeof fav.config === 'object') {
+            validFavorites.push({
+              id: generateId(), // Generate new ID to avoid conflicts
+              name: fav.name,
+              note: fav.note,
+              createdAt: Date.now(),
+              config: {
+                selectedScriptId: fav.config.selectedScriptId ?? null,
+                selectedNpcId: fav.config.selectedNpcId ?? null,
+                matchingStrategy: fav.config.matchingStrategy ?? 'keyword',
+                matchingTemplateId: fav.config.matchingTemplateId,
+                matchingLlmConfigId: fav.config.matchingLlmConfigId,
+                enableNpcReply: fav.config.enableNpcReply ?? false,
+                npcClueTemplateId: fav.config.npcClueTemplateId,
+                npcNoClueTemplateId: fav.config.npcNoClueTemplateId,
+                npcChatConfigId: fav.config.npcChatConfigId,
+                overrideSimilarityThreshold: fav.config.overrideSimilarityThreshold,
+                overrideTemperature: fav.config.overrideTemperature,
+                overrideMaxTokens: fav.config.overrideMaxTokens,
+              },
+            });
+          }
+        }
+
+        if (validFavorites.length === 0) {
+          onError('No valid presets found in file');
+          return;
+        }
+
+        // Merge with existing favorites (avoid duplicates by name)
+        setFavorites((prev) => {
+          const existingNames = new Set(prev.map((f) => f.name));
+          const newFavorites = validFavorites.filter((f) => !existingNames.has(f.name));
+          const merged = [...newFavorites, ...prev];
+          saveFavoritesToStorage(merged);
+          onSuccess(newFavorites.length);
+          return merged;
+        });
+      } catch {
+        onError('Failed to parse file');
+      }
+    };
+    reader.onerror = () => onError('Failed to read file');
+    reader.readAsText(file);
+  }, [saveFavoritesToStorage]);
+
   return {
     history,
     favorites,
@@ -211,5 +296,7 @@ export function usePresets() {
     removeFromFavorites,
     clearHistory,
     getPresetById,
+    exportFavorites,
+    importFavorites,
   };
 }

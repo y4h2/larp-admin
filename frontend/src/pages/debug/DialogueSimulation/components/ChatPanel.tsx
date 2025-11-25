@@ -19,6 +19,7 @@ import {
   BulbFilled,
   CopyOutlined,
   InfoCircleOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import type { ChatMessage } from '../types';
 import type { MatchedClue } from '@/types';
@@ -73,14 +74,67 @@ export default function ChatPanel({
     }
   };
 
+  // Export chat history as markdown
+  const handleExportChat = () => {
+    if (chatHistory.length === 0) return;
+
+    const lines: string[] = [
+      '# Dialogue Simulation Chat Export',
+      `> Exported at: ${new Date().toLocaleString()}`,
+      '',
+      '---',
+      '',
+    ];
+
+    chatHistory.forEach((msg) => {
+      const time = msg.timestamp ? ` (${formatTime(msg.timestamp)})` : '';
+      const roleLabel = msg.role === 'player' ? '👤 Player' : msg.role === 'npc' ? '🤖 NPC' : '📋 System';
+      lines.push(`### ${roleLabel}${time}`);
+      lines.push('');
+      lines.push(msg.content);
+      lines.push('');
+
+      if (msg.result && msg.result.matched_clues.length > 0) {
+        lines.push('**Matched Clues:**');
+        msg.result.matched_clues.forEach((mc) => {
+          lines.push(`- ${mc.name || mc.clue_id}: ${(mc.score * 100).toFixed(0)}%`);
+        });
+        lines.push('');
+      }
+      lines.push('---');
+      lines.push('');
+    });
+
+    const content = lines.join('\n');
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card
       title={t('debug.simulationChat')}
       size="small"
       extra={
-        <Button icon={<ClearOutlined />} onClick={onClear} size="small">
-          {t('debug.clear')}
-        </Button>
+        <Space size={4}>
+          <Tooltip title={t('debug.exportChat')}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleExportChat}
+              size="small"
+              disabled={chatHistory.length === 0}
+            />
+          </Tooltip>
+          <Button icon={<ClearOutlined />} onClick={onClear} size="small">
+            {t('debug.clear')}
+          </Button>
+        </Space>
       }
       bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: 580 }}
     >
