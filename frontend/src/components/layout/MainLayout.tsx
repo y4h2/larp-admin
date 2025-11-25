@@ -19,6 +19,8 @@ import {
   AimOutlined,
   GlobalOutlined,
   TranslationOutlined,
+  CodeOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store';
@@ -71,6 +73,8 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   ]),
   getItem(t('menu.settings'), 'settings', <SettingOutlined />, [
     getItem(t('menu.globalSettings'), '/settings/global', <GlobalOutlined />),
+    getItem(t('menu.templates'), '/settings/templates', <CodeOutlined />),
+    getItem(t('menu.llmConfigs'), '/settings/llm-configs', <ApiOutlined />),
   ]),
 ];
 

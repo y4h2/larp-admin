@@ -14,16 +14,29 @@ import {
   Typography,
   message,
   Empty,
+  Progress,
+  Alert,
+  Divider,
+  Table,
 } from 'antd';
-import { BugOutlined } from '@ant-design/icons';
+import { BugOutlined, ThunderboltOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag } from '@/components/common';
-import { clueApi } from '@/api';
+import { clueApi, npcApi } from '@/api';
+import { simulationApi } from '@/api/simulation';
+import { templateApi, type PromptTemplate } from '@/api/templates';
+import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
 import { useScripts } from '@/hooks';
-import type { Clue } from '@/types';
+import type { Clue, MatchingStrategy, MatchedClue, NPC } from '@/types';
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { Text } = Typography;
+
+const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React.ReactNode }[] = [
+  { value: 'keyword', label: 'debug.keywordMatching', icon: <SearchOutlined /> },
+  { value: 'embedding', label: 'debug.embeddingMatching', icon: <ThunderboltOutlined /> },
+  { value: 'llm', label: 'debug.llmMatching', icon: <RobotOutlined /> },
+];
 
 export default function ClueDebug() {
   const { t } = useTranslation();
@@ -31,45 +44,138 @@ export default function ClueDebug() {
   const { scripts, fetchScripts } = useScripts();
 
   const [clues, setClues] = useState<Clue[]>([]);
-  const [selectedClue, setSelectedClue] = useState<Clue | null>(null);
+  const [npcs, setNpcs] = useState<NPC[]>([]);
+  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
+  const [embeddingConfigs, setEmbeddingConfigs] = useState<LLMConfig[]>([]);
+  const [chatConfigs, setChatConfigs] = useState<LLMConfig[]>([]);
+  const [selectedClue, _setSelectedClue] = useState<Clue | null>(null);
+  void _setSelectedClue; // Reserved for future clue selection feature
   const [loading, setLoading] = useState(false);
+  const [matchResults, setMatchResults] = useState<MatchedClue[] | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
 
   const selectedScriptId = Form.useWatch('script_id', form);
+  const selectedNpcId = Form.useWatch('npc_id', form);
+  const selectedStrategy = Form.useWatch('matching_strategy', form) as MatchingStrategy | undefined;
 
   useEffect(() => {
     fetchScripts();
+    // Fetch templates for LLM matching
+    templateApi.list({ type: 'clue_reveal', page_size: 100 }).then((res) => {
+      setTemplates(res.items);
+    });
+    // Fetch LLM configs
+    llmConfigApi.list({ type: 'embedding', page_size: 100 }).then((res) => {
+      setEmbeddingConfigs(res.items);
+    });
+    llmConfigApi.list({ type: 'chat', page_size: 100 }).then((res) => {
+      setChatConfigs(res.items);
+    });
   }, [fetchScripts]);
 
   useEffect(() => {
     if (selectedScriptId) {
-      clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => {
-        setClues(res.items);
+      // Fetch NPCs for the script
+      npcApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => {
+        setNpcs(res.items);
       });
+    } else {
+      setNpcs([]);
+      setClues([]);
     }
   }, [selectedScriptId]);
 
-  const handleClueSelect = (clueId: string) => {
-    const clue = clues.find((c) => c.id === clueId);
-    setSelectedClue(clue || null);
-  };
+  useEffect(() => {
+    if (selectedScriptId && selectedNpcId) {
+      clueApi.list({ script_id: selectedScriptId, npc_id: selectedNpcId, page_size: 100 }).then((res) => {
+        setClues(res.items);
+      });
+    } else if (selectedScriptId) {
+      clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => {
+        setClues(res.items);
+      });
+    } else {
+      setClues([]);
+    }
+  }, [selectedScriptId, selectedNpcId]);
 
   const handleDebug = async () => {
     const values = form.getFieldsValue();
-    if (!selectedClue || !values.player_message) {
-      message.warning(t('debug.selectClueAndEnterMessage'));
+    if (!selectedScriptId || !selectedNpcId || !values.player_message) {
+      message.warning(t('debug.fillAllFields'));
       return;
     }
 
     setLoading(true);
+    setMatchResults(null);
+    setDebugInfo(null);
+
     try {
-      // For now, just show the clue details
-      message.info('Debug simulation coming soon');
+      const result = await simulationApi.run({
+        script_id: selectedScriptId,
+        npc_id: selectedNpcId,
+        player_message: values.player_message,
+        unlocked_clue_ids: values.unlocked_clue_ids || [],
+        matching_strategy: values.matching_strategy || 'keyword',
+        template_id: values.template_id,
+        llm_config_id: values.llm_config_id,
+      });
+
+      setMatchResults(result.matched_clues);
+      setDebugInfo(result.debug_info);
+
+      if (result.triggered_clues.length > 0) {
+        message.success(t('debug.cluesTriggered', { count: result.triggered_clues.length }));
+      } else {
+        message.info(t('debug.noCluesTriggered'));
+      }
     } catch {
       message.error(t('debug.debugFailed'));
     } finally {
       setLoading(false);
     }
   };
+
+  const resultColumns = [
+    {
+      title: t('clue.name'),
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string, record: MatchedClue) => (
+        <Space>
+          <span>{text}</span>
+          {record.is_triggered && <Tag color="green">{t('debug.triggered')}</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: t('debug.score'),
+      dataIndex: 'score',
+      key: 'score',
+      width: 150,
+      render: (score: number) => (
+        <Progress
+          percent={Math.round(score * 100)}
+          size="small"
+          status={score >= 0.5 ? 'success' : 'normal'}
+        />
+      ),
+    },
+    {
+      title: t('debug.matchDetails'),
+      dataIndex: 'match_reasons',
+      key: 'match_reasons',
+      render: (reasons: string[]) => (
+        <Space direction="vertical" size={2}>
+          {reasons.map((r, i) => (
+            <Text key={i} type="secondary" style={{ fontSize: 12 }}>
+              {r}
+            </Text>
+          ))}
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -81,21 +187,120 @@ export default function ClueDebug() {
       <Row gutter={16}>
         <Col span={12}>
           <Card title={t('debug.debugConfiguration')} size="small">
-            <Form form={form} layout="vertical">
-              <Form.Item name="script_id" label={t('debug.selectScript')}>
-                <Select placeholder={t('debug.selectScript')} allowClear>
-                  {scripts.map((s) => (
-                    <Option key={s.id} value={s.id}>
-                      {s.title}
+            <Form form={form} layout="vertical" initialValues={{ matching_strategy: 'keyword' }}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="script_id" label={t('debug.selectScript')}>
+                    <Select placeholder={t('debug.selectScript')} allowClear>
+                      {scripts.map((s) => (
+                        <Option key={s.id} value={s.id}>
+                          {s.title}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="npc_id" label={t('debug.selectNpc')}>
+                    <Select
+                      placeholder={t('debug.selectNpc')}
+                      disabled={!selectedScriptId}
+                      allowClear
+                    >
+                      {npcs.map((n) => (
+                        <Option key={n.id} value={n.id}>
+                          {n.name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Divider orientation="left" plain>
+                {t('debug.matchingConfig')}
+              </Divider>
+
+              <Form.Item
+                name="matching_strategy"
+                label={t('debug.matchingStrategy')}
+              >
+                <Select>
+                  {MATCHING_STRATEGIES.map((s) => (
+                    <Option key={s.value} value={s.value}>
+                      <Space>
+                        {s.icon}
+                        {t(s.label)}
+                      </Space>
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
 
-              <Form.Item name="clue_id" label={t('debug.selectClue')}>
+              {selectedStrategy === 'embedding' && (
+                <Form.Item
+                  name="llm_config_id"
+                  label={t('debug.selectEmbeddingConfig')}
+                  extra={t('debug.embeddingConfigHint')}
+                >
+                  <Select placeholder={t('debug.selectEmbeddingConfig')} allowClear>
+                    {embeddingConfigs.map((config) => (
+                      <Option key={config.id} value={config.id}>
+                        <Space>
+                          <span>{config.name}</span>
+                          <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                        </Space>
+                        {config.is_default && <Tag color="gold" style={{ marginLeft: 8 }}>{t('llmConfig.default')}</Tag>}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              )}
+
+              {selectedStrategy === 'llm' && (
+                <>
+                  <Form.Item
+                    name="llm_config_id"
+                    label={t('debug.selectChatConfig')}
+                    extra={t('debug.chatConfigHint')}
+                  >
+                    <Select placeholder={t('debug.selectChatConfig')} allowClear>
+                      {chatConfigs.map((config) => (
+                        <Option key={config.id} value={config.id}>
+                          <Space>
+                            <span>{config.name}</span>
+                            <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                          </Space>
+                          {config.is_default && <Tag color="gold" style={{ marginLeft: 8 }}>{t('llmConfig.default')}</Tag>}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <Form.Item
+                    name="template_id"
+                    label={t('debug.selectTemplate')}
+                    extra={t('debug.templateHint')}
+                  >
+                    <Select placeholder={t('debug.selectTemplate')} allowClear>
+                      {templates.map((tpl) => (
+                        <Option key={tpl.id} value={tpl.id}>
+                          {tpl.name}
+                          {tpl.is_default && <Tag color="gold" style={{ marginLeft: 8 }}>{t('template.default')}</Tag>}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </>
+              )}
+
+              <Form.Item
+                name="unlocked_clue_ids"
+                label={t('debug.unlockedClues')}
+                extra={t('debug.unlockedCluesExtra')}
+              >
                 <Select
-                  placeholder={t('debug.selectClueToDebug')}
-                  onChange={handleClueSelect}
+                  mode="multiple"
+                  placeholder={t('debug.selectUnlockedClues')}
                   disabled={!selectedScriptId}
                   allowClear
                 >
@@ -120,6 +325,7 @@ export default function ClueDebug() {
                   icon={<BugOutlined />}
                   onClick={handleDebug}
                   loading={loading}
+                  disabled={!selectedScriptId || !selectedNpcId}
                 >
                   {t('debug.debugClue')}
                 </Button>
@@ -129,7 +335,7 @@ export default function ClueDebug() {
         </Col>
 
         <Col span={12}>
-          <Card title={t('debug.selectedClueDetails')} size="small">
+          <Card title={t('debug.selectedClueDetails')} size="small" style={{ marginBottom: 16 }}>
             {selectedClue ? (
               <Descriptions column={1} size="small">
                 <Descriptions.Item label={t('common.name')}>
@@ -161,6 +367,33 @@ export default function ClueDebug() {
               <Empty description={t('debug.selectClueAndMessage')} />
             )}
           </Card>
+
+          {matchResults && (
+            <Card title={t('debug.matchResults')} size="small">
+              {debugInfo && (
+                <Alert
+                  message={t('debug.debugSummary')}
+                  description={
+                    <Space direction="vertical" size={0}>
+                      <Text>{t('debug.totalCandidates')}: {String(debugInfo.total_candidates ?? 0)}</Text>
+                      <Text>{t('debug.totalMatched')}: {String(debugInfo.total_matched ?? 0)}</Text>
+                      <Text>{t('debug.totalTriggered')}: {String(debugInfo.total_triggered ?? 0)}</Text>
+                      <Text>{t('debug.strategy')}: {t(`debug.${String(debugInfo.strategy ?? 'keyword')}Matching`)}</Text>
+                    </Space>
+                  }
+                  type="info"
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              <Table
+                columns={resultColumns}
+                dataSource={matchResults}
+                rowKey="clue_id"
+                size="small"
+                pagination={false}
+              />
+            </Card>
+          )}
         </Col>
       </Row>
     </div>

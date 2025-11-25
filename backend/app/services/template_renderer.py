@@ -1,6 +1,13 @@
-"""Template rendering service for prompt templates."""
+"""Template rendering service for prompt templates.
+
+Supports template syntax like '{clue.name}:{clue.detail}' with jsonpath-style
+nested field access for clue, npc, script, and other objects.
+
+Based on the render_clue_template pattern from data/sample/clue.py.
+"""
 
 import re
+from dataclasses import asdict
 from typing import Any
 
 from app.schemas.prompt_template import (
@@ -12,13 +19,21 @@ from app.schemas.prompt_template import (
 
 
 class TemplateRenderer:
-    """Service for rendering prompt templates with variable substitution."""
+    """Service for rendering prompt templates with variable substitution.
 
-    # Regex pattern for variable placeholders: {var} or {var.path}
+    Supports jsonpath-style nested field access:
+    - {clue.name} - simple field
+    - {clue.trigger_keywords} - list field (joined with comma)
+    - {npc.knowledge_scope.knows} - nested field
+
+    Example:
+        template = '{clue.name}:{clue.detail}'
+        context = {'clue': {'name': 'Murder Weapon', 'detail': 'A knife...'}}
+        render(template, context) -> 'Murder Weapon:A knife...'
+    """
+
+    # Regex pattern for variable placeholders: {var} or {var.path.to.field}
     VARIABLE_PATTERN = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}")
-
-    # Maximum length for list rendering
-    MAX_LIST_ITEMS = 50
 
     def __init__(self) -> None:
         """Initialize the template renderer."""
@@ -34,30 +49,37 @@ class TemplateRenderer:
         Render a template with the given context.
 
         Args:
-            template: Template string with {var} placeholders.
-            context: Context dictionary with variable values.
-            strict: If True, raise error on unresolved variables.
+            template: Template string with {var.path} placeholders.
+            context: Context dictionary with objects like clue, npc, script.
+            strict: If True, keep unresolved placeholders; otherwise replace with empty.
 
         Returns:
             TemplateRenderResponse with rendered content and warnings.
+
+        Example:
+            template = '{npc.name} says: {clue.detail}'
+            context = {
+                'npc': {'name': 'John', 'age': 30},
+                'clue': {'name': 'Evidence', 'detail': 'A bloody knife'}
+            }
+            # Result: 'John says: A bloody knife'
         """
         warnings: list[str] = []
         unresolved: list[str] = []
 
-        def replace_variable(match: re.Match) -> str:
+        def replace_match(match: re.Match) -> str:
             var_path = match.group(1)
-            value = self._resolve_variable(var_path, context)
+            value = self._resolve_jsonpath(context, var_path)
 
             if value is None:
                 unresolved.append(var_path)
                 if strict:
-                    warnings.append(f"Unresolved variable: {{{var_path}}}")
-                    return f"{{{var_path}}}"
+                    return match.group(0)  # Keep original placeholder
                 return ""
 
-            return self._format_value(value, var_path)
+            return self._format_value(value)
 
-        rendered = self.VARIABLE_PATTERN.sub(replace_variable, template)
+        rendered = self.VARIABLE_PATTERN.sub(replace_match, template)
 
         if unresolved:
             warnings.append(f"Unresolved variables: {', '.join(unresolved)}")
@@ -68,145 +90,104 @@ class TemplateRenderer:
             unresolved_variables=unresolved,
         )
 
-    def _resolve_variable(self, var_path: str, context: dict[str, Any]) -> Any:
+    def _resolve_jsonpath(self, obj: Any, path: str) -> Any:
         """
-        Resolve a variable path from context.
+        Resolve a jsonpath-style path from an object.
+
+        Supports nested access like 'npc.knowledge_scope.knows'.
+        Works with dicts, objects with attributes, and dataclasses.
 
         Args:
-            var_path: Variable path like 'npc.name' or 'player_input'.
-            context: Context dictionary.
+            obj: The root object/dict to resolve from.
+            path: Dot-separated path like 'clue.name' or 'npc.knowledge_scope.knows'.
 
         Returns:
-            Resolved value or None if not found.
+            The resolved value, or None if not found.
         """
-        parts = var_path.split(".")
-        value = context
+        parts = path.split(".")
+        current = obj
 
         for part in parts:
-            if isinstance(value, dict):
-                value = value.get(part)
-            elif hasattr(value, part):
-                value = getattr(value, part)
+            if current is None:
+                return None
+
+            if isinstance(current, dict):
+                current = current.get(part)
+            elif hasattr(current, part):
+                current = getattr(current, part)
+            elif hasattr(current, "__dataclass_fields__"):
+                # Handle dataclass by converting to dict
+                current = asdict(current).get(part)
             else:
                 return None
 
-            if value is None:
-                return None
+        return current
 
-        return value
-
-    def _format_value(self, value: Any, var_path: str) -> str:
+    def _format_value(self, value: Any) -> str:
         """
         Format a value for template output.
 
         Args:
             value: Value to format.
-            var_path: Variable path (used for special formatting rules).
 
         Returns:
             Formatted string.
         """
-        # Handle list values (like unlocked_clues)
+        if value is None:
+            return ""
+
+        # Handle list values - join with comma
         if isinstance(value, list):
-            return self._format_list(value, var_path)
+            return ", ".join(str(v) for v in value)
 
-        # Handle dict values
+        # Handle dict values - convert to readable format
         if isinstance(value, dict):
-            return self._format_dict(value, var_path)
+            import json
+            return json.dumps(value, ensure_ascii=False)
 
-        # Handle other values
         return str(value)
-
-    def _format_list(self, items: list, var_path: str) -> str:
-        """
-        Format a list for template output.
-
-        Args:
-            items: List to format.
-            var_path: Variable path for format selection.
-
-        Returns:
-            Formatted string.
-        """
-        # Limit list length
-        if len(items) > self.MAX_LIST_ITEMS:
-            items = items[: self.MAX_LIST_ITEMS]
-
-        # Special formatting for clue lists
-        if "clues" in var_path:
-            lines = []
-            for i, item in enumerate(items, 1):
-                if isinstance(item, dict):
-                    name = item.get("name", "")
-                    detail = item.get("detail", "")[:100]
-                    lines.append(f"[{i}] {name} - {detail}...")
-                else:
-                    lines.append(f"[{i}] {item}")
-            return "\n".join(lines)
-
-        # Default list formatting
-        return "\n".join(f"- {item}" for item in items)
-
-    def _format_dict(self, obj: dict, var_path: str) -> str:
-        """
-        Format a dict for template output.
-
-        Args:
-            obj: Dict to format.
-            var_path: Variable path.
-
-        Returns:
-            Formatted string.
-        """
-        # For knowledge_scope, format as key-value pairs
-        if "knowledge_scope" in var_path:
-            lines = []
-            for key, value in obj.items():
-                if isinstance(value, list):
-                    lines.append(f"- {key}: {', '.join(value)}")
-                else:
-                    lines.append(f"- {key}: {value}")
-            return "\n".join(lines) if lines else "(none)"
-
-        # Default dict formatting
-        import json
-
-        return json.dumps(obj, ensure_ascii=False, indent=2)
 
     def extract_variables(self, template: str) -> list[str]:
         """
-        Extract all variable names from a template.
+        Extract all variable paths from a template.
 
         Args:
             template: Template string.
 
         Returns:
-            List of variable names.
+            List of unique variable paths.
+
+        Example:
+            extract_variables('{clue.name}:{clue.detail}')
+            # Returns: ['clue.name', 'clue.detail']
         """
         return list(set(self.VARIABLE_PATTERN.findall(template)))
 
-    def validate_template(
-        self, template: str, available_vars: set[str] | None = None
+    def validate_variables(
+        self,
+        template: str,
+        allowed_roots: set[str] | None = None,
     ) -> tuple[bool, list[str]]:
         """
-        Validate a template for syntax and variable availability.
+        Validate template variables against allowed root objects.
 
         Args:
             template: Template string.
-            available_vars: Set of available variable names.
+            allowed_roots: Set of allowed root names (e.g., {'clue', 'npc', 'script'}).
 
         Returns:
             Tuple of (is_valid, error_messages).
         """
+        if allowed_roots is None:
+            allowed_roots = {"clue", "npc", "script", "player_input", "now", "unlocked_clues"}
+
         errors: list[str] = []
         variables = self.extract_variables(template)
 
-        if available_vars:
-            for var in variables:
-                # Check if the base variable is available
-                base_var = var.split(".")[0]
-                if base_var not in available_vars and var not in available_vars:
-                    errors.append(f"Unknown variable: {{{var}}}")
+        for var in variables:
+            root = var.split(".")[0]
+            if root not in allowed_roots:
+                errors.append(f"Unknown variable root: {{{var}}} (allowed: {', '.join(sorted(allowed_roots))})")
 
         return len(errors) == 0, errors
 
@@ -215,49 +196,63 @@ class TemplateRenderer:
         """
         Get all available template variables organized by category.
 
+        These variables can be used in templates with jsonpath-style access.
+
         Returns:
             AvailableVariablesResponse with all variable categories.
         """
         categories = [
             VariableCategory(
-                name="global",
-                description="Global context variables",
+                name="clue",
+                description="Clue object fields - use {clue.field_name}",
                 variables=[
                     VariableInfo(
-                        name="player_input",
-                        description="Current player input message",
+                        name="clue.id",
+                        description="Clue ID",
                         type="string",
-                        example="What happened last night?",
+                        example="clue-123",
                     ),
                     VariableInfo(
-                        name="script.id",
-                        description="Script ID",
+                        name="clue.name",
+                        description="Clue name",
                         type="string",
-                        example="abc-123",
+                        example="Murder Weapon",
                     ),
                     VariableInfo(
-                        name="script.title",
-                        description="Script title",
+                        name="clue.type",
+                        description="Clue type (text/image)",
                         type="string",
-                        example="Murder Mystery",
+                        example="text",
                     ),
                     VariableInfo(
-                        name="script.summary",
-                        description="Script summary",
+                        name="clue.detail",
+                        description="Clue detail content",
                         type="string",
-                        example="A thrilling murder mystery...",
+                        example="A bloody knife was found under the bed...",
                     ),
                     VariableInfo(
-                        name="now",
-                        description="Current timestamp",
+                        name="clue.detail_for_npc",
+                        description="Guidance for NPC on how to reveal this clue",
                         type="string",
-                        example="2024-01-15 10:30:00",
+                        example="Nervously mention finding something sharp...",
+                    ),
+                    VariableInfo(
+                        name="clue.trigger_keywords",
+                        description="Keywords that trigger this clue (list, comma-joined)",
+                        type="list",
+                        example="knife, weapon, murder",
+                    ),
+                    VariableInfo(
+                        name="clue.trigger_semantic_summary",
+                        description="Semantic summary for matching",
+                        type="string",
+                        example="Player asks about the murder weapon",
                     ),
                 ],
             ),
             VariableCategory(
                 name="npc",
-                description="Current NPC variables",
+                description="NPC object fields - use {npc.field_name}",
                 variables=[
                     VariableInfo(
                         name="npc.id",
@@ -281,73 +276,115 @@ class TemplateRenderer:
                         name="npc.background",
                         description="NPC background story",
                         type="string",
-                        example="A former butler who...",
+                        example="A former butler who worked at the mansion...",
                     ),
                     VariableInfo(
                         name="npc.personality",
                         description="NPC personality description",
                         type="string",
-                        example="Nervous and secretive...",
+                        example="Nervous and secretive, tends to avoid eye contact",
                     ),
                     VariableInfo(
-                        name="npc.knowledge_scope",
-                        description="NPC knowledge scope",
-                        type="object",
-                        example='{"knows": [...], "does_not_know": [...]}',
+                        name="npc.knowledge_scope.knows",
+                        description="Things the NPC knows (list, comma-joined)",
+                        type="list",
+                        example="saw the victim at 10pm, heard a scream",
+                    ),
+                    VariableInfo(
+                        name="npc.knowledge_scope.does_not_know",
+                        description="Things the NPC doesn't know (list, comma-joined)",
+                        type="list",
+                        example="who the murderer is, where the weapon is",
+                    ),
+                    VariableInfo(
+                        name="npc.knowledge_scope.world_model_limits",
+                        description="Limits of NPC's world knowledge (list, comma-joined)",
+                        type="list",
+                        example="doesn't know about modern technology",
                     ),
                 ],
             ),
             VariableCategory(
-                name="clue",
-                description="Single clue variables (for clue explain templates)",
+                name="script",
+                description="Script object fields - use {script.field_name}",
                 variables=[
                     VariableInfo(
-                        name="clue.id",
-                        description="Clue ID",
+                        name="script.id",
+                        description="Script ID",
                         type="string",
-                        example="clue-123",
+                        example="script-123",
                     ),
                     VariableInfo(
-                        name="clue.name",
-                        description="Clue name",
+                        name="script.title",
+                        description="Script title",
                         type="string",
-                        example="Murder Weapon",
+                        example="Murder at the Manor",
                     ),
                     VariableInfo(
-                        name="clue.type",
-                        description="Clue type",
+                        name="script.summary",
+                        description="Script summary",
                         type="string",
-                        example="text",
+                        example="A thrilling murder mystery set in Victorian England...",
                     ),
                     VariableInfo(
-                        name="clue.detail",
-                        description="Clue detail content",
+                        name="script.background",
+                        description="Script background setting",
                         type="string",
-                        example="A bloody knife was found...",
+                        example="The year is 1888, in a wealthy London mansion...",
                     ),
                     VariableInfo(
-                        name="clue.detail_for_npc",
-                        description="Guidance for NPC on how to reveal this clue",
+                        name="script.difficulty",
+                        description="Script difficulty level",
                         type="string",
-                        example="The NPC should nervously describe...",
+                        example="medium",
+                    ),
+                    VariableInfo(
+                        name="script.truth.murderer",
+                        description="The murderer (from truth object)",
+                        type="string",
+                        example="John Smith",
+                    ),
+                    VariableInfo(
+                        name="script.truth.weapon",
+                        description="The murder weapon (from truth object)",
+                        type="string",
+                        example="A kitchen knife",
+                    ),
+                    VariableInfo(
+                        name="script.truth.motive",
+                        description="The motive (from truth object)",
+                        type="string",
+                        example="Revenge for past betrayal",
+                    ),
+                    VariableInfo(
+                        name="script.truth.crime_method",
+                        description="How the crime was committed (from truth object)",
+                        type="string",
+                        example="Stabbed in the study at midnight",
                     ),
                 ],
             ),
             VariableCategory(
-                name="clues_list",
-                description="Clue list variables",
+                name="context",
+                description="Context variables - use {variable_name}",
                 variables=[
+                    VariableInfo(
+                        name="player_input",
+                        description="Current player input message",
+                        type="string",
+                        example="What happened last night?",
+                    ),
+                    VariableInfo(
+                        name="now",
+                        description="Current timestamp",
+                        type="string",
+                        example="2024-01-15 10:30:00",
+                    ),
                     VariableInfo(
                         name="unlocked_clues",
-                        description="List of already unlocked clues",
+                        description="List of already unlocked clue names",
                         type="list",
-                        example="[1] Clue A - content...\n[2] Clue B - content...",
-                    ),
-                    VariableInfo(
-                        name="candidate_clues",
-                        description="Candidate clues matched this turn",
-                        type="list",
-                        example="[1] Matched Clue - content...",
+                        example="Murder Weapon, Alibi Letter, Blood Stain",
                     ),
                 ],
             ),

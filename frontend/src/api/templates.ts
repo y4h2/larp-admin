@@ -1,52 +1,42 @@
 import client from './client';
 import type { PaginatedResponse } from '@/types';
 
+export type TemplateType = 'clue_embedding' | 'npc_system_prompt' | 'clue_reveal' | 'custom';
+
 export interface PromptTemplate {
   id: string;
   name: string;
   description: string | null;
-  type: 'system' | 'npc_dialog' | 'clue_explain';
-  scope_type: 'global' | 'script' | 'npc';
-  scope_target_id: string | null;
+  type: TemplateType;
   content: string;
-  variables_meta: Record<string, unknown>;
-  status: 'draft' | 'active' | 'archived';
-  created_by: string | null;
+  is_default: boolean;
+  variables: string[];
   created_at: string;
-  updated_by: string | null;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 export interface TemplateQueryParams {
   page?: number;
   page_size?: number;
-  type?: PromptTemplate['type'];
-  scope_type?: PromptTemplate['scope_type'];
-  scope_target_id?: string;
-  status?: PromptTemplate['status'];
+  type?: TemplateType;
   search?: string;
 }
 
 export interface TemplateCreateData {
   name: string;
   description?: string;
-  type: PromptTemplate['type'];
-  scope_type?: PromptTemplate['scope_type'];
-  scope_target_id?: string;
+  type: TemplateType;
   content: string;
-  status?: PromptTemplate['status'];
-  created_by?: string;
+  is_default?: boolean;
 }
 
 export interface TemplateUpdateData {
   name?: string;
   description?: string;
-  type?: PromptTemplate['type'];
-  scope_type?: PromptTemplate['scope_type'];
-  scope_target_id?: string;
+  type?: TemplateType;
   content?: string;
-  status?: PromptTemplate['status'];
-  updated_by?: string;
+  is_default?: boolean;
 }
 
 export interface TemplateRenderRequest {
@@ -108,13 +98,23 @@ export const templateApi = {
     return response.data;
   },
 
+  setDefault: async (id: string): Promise<PromptTemplate> => {
+    const response = await client.post(`/templates/${id}/set-default`);
+    return response.data;
+  },
+
+  getDefaults: async (): Promise<Record<string, PromptTemplate | null>> => {
+    const response = await client.get('/templates/defaults');
+    return response.data;
+  },
+
   render: async (data: TemplateRenderRequest): Promise<TemplateRenderResponse> => {
     const response = await client.post('/templates/render', data);
     return response.data;
   },
 
   getAvailableVariables: async (): Promise<AvailableVariablesResponse> => {
-    const response = await client.get('/templates/variables/available');
+    const response = await client.get('/templates/variables');
     return response.data;
   },
 };

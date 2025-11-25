@@ -1,4 +1,8 @@
-"""PromptTemplate schemas for request/response validation."""
+"""PromptTemplate schemas for request/response validation.
+
+Supports template syntax like '{clue.name}:{clue.detail}' with jsonpath-style
+nested field access.
+"""
 
 from datetime import datetime
 from typing import Any, Literal
@@ -6,37 +10,42 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# Template types
+TemplateTypeEnum = Literal["clue_embedding", "npc_system_prompt", "clue_reveal", "custom"]
+
+
 class PromptTemplateBase(BaseModel):
-    """Base schema for PromptTemplate with common fields."""
+    """Base schema for PromptTemplate."""
 
     name: str = Field(
-        ..., min_length=1, max_length=255, description="Template name"
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Template display name",
     )
-    description: str | None = Field(None, description="Template description")
-    type: Literal["system", "npc_dialog", "clue_explain"] = Field(
-        ..., description="Template type"
+    description: str | None = Field(
+        None,
+        description="Template description",
     )
-    scope_type: Literal["global", "script", "npc"] = Field(
-        default="global", description="Scope type"
-    )
-    scope_target_id: str | None = Field(
-        None, description="Target ID for script/npc scope"
+    type: TemplateTypeEnum = Field(
+        ...,
+        description="Template type/purpose",
     )
     content: str = Field(
-        ..., min_length=1, description="Template content with {var} placeholders"
+        ...,
+        min_length=1,
+        description="Template content with {var.path} placeholders",
     )
-    variables_meta: dict[str, Any] = Field(
-        default_factory=dict, description="Metadata about used variables"
-    )
-    status: Literal["draft", "active", "archived"] = Field(
-        default="draft", description="Template status"
+    is_default: bool = Field(
+        default=False,
+        description="Whether this is the default template for its type",
     )
 
 
 class PromptTemplateCreate(PromptTemplateBase):
     """Schema for creating a new PromptTemplate."""
 
-    created_by: str | None = None
+    pass
 
 
 class PromptTemplateUpdate(BaseModel):
@@ -44,13 +53,9 @@ class PromptTemplateUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
-    type: Literal["system", "npc_dialog", "clue_explain"] | None = None
-    scope_type: Literal["global", "script", "npc"] | None = None
-    scope_target_id: str | None = None
+    type: TemplateTypeEnum | None = None
     content: str | None = Field(None, min_length=1)
-    variables_meta: dict[str, Any] | None = None
-    status: Literal["draft", "active", "archived"] | None = None
-    updated_by: str | None = None
+    is_default: bool | None = None
 
 
 class PromptTemplateResponse(PromptTemplateBase):
@@ -59,58 +64,67 @@ class PromptTemplateResponse(PromptTemplateBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    created_by: str | None
+    variables: list[str] = Field(
+        default_factory=list,
+        description="Auto-extracted variable names from content",
+    )
     created_at: datetime
-    updated_by: str | None
     updated_at: datetime
+    deleted_at: datetime | None = None
 
 
 class TemplateRenderRequest(BaseModel):
     """Request schema for rendering a template."""
 
-    template_id: str | None = Field(None, description="Template ID to use")
+    template_id: str | None = Field(
+        None,
+        description="Template ID to use",
+    )
     template_content: str | None = Field(
-        None, description="Direct template content (overrides template_id)"
+        None,
+        description="Direct template content (overrides template_id)",
     )
     context: dict[str, Any] = Field(
-        default_factory=dict, description="Context variables for rendering"
+        default_factory=dict,
+        description="Context with clue, npc, script objects for rendering",
     )
 
 
 class TemplateRenderResponse(BaseModel):
     """Response schema for rendered template."""
 
-    rendered_content: str = Field(..., description="Rendered template content")
+    rendered_content: str = Field(
+        ...,
+        description="Rendered template content",
+    )
     warnings: list[str] = Field(
-        default_factory=list, description="Warnings about unresolved variables"
+        default_factory=list,
+        description="Warnings about unresolved variables",
     )
     unresolved_variables: list[str] = Field(
-        default_factory=list, description="List of unresolved variable names"
+        default_factory=list,
+        description="List of unresolved variable names",
     )
 
 
 class VariableInfo(BaseModel):
     """Information about a template variable."""
 
-    name: str = Field(..., description="Variable name (e.g., 'npc.name')")
+    name: str = Field(..., description="Variable path (e.g., 'clue.name', 'npc.knowledge_scope.knows')")
     description: str = Field(..., description="Variable description")
-    type: str = Field(..., description="Variable type (string, list, object)")
+    type: str = Field(..., description="Variable type (string, number, list, object)")
     example: str | None = Field(None, description="Example value")
 
 
 class VariableCategory(BaseModel):
     """Category of template variables."""
 
-    name: str = Field(..., description="Category name")
+    name: str = Field(..., description="Category name (clue, npc, script, etc.)")
     description: str = Field(..., description="Category description")
-    variables: list[VariableInfo] = Field(
-        default_factory=list, description="Variables in this category"
-    )
+    variables: list[VariableInfo] = Field(default_factory=list, description="Variables in this category")
 
 
 class AvailableVariablesResponse(BaseModel):
     """Response with all available template variables."""
 
-    categories: list[VariableCategory] = Field(
-        default_factory=list, description="Variable categories"
-    )
+    categories: list[VariableCategory] = Field(default_factory=list, description="Variable categories")

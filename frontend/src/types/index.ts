@@ -72,12 +72,17 @@ export interface ClueTreeResponse {
 }
 
 // Simulation types
+export type MatchingStrategy = 'keyword' | 'embedding' | 'llm';
+
 export interface MatchedClue {
   clue_id: string;
+  name: string;
+  clue_type: string;
   score: number;
-  match_type: 'keyword' | 'semantic' | 'hybrid';
-  keyword_matches?: string[];
-  embedding_similarity?: number;
+  match_reasons: string[];
+  keyword_matches: string[];
+  embedding_similarity?: number | null;
+  is_triggered: boolean;
 }
 
 export interface SimulationRequest {
@@ -85,15 +90,20 @@ export interface SimulationRequest {
   npc_id: string;
   unlocked_clue_ids: string[];
   player_message: string;
+  matching_strategy?: MatchingStrategy;
+  template_id?: string;
+  llm_config_id?: string;
 }
 
 export interface SimulationResult {
   matched_clues: MatchedClue[];
-  final_clue_list: Clue[];
+  triggered_clues: MatchedClue[];
   debug_info: {
-    keyword_matches: Record<string, string[]>;
-    embedding_similarities: Record<string, number>;
-    total_processing_time_ms: number;
+    total_candidates: number;
+    total_matched: number;
+    total_triggered: number;
+    threshold: number;
+    strategy: MatchingStrategy;
   };
 }
 

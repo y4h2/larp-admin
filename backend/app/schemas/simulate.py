@@ -1,8 +1,17 @@
 """Simulation schemas for request/response validation."""
 
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+class MatchingStrategy(str, Enum):
+    """Matching strategy for clue detection."""
+
+    KEYWORD = "keyword"  # Keyword-based matching
+    EMBEDDING = "embedding"  # Embedding similarity matching
+    LLM = "llm"  # LLM-based matching (give all clues to LLM)
 
 
 class SimulateRequest(BaseModel):
@@ -15,6 +24,14 @@ class SimulateRequest(BaseModel):
         default_factory=list, description="Already unlocked clue IDs"
     )
     current_stage: int = Field(default=1, ge=1, description="Current story stage")
+    matching_strategy: MatchingStrategy = Field(
+        default=MatchingStrategy.KEYWORD,
+        description="Matching strategy: keyword, embedding, or llm",
+    )
+    template_id: str | None = Field(
+        default=None,
+        description="Prompt template ID (used for LLM matching strategy)",
+    )
 
 
 class MatchedClue(BaseModel):

@@ -1,11 +1,15 @@
-"""PromptTemplate model definition."""
+"""PromptTemplate model definition.
+
+Supports template syntax like '{clue.name}:{clue.detail}' with jsonpath-style
+nested field access for clue, npc, and script objects.
+"""
 
 import enum
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,34 +17,31 @@ from app.database import Base
 
 
 class TemplateType(str, enum.Enum):
-    """Type of prompt template."""
+    """Type/purpose of prompt template."""
 
-    SYSTEM = "system"
-    NPC_DIALOG = "npc_dialog"
-    CLUE_EXPLAIN = "clue_explain"
-
-
-class TemplateScopeType(str, enum.Enum):
-    """Scope type for prompt template."""
-
-    GLOBAL = "global"
-    SCRIPT = "script"
-    NPC = "npc"
-
-
-class TemplateStatus(str, enum.Enum):
-    """Status of a prompt template."""
-
-    DRAFT = "draft"
-    ACTIVE = "active"
-    ARCHIVED = "archived"
+    # For building embedding content from clue fields
+    CLUE_EMBEDDING = "clue_embedding"
+    # System prompt for NPC dialogue
+    NPC_SYSTEM_PROMPT = "npc_system_prompt"
+    # How NPC should explain/reveal a clue
+    CLUE_REVEAL = "clue_reveal"
+    # Custom template for other purposes
+    CUSTOM = "custom"
 
 
 class PromptTemplate(Base):
     """
-    PromptTemplate model for managing prompt templates used in dialogue simulation.
+    PromptTemplate model for managing prompt templates.
 
-    Templates support variable placeholders like {npc.name}, {player_input}, etc.
+    Templates support variable placeholders with jsonpath-style nested access:
+    - {clue.name}, {clue.detail}, {clue.trigger_keywords}
+    - {npc.name}, {npc.personality}, {npc.knowledge_scope.knows}
+    - {script.title}, {script.truth.murderer}
+    - {player_input}, {now}
+
+    Example template:
+        '{clue.name}:{clue.detail}'
+        'You are {npc.name}. Your personality: {npc.personality}'
     """
 
     __tablename__ = "prompt_templates"
@@ -50,50 +51,61 @@ class PromptTemplate(Base):
         primary_key=True,
         default=lambda: str(uuid4()),
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    type: Mapped[TemplateType] = mapped_column(
-        Enum(TemplateType, name="template_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
+    name: Mapped[str] = mapped_column(
+        String(255),
         nullable=False,
+        index=True,
+        comment="Template display name",
     )
-    scope_type: Mapped[TemplateScopeType] = mapped_column(
-        Enum(TemplateScopeType, name="template_scope_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
-        default=TemplateScopeType.GLOBAL,
-        nullable=False,
-    )
-    scope_target_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False),
+    description: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
-        comment="Target ID for script/npc scope",
+        comment="Template description",
+    )
+    type: Mapped[TemplateType] = mapped_column(
+        Enum(
+            TemplateType,
+            name="template_type",
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        nullable=False,
+        index=True,
+        comment="Template type/purpose",
     )
     content: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        comment="Template content with {var} placeholders",
+        comment="Template content with {var.path} placeholders",
     )
-    variables_meta: Mapped[dict[str, Any]] = mapped_column(
+    is_default: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+        comment="Whether this is the default template for its type",
+    )
+    variables: Mapped[list[str]] = mapped_column(
         JSONB,
-        default=dict,
+        default=list,
         nullable=False,
-        comment="Metadata about used variables for validation",
+        comment="Auto-extracted variable names from content",
     )
-    status: Mapped[TemplateStatus] = mapped_column(
-        Enum(TemplateStatus, name="template_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
-        default=TemplateStatus.DRAFT,
-        nullable=False,
-    )
-    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
     )
 
     def __repr__(self) -> str:

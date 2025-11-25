@@ -19,6 +19,12 @@ import { DialogueSimulation, ClueDebug } from '@/pages/debug';
 // Settings
 import { GlobalSettings } from '@/pages/settings';
 
+// Templates
+import { TemplateList, TemplateDetail } from '@/pages/templates';
+
+// LLM Configs
+import { LLMConfigList } from '@/pages/llm-configs';
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -76,6 +82,18 @@ const router = createBrowserRouter([
       {
         path: 'settings/global',
         element: <GlobalSettings />,
+      },
+      {
+        path: 'settings/templates',
+        element: <TemplateList />,
+      },
+      {
+        path: 'settings/templates/:id',
+        element: <TemplateDetail />,
+      },
+      {
+        path: 'settings/llm-configs',
+        element: <LLMConfigList />,
       },
     ],
   },
