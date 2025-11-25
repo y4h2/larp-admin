@@ -2,11 +2,11 @@
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sqlalchemy import DateTime, Enum, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -49,6 +49,22 @@ class Script(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Brief summary of the script story",
+    )
+    background: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Background setting and context for the story",
+    )
+    truth: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="The truth of the case: murderer, weapon, motive, crime_method",
+    )
     status: Mapped[ScriptStatus] = mapped_column(
         Enum(ScriptStatus, name="script_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ScriptStatus.DRAFT,

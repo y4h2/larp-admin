@@ -131,6 +131,7 @@ export default function ClueDetail() {
         title_internal: values.title_internal as string,
         title_player: values.title_player as string,
         content_text: values.content_text as string,
+        detail_for_npc: values.detail_for_npc as string | undefined,
         content_type: values.content_type as Clue['content_type'],
         clue_type: values.clue_type as Clue['clue_type'],
         importance: values.importance as Clue['importance'],
@@ -319,6 +320,15 @@ export default function ClueDetail() {
                         rules={[{ required: true }]}
                       >
                         <TextArea rows={4} placeholder={t('clue.contentPlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={24}>
+                      <Form.Item
+                        name="detail_for_npc"
+                        label={t('clue.detailForNpc')}
+                        extra={t('clue.detailForNpcExtra')}
+                      >
+                        <TextArea rows={3} placeholder={t('clue.detailForNpcPlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col span={6}>

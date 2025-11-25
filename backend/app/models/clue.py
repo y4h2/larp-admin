@@ -94,6 +94,11 @@ class Clue(Base):
         comment="Title shown to players",
     )
     content_text: Mapped[str] = mapped_column(Text, nullable=False)
+    detail_for_npc: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Guidance for NPC on how to reveal this clue",
+    )
     content_type: Mapped[ContentType] = mapped_column(
         Enum(ContentType, name="content_type", create_type=False, values_callable=lambda x: [e.value for e in x]),
         default=ContentType.TEXT,

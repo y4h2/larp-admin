@@ -6,6 +6,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class KnowledgeScopeSchema(BaseModel):
+    """Schema for NPC knowledge scope."""
+
+    knows: list[str] = Field(default_factory=list, description="Things the NPC knows")
+    does_not_know: list[str] = Field(default_factory=list, description="Things the NPC does not know")
+    world_model_limits: list[str] = Field(default_factory=list, description="Limits of the NPC's world model")
+
+
 class NPCBase(BaseModel):
     """Base schema for NPC with common fields."""
 
@@ -21,6 +29,9 @@ class NPCBase(BaseModel):
     background_story: str | None = Field(None, description="NPC background story")
     relations: dict[str, Any] = Field(
         default_factory=dict, description="Relationships with other NPCs"
+    )
+    knowledge_scope: dict[str, Any] = Field(
+        default_factory=dict, description="NPC knowledge scope: knows, does_not_know, world_model_limits"
     )
     system_prompt_template: str | None = Field(
         None, description="LLM system prompt template"
@@ -49,6 +60,7 @@ class NPCUpdate(BaseModel):
     speech_style: str | None = None
     background_story: str | None = None
     relations: dict[str, Any] | None = None
+    knowledge_scope: dict[str, Any] | None = None
     system_prompt_template: str | None = None
     extra_prompt_vars: dict[str, Any] | None = None
     status: Literal["active", "archived"] | None = None

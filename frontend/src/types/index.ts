@@ -1,10 +1,23 @@
 // Script types
+export interface Truth {
+  murderer?: string;
+  weapon?: string;
+  motive?: string;
+  crime_method?: string;
+}
+
 export interface Script {
   id: string;
   name: string;
   description: string;
+  summary?: string;
+  background?: string;
+  truth: Truth;
   status: 'draft' | 'test' | 'online' | 'archived';
   version: number;
+  player_count: number;
+  expected_duration?: number;
+  difficulty: 'easy' | 'medium' | 'hard';
   created_by: string;
   created_at: string;
   updated_by: string;
@@ -23,6 +36,12 @@ export interface Scene {
 }
 
 // NPC types
+export interface KnowledgeScope {
+  knows: string[];
+  does_not_know: string[];
+  world_model_limits: string[];
+}
+
 export interface NPC {
   id: string;
   script_id: string;
@@ -36,6 +55,7 @@ export interface NPC {
   speech_style: string;
   background_story: string;
   relations: Record<string, unknown>;
+  knowledge_scope: KnowledgeScope;
   system_prompt_template: string;
   extra_prompt_vars: Record<string, unknown>;
   status: 'active' | 'archived';
@@ -86,6 +106,7 @@ export interface Clue {
   title_internal: string;
   title_player: string;
   content_text: string;
+  detail_for_npc?: string;
   content_type: 'text' | 'image' | 'structured';
   content_payload: Record<string, unknown>;
   clue_type: 'evidence' | 'testimony' | 'world_info' | 'decoy';

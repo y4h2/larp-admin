@@ -283,6 +283,46 @@ export default function NpcDetail() {
             ),
           },
           {
+            key: 'knowledge',
+            label: t('npc.knowledgeScope'),
+            children: (
+              <Card>
+                <Form form={form} layout="vertical" onFinish={handleSave}>
+                  <Form.Item
+                    name={['knowledge_scope', 'knows']}
+                    label={t('npc.knows')}
+                  >
+                    <Select
+                      mode="tags"
+                      placeholder={t('npc.knowsPlaceholder')}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={['knowledge_scope', 'does_not_know']}
+                    label={t('npc.doesNotKnow')}
+                  >
+                    <Select
+                      mode="tags"
+                      placeholder={t('npc.doesNotKnowPlaceholder')}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name={['knowledge_scope', 'world_model_limits']}
+                    label={t('npc.worldModelLimits')}
+                  >
+                    <Select
+                      mode="tags"
+                      placeholder={t('npc.worldModelLimitsPlaceholder')}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                </Form>
+              </Card>
+            ),
+          },
+          {
             key: 'prompt',
             label: t('common.systemPrompt'),
             children: (

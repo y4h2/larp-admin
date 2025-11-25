@@ -103,7 +103,21 @@
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
     "totalScripts": "Total {{total}} scripts",
     "notFound": "Script not found",
-    "viewClueTree": "View Clue Tree"
+    "viewClueTree": "View Clue Tree",
+    "summary": "Summary",
+    "summaryPlaceholder": "Brief summary of the story",
+    "background": "Background",
+    "backgroundPlaceholder": "Background setting and context for the story",
+    "truth": "Truth",
+    "truthSubtitle": "The truth of the case",
+    "murderer": "Murderer",
+    "murdererPlaceholder": "The murderer NPC ID or name",
+    "weapon": "Weapon",
+    "weaponPlaceholder": "The murder weapon",
+    "motive": "Motive",
+    "motivePlaceholder": "The motive for the crime",
+    "crimeMethod": "Crime Method",
+    "crimeMethodPlaceholder": "How the crime was committed"
   },
   "scene": {
     "title": "Scenes",
@@ -158,7 +172,14 @@
     "systemPromptTemplate": "System Prompt Template",
     "availableVariables": "Available variables",
     "relatedClues": "Related Clues",
-    "noCluesAssociated": "No clues associated with this NPC"
+    "noCluesAssociated": "No clues associated with this NPC",
+    "knowledgeScope": "Knowledge Scope",
+    "knows": "Knows",
+    "knowsPlaceholder": "Things the NPC knows",
+    "doesNotKnow": "Does Not Know",
+    "doesNotKnowPlaceholder": "Things the NPC does not know",
+    "worldModelLimits": "World Model Limits",
+    "worldModelLimitsPlaceholder": "Limits of the NPC's world model"
   },
   "clue": {
     "title": "Clue Management",
@@ -194,6 +215,9 @@
     "internalTitlePlaceholder": "For internal reference",
     "playerTitlePlaceholder": "Title shown to players",
     "contentPlaceholder": "Clue content text",
+    "detailForNpc": "Detail for NPC",
+    "detailForNpcPlaceholder": "Guidance for NPC on how to reveal this clue",
+    "detailForNpcExtra": "This text guides the NPC on how to naturally reveal this clue in conversation",
     "pleaseSelectScript": "Please select a script",
     "pleaseEnterInternalTitle": "Please enter internal title",
     "pleaseEnterPlayerTitle": "Please enter player title",

@@ -1,9 +1,18 @@
 """Script schemas for request/response validation."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class TruthSchema(BaseModel):
+    """Schema for the truth of a murder mystery case."""
+
+    murderer: str | None = Field(None, description="The murderer NPC ID or name")
+    weapon: str | None = Field(None, description="The murder weapon")
+    motive: str | None = Field(None, description="The motive for the crime")
+    crime_method: str | None = Field(None, description="How the crime was committed")
 
 
 class ScriptBase(BaseModel):
@@ -11,6 +20,11 @@ class ScriptBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Script name")
     description: str | None = Field(None, description="Script description")
+    summary: str | None = Field(None, description="Brief summary of the script story")
+    background: str | None = Field(None, description="Background setting and context for the story")
+    truth: dict[str, Any] = Field(
+        default_factory=dict, description="The truth of the case: murderer, weapon, motive, crime_method"
+    )
     player_count: int = Field(default=1, ge=1, description="Number of players")
     expected_duration: int | None = Field(
         None, ge=1, description="Expected duration in minutes"
@@ -31,6 +45,9 @@ class ScriptUpdate(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    summary: str | None = None
+    background: str | None = None
+    truth: dict[str, Any] | None = None
     status: Literal["draft", "test", "online"] | None = None
     player_count: int | None = Field(None, ge=1)
     expected_duration: int | None = Field(None, ge=1)

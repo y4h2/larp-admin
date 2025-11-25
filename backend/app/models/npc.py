@@ -68,6 +68,12 @@ class NPC(Base):
         nullable=False,
         comment="Relationships with other NPCs",
     )
+    knowledge_scope: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="NPC knowledge scope: knows, does_not_know, world_model_limits",
+    )
     system_prompt_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     extra_prompt_vars: Mapped[dict[str, Any]] = mapped_column(
         JSONB,

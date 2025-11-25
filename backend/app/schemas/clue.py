@@ -75,6 +75,9 @@ class ClueBase(BaseModel):
         ..., min_length=1, max_length=255, description="Title shown to players"
     )
     content_text: str = Field(..., min_length=1, description="Clue content text")
+    detail_for_npc: str | None = Field(
+        None, description="Guidance for NPC on how to reveal this clue"
+    )
     content_type: Literal["text", "image", "structured"] = Field(
         default="text", description="Content type"
     )
@@ -114,6 +117,7 @@ class ClueUpdate(BaseModel):
     title_internal: str | None = Field(None, min_length=1, max_length=255)
     title_player: str | None = Field(None, min_length=1, max_length=255)
     content_text: str | None = Field(None, min_length=1)
+    detail_for_npc: str | None = None
     content_type: Literal["text", "image", "structured"] | None = None
     content_payload: dict[str, Any] | None = None
     clue_type: Literal["evidence", "testimony", "world_info", "decoy"] | None = None

@@ -103,7 +103,21 @@
     "deleteConfirm": "确定要删除 \"{{name}}\" 吗？此操作不可撤销。",
     "totalScripts": "共 {{total}} 个剧本",
     "notFound": "剧本未找到",
-    "viewClueTree": "查看线索树"
+    "viewClueTree": "查看线索树",
+    "summary": "故事梗概",
+    "summaryPlaceholder": "故事的简要概述",
+    "background": "背景设定",
+    "backgroundPlaceholder": "故事的背景设定和情境",
+    "truth": "真相",
+    "truthSubtitle": "案件真相",
+    "murderer": "凶手",
+    "murdererPlaceholder": "凶手的NPC ID或名称",
+    "weapon": "凶器",
+    "weaponPlaceholder": "作案凶器",
+    "motive": "动机",
+    "motivePlaceholder": "犯罪动机",
+    "crimeMethod": "作案手法",
+    "crimeMethodPlaceholder": "案件的作案手法"
   },
   "scene": {
     "title": "场景",
@@ -158,7 +172,14 @@
     "systemPromptTemplate": "系统提示词模板",
     "availableVariables": "可用变量",
     "relatedClues": "相关线索",
-    "noCluesAssociated": "没有与此NPC关联的线索"
+    "noCluesAssociated": "没有与此NPC关联的线索",
+    "knowledgeScope": "知识范围",
+    "knows": "知道的事情",
+    "knowsPlaceholder": "NPC知道的事情",
+    "doesNotKnow": "不知道的事情",
+    "doesNotKnowPlaceholder": "NPC不知道的事情",
+    "worldModelLimits": "世界模型限制",
+    "worldModelLimitsPlaceholder": "NPC世界观的限制"
   },
   "clue": {
     "title": "线索管理",
@@ -194,6 +215,9 @@
     "internalTitlePlaceholder": "内部参考标题",
     "playerTitlePlaceholder": "显示给玩家的标题",
     "contentPlaceholder": "线索内容文本",
+    "detailForNpc": "NPC提示",
+    "detailForNpcPlaceholder": "指导NPC如何透露这条线索",
+    "detailForNpcExtra": "这段文字指导NPC如何在对话中自然地透露这条线索",
     "pleaseSelectScript": "请选择剧本",
     "pleaseEnterInternalTitle": "请输入内部标题",
     "pleaseEnterPlayerTitle": "请输入玩家可见标题",

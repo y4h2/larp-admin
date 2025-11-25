@@ -286,6 +286,12 @@ export default function ScriptDetail() {
                   <Form.Item name="description" label={t('common.description')}>
                     <Input.TextArea placeholder={t('script.enterDescription')} rows={4} />
                   </Form.Item>
+                  <Form.Item name="summary" label={t('script.summary')}>
+                    <Input.TextArea placeholder={t('script.summaryPlaceholder')} rows={3} />
+                  </Form.Item>
+                  <Form.Item name="background" label={t('script.background')}>
+                    <Input.TextArea placeholder={t('script.backgroundPlaceholder')} rows={4} />
+                  </Form.Item>
                   <Form.Item name="status" label={t('common.status')}>
                     <Select>
                       <Option value="draft">{t('script.draft')}</Option>
@@ -293,6 +299,28 @@ export default function ScriptDetail() {
                       <Option value="online">{t('script.online')}</Option>
                       <Option value="archived">{t('script.archived')}</Option>
                     </Select>
+                  </Form.Item>
+                </Form>
+              </Card>
+            ),
+          },
+          {
+            key: 'truth',
+            label: t('script.truth'),
+            children: (
+              <Card title={t('script.truthSubtitle')}>
+                <Form form={form} layout="vertical" onFinish={handleSave}>
+                  <Form.Item name={['truth', 'murderer']} label={t('script.murderer')}>
+                    <Input placeholder={t('script.murdererPlaceholder')} />
+                  </Form.Item>
+                  <Form.Item name={['truth', 'weapon']} label={t('script.weapon')}>
+                    <Input placeholder={t('script.weaponPlaceholder')} />
+                  </Form.Item>
+                  <Form.Item name={['truth', 'motive']} label={t('script.motive')}>
+                    <Input.TextArea placeholder={t('script.motivePlaceholder')} rows={3} />
+                  </Form.Item>
+                  <Form.Item name={['truth', 'crime_method']} label={t('script.crimeMethod')}>
+                    <Input.TextArea placeholder={t('script.crimeMethodPlaceholder')} rows={4} />
                   </Form.Item>
                 </Form>
               </Card>
