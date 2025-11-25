@@ -16,7 +16,6 @@ import {
   FileTextOutlined,
   CommentOutlined,
   MessageOutlined,
-  AimOutlined,
   GlobalOutlined,
   TranslationOutlined,
   CodeOutlined,
@@ -68,7 +67,6 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   ]),
   getItem(t('menu.debugTools'), 'debug', <BugOutlined />, [
     getItem(t('menu.dialogueSimulation'), '/debug/simulation', <MessageOutlined />),
-    getItem(t('menu.singleClueDebug'), '/debug/clue', <AimOutlined />),
     getItem(t('menu.dialogueLogs'), '/debug/logs', <CommentOutlined />),
   ]),
   getItem(t('menu.settings'), 'settings', <SettingOutlined />, [

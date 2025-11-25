@@ -14,7 +14,7 @@ import { ClueList, ClueDetail, ClueTree } from '@/pages/clues';
 import { DialogueLogs } from '@/pages/experiments';
 
 // Debug
-import { DialogueSimulation, ClueDebug } from '@/pages/debug';
+import { DialogueSimulation } from '@/pages/debug';
 
 // Settings
 import { GlobalSettings } from '@/pages/settings';
@@ -69,10 +69,6 @@ const router = createBrowserRouter([
       {
         path: 'debug/simulation',
         element: <DialogueSimulation />,
-      },
-      {
-        path: 'debug/clue',
-        element: <ClueDebug />,
       },
       {
         path: 'debug/logs',

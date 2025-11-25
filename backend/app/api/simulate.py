@@ -84,7 +84,7 @@ async def simulate_dialogue(
                 "matching_strategy": request.matching_strategy.value,
                 "template_id": request.template_id,
                 "llm_config_id": request.llm_config_id,
-                "npc_reply_template_id": request.npc_reply_template_id,
+                "npc_system_template_id": request.npc_system_template_id,
                 "npc_chat_config_id": request.npc_chat_config_id,
             },
             matched_clues=[mc.model_dump() for mc in result.matched_clues],

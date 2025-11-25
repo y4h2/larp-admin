@@ -11,7 +11,6 @@
 NPC 对话模板应该分成三种提示词，system prompt, user prompt, AI prompt
 
 
-把线索调试页面和合并入对话模拟页面。然后添加一个flag，如果不勾选这个flag则指运行线索匹配策略，并且,NPC对话相关的选项灰色不可选，勾选这个flag则先运行线索匹配策略再运行NPC对话
 
 
 # 线索树

@@ -21,7 +21,7 @@ class TemplateType(str, enum.Enum):
 
     # For building embedding content from clue fields
     CLUE_EMBEDDING = "clue_embedding"
-    # System prompt for NPC dialogue
+    # System prompt for NPC dialogue (role, personality, background)
     NPC_SYSTEM_PROMPT = "npc_system_prompt"
     # How NPC should explain/reveal a clue
     CLUE_REVEAL = "clue_reveal"

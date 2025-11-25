@@ -10,7 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clue import Clue
 from app.models.llm_config import LLMConfig, LLMConfigType
+from app.models.log import DialogueLog
+from app.models.npc import NPC
 from app.models.prompt_template import PromptTemplate
+from app.models.script import Script
 from app.schemas.simulate import (
     MatchedClue,
     MatchingStrategy,
@@ -30,9 +33,14 @@ class MatchContext:
     player_message: str
     unlocked_clue_ids: set[str]
     npc_id: str
+    script_id: str
     matching_strategy: MatchingStrategy = MatchingStrategy.KEYWORD
     template_id: str | None = None
     llm_config_id: str | None = None
+    # NPC reply configuration
+    npc_system_template_id: str | None = None
+    npc_chat_config_id: str | None = None
+    session_id: str | None = None
 
 
 @dataclass
@@ -76,9 +84,13 @@ class MatchingService:
             player_message=request.player_message.lower(),
             unlocked_clue_ids=set(request.unlocked_clue_ids),
             npc_id=request.npc_id,
+            script_id=request.script_id,
             matching_strategy=request.matching_strategy,
             template_id=request.template_id,
             llm_config_id=request.llm_config_id,
+            npc_system_template_id=request.npc_system_template_id,
+            npc_chat_config_id=request.npc_chat_config_id,
+            session_id=request.session_id,
         )
 
         # Get candidate clues for this NPC
@@ -113,9 +125,19 @@ class MatchingService:
         matched_clues = [self._result_to_schema(r) for r in results]
         triggered_clues = [self._result_to_schema(r) for r in triggered]
 
+        # Generate NPC response if templates are provided
+        npc_response = None
+        if context.npc_system_template_id and context.npc_chat_config_id:
+            npc_response = await self._generate_npc_response(
+                context=context,
+                triggered_clues=triggered,
+                player_message=request.player_message,
+            )
+
         return SimulateResponse(
             matched_clues=matched_clues,
             triggered_clues=triggered_clues,
+            npc_response=npc_response,
             debug_info={
                 "total_candidates": len(candidates),
                 "total_matched": len(results),
@@ -506,3 +528,159 @@ Only return the JSON object, no other text."""
             logger.warning(f"Failed to parse LLM response: {e}, response: {response}")
 
         return matched_ids
+
+    async def _generate_npc_response(
+        self,
+        context: MatchContext,
+        triggered_clues: list[MatchResult],
+        player_message: str,
+    ) -> str | None:
+        """
+        Generate NPC response using LLM with dialogue history.
+
+        Uses system prompt template for NPC role, personality, background.
+        The player message is used directly as user input.
+        Dialogue history is automatically included from previous logs.
+
+        Args:
+            context: Match context with template and config IDs
+            triggered_clues: List of triggered clue results
+            player_message: Original player message
+
+        Returns:
+            NPC response string or None if generation fails
+        """
+        try:
+            # Get chat config
+            chat_config = await self._get_llm_config_by_id(context.npc_chat_config_id)
+            if not chat_config:
+                logger.warning("NPC chat config not found")
+                return None
+
+            # Load NPC and Script data
+            npc = await self._get_npc(context.npc_id)
+            script = await self._get_script(context.script_id)
+            if not npc:
+                logger.warning(f"NPC not found: {context.npc_id}")
+                return None
+
+            # Load system template
+            system_template = await self._load_template_content(
+                context.npc_system_template_id
+            )
+
+            # Build template context
+            triggered_clue_info = [
+                {
+                    "name": r.clue.name,
+                    "detail": r.clue.detail,
+                    "detail_for_npc": r.clue.detail_for_npc,
+                }
+                for r in triggered_clues
+            ]
+
+            template_context = {
+                "npc": {
+                    "id": npc.id,
+                    "name": npc.name,
+                    "age": npc.age,
+                    "personality": npc.personality,
+                    "background": npc.background,
+                    "knowledge_scope": npc.knowledge_scope or {},
+                },
+                "script": {
+                    "id": script.id if script else "",
+                    "title": script.title if script else "",
+                    "background": script.background if script else "",
+                } if script else {},
+                "triggered_clues": triggered_clue_info,
+                "player_message": player_message,
+            }
+
+            # Render system prompt
+            system_prompt = ""
+            if system_template:
+                render_result = template_renderer.render(system_template, template_context)
+                system_prompt = render_result.rendered_content
+            else:
+                system_prompt = f"You are {npc.name}. Personality: {npc.personality or 'friendly'}."
+
+            # Get dialogue history
+            history_messages = await self._get_dialogue_history(context.session_id)
+
+            # Build messages array
+            messages = [{"role": "system", "content": system_prompt}]
+
+            # Add dialogue history
+            for log in history_messages:
+                messages.append({"role": "user", "content": log.player_message})
+                if log.npc_response:
+                    messages.append({"role": "assistant", "content": log.npc_response})
+
+            # Add current player message
+            messages.append({"role": "user", "content": player_message})
+
+            # Call LLM
+            response = await self._call_llm_with_messages(chat_config, messages)
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to generate NPC response: {e}", exc_info=True)
+            return None
+
+    async def _get_llm_config_by_id(self, config_id: str | None) -> LLMConfig | None:
+        """Get LLM config by ID."""
+        if not config_id:
+            return None
+        query = select(LLMConfig).where(LLMConfig.id == config_id)
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def _get_npc(self, npc_id: str) -> NPC | None:
+        """Get NPC by ID."""
+        query = select(NPC).where(NPC.id == npc_id)
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def _get_script(self, script_id: str) -> Script | None:
+        """Get Script by ID."""
+        query = select(Script).where(
+            Script.id == script_id,
+            Script.deleted_at.is_(None),
+        )
+        result = await self.db.execute(query)
+        return result.scalars().first()
+
+    async def _get_dialogue_history(
+        self, session_id: str | None, limit: int = 10
+    ) -> list[DialogueLog]:
+        """Get dialogue history for a session."""
+        if not session_id:
+            return []
+
+        query = (
+            select(DialogueLog)
+            .where(DialogueLog.session_id == session_id)
+            .order_by(DialogueLog.created_at.asc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def _call_llm_with_messages(
+        self, config: LLMConfig, messages: list[dict]
+    ) -> str:
+        """Call LLM with a full messages array."""
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{config.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {config.api_key}"},
+                json={
+                    "model": config.model,
+                    "messages": messages,
+                    "temperature": 0.7,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]

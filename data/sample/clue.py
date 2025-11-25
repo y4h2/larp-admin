@@ -222,3 +222,51 @@ class GameManager:
         retrieved_clue = self.clue_retrieval_strategy.retrieve_clues(user_message, no_prereq_clues)
         return retrieved_clue
     
+
+
+from typing import Optional
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+llm = ChatOpenAI(
+    base_url="https://api.siliconflow.cn/v1",
+    api_key=os.getenv("API_KEY"),
+    model="deepseek-ai/DeepSeek-V3.1-Terminus")  
+
+
+def npc_reply_with_clue(
+    user_message: str,
+    npc_config: NPC,
+    selected_clue: Optional[Clue],
+    conversation_history: dict[str, any]
+) -> str:
+    system_prompt = npc_config["llm_prompt"]["system_prompt"]
+    system_msg = SystemMessage(content=system_prompt)
+
+    history_msgs = []
+    for h in conversation_history[-4:]:
+        if h["role"] == "player":
+            history_msgs.append(HumanMessage(content=h["content"]))
+        else:
+            history_msgs.append(AIMessage(content=h["content"]))
+
+
+    if selected_clue:
+        guide = (
+            "【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
+            "用白梦雪的语气说出来，不要一次性讲完所有细节，"
+            "不要提到'线索'、'卡牌'、'ID'等元信息：\n"
+            f"{selected_clue['detail_for_npc']}\n"
+        )
+    else:
+        guide = (
+            "【指引】这一次你不需要提供新的关键情报，"
+            "只需根据对白和人设，自然回应对方。"
+        )
+
+    user_msg = HumanMessage(
+        content=f"{guide}\n玩家刚才的话是：{user_message}"
+    )
+
+    resp = llm.invoke([system_msg] + history_msgs + [user_msg])
+    return resp.content

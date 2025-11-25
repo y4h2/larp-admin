@@ -18,7 +18,11 @@ import {
   Spin,
   Tooltip,
   Alert,
+  Switch,
+  Table,
+  Progress,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   SendOutlined,
   ClearOutlined,
@@ -27,6 +31,7 @@ import {
   RobotOutlined,
   LockOutlined,
   EyeOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag } from '@/components/common';
 import { simulationApi, clueApi } from '@/api';
@@ -74,12 +79,17 @@ export default function DialogueSimulation() {
   const [matchingLlmConfigId, setMatchingLlmConfigId] = useState<string | undefined>();
 
   // NPC reply configuration
-  const [npcReplyTemplateId, setNpcReplyTemplateId] = useState<string | undefined>();
+  const [enableNpcReply, setEnableNpcReply] = useState(false);
+  const [npcSystemTemplateId, setNpcSystemTemplateId] = useState<string | undefined>();
   const [npcChatConfigId, setNpcChatConfigId] = useState<string | undefined>();
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Match results for table display
+  const [lastMatchResults, setLastMatchResults] = useState<MatchedClue[] | null>(null);
+  const [lastDebugInfo, setLastDebugInfo] = useState<Record<string, unknown> | null>(null);
 
   // Template rendering
   const [renderedPreviews, setRenderedPreviews] = useState<Record<string, TemplateRenderResponse>>({});
@@ -89,7 +99,7 @@ export default function DialogueSimulation() {
   const matchingTemplates = templates.filter((t) =>
     ['clue_embedding', 'clue_reveal', 'custom'].includes(t.type)
   );
-  const npcReplyTemplates = templates.filter((t) =>
+  const npcSystemTemplates = templates.filter((t) =>
     ['npc_system_prompt', 'custom'].includes(t.type)
   );
 
@@ -187,6 +197,8 @@ export default function DialogueSimulation() {
     setChatHistory((prev) => [...prev, newPlayerMessage]);
     setPlayerMessage('');
     setLoading(true);
+    setLastMatchResults(null);
+    setLastDebugInfo(null);
 
     try {
       const result = await simulationApi.run({
@@ -197,11 +209,16 @@ export default function DialogueSimulation() {
         matching_strategy: matchingStrategy,
         template_id: matchingTemplateId,
         llm_config_id: matchingLlmConfigId,
-        npc_reply_template_id: npcReplyTemplateId,
-        npc_chat_config_id: npcChatConfigId,
+        // Only include NPC reply options if enabled
+        npc_system_template_id: enableNpcReply ? npcSystemTemplateId : undefined,
+        npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
         session_id: sessionIdRef.current,
         save_log: true,
       });
+
+      // Store match results for table display
+      setLastMatchResults(result.matched_clues);
+      setLastDebugInfo(result.debug_info);
 
       // Add system message with match details
       const systemMessage: ChatMessage = {
@@ -211,8 +228,8 @@ export default function DialogueSimulation() {
       };
       setChatHistory((prev) => [...prev, systemMessage]);
 
-      // Add NPC response if available
-      if (result.npc_response) {
+      // Add NPC response if available and enabled
+      if (enableNpcReply && result.npc_response) {
         const npcMessage: ChatMessage = {
           role: 'npc',
           content: result.npc_response,
@@ -229,9 +246,53 @@ export default function DialogueSimulation() {
   const handleClear = () => {
     setChatHistory([]);
     setUnlockedClueIds([]);
+    setLastMatchResults(null);
+    setLastDebugInfo(null);
     // Generate new session ID for next conversation
     sessionIdRef.current = uuidv4();
   };
+
+  // Match results table columns
+  const matchResultColumns: ColumnsType<MatchedClue> = [
+    {
+      title: t('clue.name'),
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string, record: MatchedClue) => (
+        <Space>
+          <span>{text}</span>
+          {record.is_triggered && <Tag color="green">{t('debug.triggered')}</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: t('debug.score'),
+      dataIndex: 'score',
+      key: 'score',
+      width: 120,
+      render: (score: number) => (
+        <Progress
+          percent={Math.round(score * 100)}
+          size="small"
+          status={score >= 0.5 ? 'success' : 'normal'}
+        />
+      ),
+    },
+    {
+      title: t('debug.matchDetails'),
+      dataIndex: 'match_reasons',
+      key: 'match_reasons',
+      render: (reasons: string[]) => (
+        <Space direction="vertical" size={2}>
+          {reasons.map((r, i) => (
+            <Text key={i} type="secondary" style={{ fontSize: 12 }}>
+              {r}
+            </Text>
+          ))}
+        </Space>
+      ),
+    },
+  ];
 
   // Render template for a specific clue
   const handleRenderClue = async (clue: Clue) => {
@@ -434,19 +495,41 @@ export default function DialogueSimulation() {
               )}
 
               <Divider orientation="left" plain style={{ margin: '12px 0' }}>
-                {t('debug.npcReplyConfig')}
+                <Space>
+                  <MessageOutlined />
+                  {t('debug.npcReplyConfig')}
+                </Space>
               </Divider>
 
+              <div style={{ marginBottom: 12 }}>
+                <Space>
+                  <Switch
+                    checked={enableNpcReply}
+                    onChange={setEnableNpcReply}
+                    size="small"
+                  />
+                  <Text type={enableNpcReply ? undefined : 'secondary'}>
+                    {t('debug.enableNpcReply')}
+                  </Text>
+                </Space>
+                <div style={{ marginTop: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('debug.enableNpcReplyHint')}
+                  </Text>
+                </div>
+              </div>
+
               <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.npcReplyTemplate')}</div>
+                <div style={{ marginBottom: 4 }}>{t('debug.npcSystemTemplate')}</div>
                 <Select
-                  placeholder={t('debug.selectNpcReplyTemplate')}
-                  value={npcReplyTemplateId}
-                  onChange={setNpcReplyTemplateId}
+                  placeholder={t('debug.selectNpcSystemTemplate')}
+                  value={npcSystemTemplateId}
+                  onChange={setNpcSystemTemplateId}
                   style={{ width: '100%' }}
                   allowClear
+                  disabled={!enableNpcReply}
                 >
-                  {npcReplyTemplates.map((tpl) => (
+                  {npcSystemTemplates.map((tpl) => (
                     <Option key={tpl.id} value={tpl.id}>
                       <Space>
                         <span>{tpl.name}</span>
@@ -467,6 +550,7 @@ export default function DialogueSimulation() {
                   onChange={setNpcChatConfigId}
                   style={{ width: '100%' }}
                   allowClear
+                  disabled={!enableNpcReply}
                 >
                   {chatConfigs.map((config) => (
                     <Option key={config.id} value={config.id}>
@@ -482,119 +566,41 @@ export default function DialogueSimulation() {
           </Card>
         </Col>
 
-        {/* Middle: Chat */}
+        {/* Middle: Match Results + Template Content + Locked Clues */}
         <Col span={10}>
-          <Card
-            title={t('debug.simulationChat')}
-            size="small"
-            extra={
-              <Button icon={<ClearOutlined />} onClick={handleClear} size="small">
-                {t('debug.clear')}
-              </Button>
-            }
-          >
-            <div
-              style={{
-                height: 500,
-                overflowY: 'auto',
-                marginBottom: 16,
-                padding: 16,
-                background: '#fafafa',
-                borderRadius: 8,
-              }}
+          {/* Match Results */}
+          {lastMatchResults && lastMatchResults.length > 0 && (
+            <Card
+              title={t('debug.matchResults')}
+              size="small"
+              style={{ marginBottom: 16 }}
             >
-              {chatHistory.length === 0 ? (
-                <Empty description={t('debug.startMessage')} />
-              ) : (
-                chatHistory.map((msg, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      marginBottom: 16,
-                      textAlign: msg.role === 'player' ? 'right' : 'left',
-                    }}
-                  >
-                    <Tag color={msg.role === 'player' ? 'blue' : msg.role === 'npc' ? 'purple' : 'green'}>
-                      {msg.role === 'player' ? t('debug.player') : msg.role === 'npc' ? t('common.npc') : t('debug.system')}
-                    </Tag>
-                    <div
-                      style={{
-                        display: 'inline-block',
-                        maxWidth: '80%',
-                        padding: '8px 12px',
-                        borderRadius: 8,
-                        background: msg.role === 'player' ? '#e6f7ff' : msg.role === 'npc' ? '#f9f0ff' : '#f6ffed',
-                        marginTop: 4,
-                        textAlign: 'left',
-                      }}
-                    >
-                      {msg.content}
-                      {msg.result && (
-                        <Collapse
-                          size="small"
-                          style={{ marginTop: 8 }}
-                          items={[
-                            {
-                              key: '1',
-                              label: `${t('debug.matchDetails')} (${msg.result.matched_clues.length})`,
-                              children: (
-                                <div>
-                                  {msg.result.matched_clues.map((mc: MatchedClue, j: number) => (
-                                    <Descriptions key={j} size="small" column={1}>
-                                      <Descriptions.Item label={t('debug.clue')}>
-                                        {mc.name || mc.clue_id}
-                                      </Descriptions.Item>
-                                      <Descriptions.Item label={t('debug.score')}>
-                                        {(mc.score * 100).toFixed(0)}%
-                                      </Descriptions.Item>
-                                      <Descriptions.Item label={t('debug.matchType')}>
-                                        {mc.match_reasons.map((reason, k) => (
-                                          <Tag key={k}>{reason}</Tag>
-                                        ))}
-                                      </Descriptions.Item>
-                                    </Descriptions>
-                                  ))}
-                                </div>
-                              ),
-                            },
-                          ]}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <Space.Compact style={{ width: '100%' }}>
-              <TextArea
-                placeholder={t('debug.enterPlayerMessage')}
-                value={playerMessage}
-                onChange={(e) => setPlayerMessage(e.target.value)}
-                onPressEnter={(e) => {
-                  if (!e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
+              {lastDebugInfo && (
+                <Alert
+                  message={t('debug.debugSummary')}
+                  description={
+                    <Space direction="vertical" size={0}>
+                      <Text>{t('debug.totalCandidates')}: {String(lastDebugInfo.total_candidates ?? 0)}</Text>
+                      <Text>{t('debug.totalMatched')}: {String(lastDebugInfo.total_matched ?? 0)}</Text>
+                      <Text>{t('debug.totalTriggered')}: {String(lastDebugInfo.total_triggered ?? 0)}</Text>
+                      <Text>{t('debug.strategy')}: {t(`debug.${String(lastDebugInfo.strategy ?? 'keyword')}Matching`)}</Text>
+                    </Space>
                   }
-                }}
-                style={{ resize: 'none' }}
-                rows={2}
+                  type="info"
+                  style={{ marginBottom: 12 }}
+                />
+              )}
+              <Table
+                columns={matchResultColumns}
+                dataSource={lastMatchResults}
+                rowKey="clue_id"
+                size="small"
+                pagination={false}
+                scroll={{ y: 200 }}
               />
-              <Button
-                type="primary"
-                icon={<SendOutlined />}
-                onClick={handleSend}
-                loading={loading}
-                disabled={!selectedScriptId || !selectedNpcId}
-              >
-                {t('debug.send')}
-              </Button>
-            </Space.Compact>
-          </Card>
-        </Col>
+            </Card>
+          )}
 
-        {/* Right: Template Content + Locked Clues */}
-        <Col span={8}>
           {/* Template Content Preview */}
           {selectedMatchingTemplate && (
             <Card
@@ -732,6 +738,117 @@ export default function DialogueSimulation() {
                 }))}
               />
             )}
+          </Card>
+        </Col>
+
+        {/* Right: Chat */}
+        <Col span={8}>
+          <Card
+            title={t('debug.simulationChat')}
+            size="small"
+            extra={
+              <Button icon={<ClearOutlined />} onClick={handleClear} size="small">
+                {t('debug.clear')}
+              </Button>
+            }
+          >
+            <div
+              style={{
+                height: 500,
+                overflowY: 'auto',
+                marginBottom: 16,
+                padding: 16,
+                background: '#fafafa',
+                borderRadius: 8,
+              }}
+            >
+              {chatHistory.length === 0 ? (
+                <Empty description={t('debug.startMessage')} />
+              ) : (
+                chatHistory.map((msg, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      marginBottom: 16,
+                      textAlign: msg.role === 'player' ? 'right' : 'left',
+                    }}
+                  >
+                    <Tag color={msg.role === 'player' ? 'blue' : msg.role === 'npc' ? 'purple' : 'green'}>
+                      {msg.role === 'player' ? t('debug.player') : msg.role === 'npc' ? t('common.npc') : t('debug.system')}
+                    </Tag>
+                    <div
+                      style={{
+                        display: 'inline-block',
+                        maxWidth: '80%',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        background: msg.role === 'player' ? '#e6f7ff' : msg.role === 'npc' ? '#f9f0ff' : '#f6ffed',
+                        marginTop: 4,
+                        textAlign: 'left',
+                      }}
+                    >
+                      {msg.content}
+                      {msg.result && (
+                        <Collapse
+                          size="small"
+                          style={{ marginTop: 8 }}
+                          items={[
+                            {
+                              key: '1',
+                              label: `${t('debug.matchDetails')} (${msg.result.matched_clues.length})`,
+                              children: (
+                                <div>
+                                  {msg.result.matched_clues.map((mc: MatchedClue, j: number) => (
+                                    <Descriptions key={j} size="small" column={1}>
+                                      <Descriptions.Item label={t('debug.clue')}>
+                                        {mc.name || mc.clue_id}
+                                      </Descriptions.Item>
+                                      <Descriptions.Item label={t('debug.score')}>
+                                        {(mc.score * 100).toFixed(0)}%
+                                      </Descriptions.Item>
+                                      <Descriptions.Item label={t('debug.matchType')}>
+                                        {mc.match_reasons.map((reason, k) => (
+                                          <Tag key={k}>{reason}</Tag>
+                                        ))}
+                                      </Descriptions.Item>
+                                    </Descriptions>
+                                  ))}
+                                </div>
+                              ),
+                            },
+                          ]}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <Space.Compact style={{ width: '100%' }}>
+              <TextArea
+                placeholder={t('debug.enterPlayerMessage')}
+                value={playerMessage}
+                onChange={(e) => setPlayerMessage(e.target.value)}
+                onPressEnter={(e) => {
+                  if (!e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                style={{ resize: 'none' }}
+                rows={2}
+              />
+              <Button
+                type="primary"
+                icon={<SendOutlined />}
+                onClick={handleSend}
+                loading={loading}
+                disabled={!selectedScriptId || !selectedNpcId}
+              >
+                {t('debug.send')}
+              </Button>
+            </Space.Compact>
           </Card>
         </Col>
       </Row>

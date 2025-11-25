@@ -234,8 +234,10 @@
     "matchingTemplate": "Matching Template",
     "selectMatchingTemplate": "Select matching template",
     "npcReplyConfig": "NPC Reply Configuration",
-    "npcReplyTemplate": "NPC Reply Template",
-    "selectNpcReplyTemplate": "Select NPC reply template",
+    "enableNpcReply": "Enable NPC Reply",
+    "enableNpcReplyHint": "When enabled, NPC will respond based on matched clues",
+    "npcSystemTemplate": "NPC System Prompt",
+    "selectNpcSystemTemplate": "Select system prompt template",
     "npcChatModel": "NPC Chat Model",
     "selectNpcChatModel": "Select NPC chat model"
   },
