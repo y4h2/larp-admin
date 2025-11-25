@@ -15,9 +15,10 @@ import {
 } from 'antd';
 import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
-import { logApi, scriptApi, sceneApi, npcApi } from '@/api';
+import { logApi } from '@/api';
+import { useScripts, useNpcs } from '@/hooks';
 import { formatDate } from '@/utils';
-import type { DialogueLog, Script, Scene, NPC, MatchedClue } from '@/types';
+import type { DialogueLog, MatchedClue } from '@/types';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -28,15 +29,13 @@ export default function DialogueLogs() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<DialogueLog[]>([]);
   const [total, setTotal] = useState(0);
-  const [scripts, setScripts] = useState<Script[]>([]);
-  const [scenes, setScenes] = useState<Scene[]>([]);
-  const [npcs, setNpcs] = useState<NPC[]>([]);
+  const { scripts, fetchScripts } = useScripts();
+  const { npcs, fetchNpcs } = useNpcs();
   const [selectedLog, setSelectedLog] = useState<DialogueLog | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   const [filters, setFilters] = useState<{
     script_id?: string;
-    scene_id?: string;
     npc_id?: string;
     session_id?: string;
     start_date?: string;
@@ -49,20 +48,14 @@ export default function DialogueLogs() {
   });
 
   useEffect(() => {
-    scriptApi.list({}).then((data) => setScripts(data.items));
-  }, []);
+    fetchScripts();
+  }, [fetchScripts]);
 
   useEffect(() => {
     if (filters.script_id) {
-      Promise.all([
-        sceneApi.list({ script_id: filters.script_id }),
-        npcApi.list({ script_id: filters.script_id, page_size: 100 }),
-      ]).then(([scenesData, npcsData]) => {
-        setScenes(scenesData.items);
-        setNpcs(npcsData.items);
-      });
+      fetchNpcs({ script_id: filters.script_id });
     }
-  }, [filters.script_id]);
+  }, [filters.script_id, fetchNpcs]);
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -160,31 +153,17 @@ export default function DialogueLogs() {
             allowClear
           />
           <Select
-            placeholder={t('strategy.script')}
+            placeholder={t('script.title')}
             value={filters.script_id}
             onChange={(v) =>
-              setFilters({ ...filters, script_id: v, scene_id: undefined, npc_id: undefined, page: 1 })
+              setFilters({ ...filters, script_id: v, npc_id: undefined, page: 1 })
             }
             style={{ width: 160 }}
             allowClear
           >
             {scripts.map((s) => (
               <Option key={s.id} value={s.id}>
-                {s.name}
-              </Option>
-            ))}
-          </Select>
-          <Select
-            placeholder={t('strategy.scene')}
-            value={filters.scene_id}
-            onChange={(v) => setFilters({ ...filters, scene_id: v, page: 1 })}
-            style={{ width: 160 }}
-            allowClear
-            disabled={!filters.script_id}
-          >
-            {scenes.map((s) => (
-              <Option key={s.id} value={s.id}>
-                {s.name}
+                {s.title}
               </Option>
             ))}
           </Select>
@@ -246,7 +225,7 @@ export default function DialogueLogs() {
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('logs.time')}>{formatDate(selectedLog.created_at)}</Descriptions.Item>
-              <Descriptions.Item label={t('logs.strategy')}>{selectedLog.strategy_id}</Descriptions.Item>
+              <Descriptions.Item label="NPC">{selectedLog.npc_id}</Descriptions.Item>
             </Descriptions>
 
             <Card size="small" title={t('logs.playerMessage')} style={{ marginTop: 16 }}>

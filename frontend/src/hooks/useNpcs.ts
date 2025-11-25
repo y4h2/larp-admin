@@ -71,17 +71,6 @@ export function useNpcs() {
     }
   }, []);
 
-  const archiveNpc = useCallback(async (id: string) => {
-    try {
-      const npc = await npcApi.archive(id);
-      message.success('NPC archived successfully');
-      return npc;
-    } catch (error) {
-      message.error('Failed to archive NPC');
-      throw error;
-    }
-  }, []);
-
   return {
     loading,
     npcs,
@@ -91,6 +80,5 @@ export function useNpcs() {
     createNpc,
     updateNpc,
     deleteNpc,
-    archiveNpc,
   };
 }

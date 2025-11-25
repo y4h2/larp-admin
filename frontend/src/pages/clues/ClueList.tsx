@@ -220,7 +220,7 @@ export default function ClueList() {
         >
           {scripts.map((s) => (
             <Option key={s.id} value={s.id}>
-              {s.name}
+              {s.title}
             </Option>
           ))}
         </Select>
@@ -294,7 +294,7 @@ export default function ClueList() {
             >
               {scripts.map((s) => (
                 <Option key={s.id} value={s.id}>
-                  {s.name}
+                  {s.title}
                 </Option>
               ))}
             </Select>

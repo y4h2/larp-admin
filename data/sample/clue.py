@@ -64,18 +64,52 @@ class Script:
 class Progress:
     clue_ids: list[ClueId]
 
+@dataclass
+class EmbeddingConfig:
+    model: str
+    base_url: str
+    api_key: str
 
-
-
+@dataclass
 class ClueRetrievalStrategy:
     
     def retrieve_clues(self, message: str, clues: list[Clue]) -> Clue | None:
         pass
 
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
 
 class VectorClueRetrievalStrategy(ClueRetrievalStrategy):
     # vector search
-    pass
+    def __init__(self, embedding_config: EmbeddingConfig):
+        self.embeddings = OpenAIEmbeddings(
+            base_url=embedding_config.base_url,
+            api_key=embedding_config.api_key,
+            model=embedding_config.model)
+        self.vector_store = Chroma(
+            collection_name="example_collection",
+            embedding_function=self.embeddings,
+        )
+
+    def build_embedding_db(self, 
+        prompt_template:str,
+        clues: list[Clue],
+    ):
+        for clue in clues:
+            self.vector_store.add_documents(documents=[
+                Document(
+                    page_content=prompt_template, 
+                    metadata={
+                        "clue_id": clue.id,
+                        "npc_id": clue.npc_id,
+                    },
+                    id=clue.id,
+                )])
+
+    def retrieve_clues(self, message: str, clues: list[Clue]) -> Clue | None:
+        results = self.vector_store.similarity_search(message, k=1)
+        return results[0].metadata["clue_id"]
 
 class LLMClueRetrievalStrategy(ClueRetrievalStrategy):
     # { match: true, clue_id: ClueId }

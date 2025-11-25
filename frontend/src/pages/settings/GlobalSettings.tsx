@@ -12,8 +12,8 @@ import {
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/common';
-import { settingsApi, strategyApi } from '@/api';
-import type { GlobalSettings as GlobalSettingsType, AlgorithmStrategy } from '@/types';
+import { settingsApi } from '@/api';
+import type { GlobalSettings as GlobalSettingsType } from '@/types';
 
 const { Option } = Select;
 
@@ -22,17 +22,12 @@ export default function GlobalSettings() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [strategies, setStrategies] = useState<AlgorithmStrategy[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [settings, strategiesData] = await Promise.all([
-          settingsApi.get(),
-          strategyApi.list({ status: 'published', page_size: 100 }),
-        ]);
-        setStrategies(strategiesData.items);
+        const settings = await settingsApi.get();
         form.setFieldsValue(settings);
       } catch {
         // Error handled
@@ -66,8 +61,8 @@ export default function GlobalSettings() {
   return (
     <div>
       <PageHeader
-        title="Global Settings"
-        subtitle="Configure default system settings"
+        title={t('settings.globalSettings')}
+        subtitle={t('settings.globalSettingsSubtitle')}
         extra={
           <Button
             type="primary"
@@ -75,37 +70,21 @@ export default function GlobalSettings() {
             onClick={() => form.submit()}
             loading={saving}
           >
-            Save Settings
+            {t('settings.saveSettings')}
           </Button>
         }
       />
 
       <Card>
         <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 600 }}>
-          <Divider orientation="left">Default Strategy</Divider>
-
-          <Form.Item
-            name="default_strategy_id"
-            label="Default Matching Strategy"
-            extra="This strategy will be used when no specific strategy is configured"
-          >
-            <Select placeholder="Select default strategy" allowClear>
-              {strategies.map((s) => (
-                <Option key={s.id} value={s.id}>
-                  {s.name} {s.is_default && '(current default)'}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Divider orientation="left">Embedding Settings</Divider>
+          <Divider orientation="left">{t('settings.embeddingSettings')}</Divider>
 
           <Form.Item
             name="default_embedding_model"
-            label="Default Embedding Model"
-            extra="The embedding model used for semantic matching"
+            label={t('settings.defaultEmbeddingModel')}
+            extra={t('settings.defaultEmbeddingModelExtra')}
           >
-            <Select placeholder="Select embedding model">
+            <Select placeholder={t('settings.defaultEmbeddingModel')}>
               <Option value="text-embedding-ada-002">text-embedding-ada-002 (OpenAI)</Option>
               <Option value="text-embedding-3-small">text-embedding-3-small (OpenAI)</Option>
               <Option value="text-embedding-3-large">text-embedding-3-large (OpenAI)</Option>
@@ -116,29 +95,10 @@ export default function GlobalSettings() {
 
           <Form.Item
             name="default_similarity_threshold"
-            label="Default Similarity Threshold"
-            extra="Minimum similarity score for semantic matching (0.0 - 1.0)"
+            label={t('settings.defaultSimilarityThreshold')}
+            extra={t('settings.defaultSimilarityThresholdExtra')}
           >
             <InputNumber min={0} max={1} step={0.05} style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Divider orientation="left">Other Settings</Divider>
-
-          <Form.Item
-            label="Max Clues per Response"
-            name="max_clues_per_response"
-            initialValue={5}
-          >
-            <InputNumber min={1} max={20} style={{ width: '100%' }} />
-          </Form.Item>
-
-          <Form.Item
-            label="Context Window Size"
-            name="context_window_size"
-            extra="Number of previous dialogue turns to consider"
-            initialValue={3}
-          >
-            <InputNumber min={0} max={10} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Card>

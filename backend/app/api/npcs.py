@@ -85,7 +85,7 @@ async def create_npc(
         age=npc_data.age,
         background=npc_data.background,
         personality=npc_data.personality,
-        knowledge_scope=npc_data.knowledge_scope,
+        knowledge_scope=npc_data.knowledge_scope.model_dump(),
     )
 
     db.add(npc)
@@ -133,6 +133,9 @@ async def update_npc(
     # Update fields
     update_data = npc_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
+        # Convert nested Pydantic models to dict for JSONB fields
+        if field == "knowledge_scope" and value is not None:
+            value = value if isinstance(value, dict) else value
         setattr(npc, field, value)
 
     await db.flush()

@@ -5,9 +5,6 @@ export interface NPCQueryParams {
   page?: number;
   page_size?: number;
   script_id?: string;
-  scene_id?: string;
-  role_type?: NPC['role_type'];
-  status?: NPC['status'];
   search?: string;
 }
 
@@ -34,10 +31,5 @@ export const npcApi = {
 
   delete: async (id: string): Promise<void> => {
     await client.delete(`/npcs/${id}`);
-  },
-
-  archive: async (id: string): Promise<NPC> => {
-    const response = await client.post(`/npcs/${id}/archive`);
-    return response.data;
   },
 };

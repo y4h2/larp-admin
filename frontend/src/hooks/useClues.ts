@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
 import { clueApi, type ClueQueryParams, type ClueTreeData } from '@/api/clues';
-import type { Clue, ClueVersion } from '@/types';
+import type { Clue } from '@/types';
 import { useAppStore } from '@/store';
 
 export function useClues() {
@@ -83,51 +83,14 @@ export function useClues() {
   };
 }
 
-export function useClueVersions() {
-  const [loading, setLoading] = useState(false);
-  const [versions, setVersions] = useState<ClueVersion[]>([]);
-
-  const fetchVersions = useCallback(async (clueId: string) => {
-    setLoading(true);
-    try {
-      const response = await clueApi.getVersions(clueId);
-      setVersions(response);
-      return response;
-    } catch (error) {
-      message.error('Failed to fetch clue versions');
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const restoreVersion = useCallback(async (clueId: string, versionId: string) => {
-    try {
-      const clue = await clueApi.restoreVersion(clueId, versionId);
-      message.success('Clue version restored successfully');
-      return clue;
-    } catch (error) {
-      message.error('Failed to restore clue version');
-      throw error;
-    }
-  }, []);
-
-  return {
-    loading,
-    versions,
-    fetchVersions,
-    restoreVersion,
-  };
-}
-
 export function useClueTree() {
   const [loading, setLoading] = useState(false);
   const [treeData, setTreeData] = useState<ClueTreeData | null>(null);
 
-  const fetchTree = useCallback(async (scriptId: string, sceneId?: string) => {
+  const fetchTree = useCallback(async (scriptId: string) => {
     setLoading(true);
     try {
-      const response = await clueApi.getTree(scriptId, sceneId);
+      const response = await clueApi.getTree(scriptId);
       setTreeData(response);
       return response;
     } catch (error) {
@@ -138,9 +101,9 @@ export function useClueTree() {
     }
   }, []);
 
-  const updateDependencies = useCallback(async (clueId: string, prerequisiteClueIds: string[]) => {
+  const updateDependencies = useCallback(async (clueId: string, prereqClueIds: string[]) => {
     try {
-      const clue = await clueApi.updateDependencies(clueId, prerequisiteClueIds);
+      const clue = await clueApi.updateDependencies(clueId, prereqClueIds);
       message.success('Dependencies updated successfully');
       return clue;
     } catch (error) {

@@ -43,47 +43,34 @@ import {
   SettingOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { PageHeader, ClueTypeTag, ImportanceTag, StatusTag } from '@/components/common';
+import { PageHeader } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
-import { useScripts, useScenes } from '@/hooks';
-import { clueTypeColors, importanceColors } from '@/utils';
+import { useScripts } from '@/hooks';
 
 const { Option } = Select;
 const { Text } = Typography;
 
 // Available fields that can be shown on clue nodes
 type ClueNodeField =
-  | 'title_internal'
-  | 'title_player'
-  | 'clue_type'
-  | 'importance'
-  | 'stage'
-  | 'status'
-  | 'scene_id'
-  | 'content_text'
-  | 'content_type'
-  | 'npc_ids'
+  | 'name'
+  | 'type'
+  | 'detail'
+  | 'npc_id'
   | 'prereq_clue_ids'
-  | 'version'
+  | 'trigger_keywords'
   | 'created_at'
   | 'updated_at';
 
-const DEFAULT_VISIBLE_FIELDS: ClueNodeField[] = ['title_internal', 'clue_type', 'importance', 'stage'];
+const DEFAULT_VISIBLE_FIELDS: ClueNodeField[] = ['name', 'type'];
 
 // All available fields with their i18n keys
 const ALL_CLUE_FIELDS: { field: ClueNodeField; labelKey: string }[] = [
-  { field: 'title_internal', labelKey: 'clue.internalTitle' },
-  { field: 'title_player', labelKey: 'clue.playerTitle' },
-  { field: 'clue_type', labelKey: 'clue.type' },
-  { field: 'importance', labelKey: 'clue.importance' },
-  { field: 'stage', labelKey: 'clue.stage' },
-  { field: 'status', labelKey: 'common.status' },
-  { field: 'scene_id', labelKey: 'common.scene' },
-  { field: 'content_text', labelKey: 'clue.content' },
-  { field: 'content_type', labelKey: 'clue.contentType' },
-  { field: 'npc_ids', labelKey: 'clue.associatedNpcs' },
+  { field: 'name', labelKey: 'common.name' },
+  { field: 'type', labelKey: 'clue.type' },
+  { field: 'detail', labelKey: 'clue.detail' },
+  { field: 'npc_id', labelKey: 'common.npc' },
   { field: 'prereq_clue_ids', labelKey: 'clue.prerequisites' },
-  { field: 'version', labelKey: 'common.version' },
+  { field: 'trigger_keywords', labelKey: 'clue.triggerKeywords' },
   { field: 'created_at', labelKey: 'common.createdAt' },
   { field: 'updated_at', labelKey: 'common.updatedAt' },
 ];
@@ -92,7 +79,6 @@ interface ClueNodeData {
   clue: ClueTreeNode;
   onClick: (clueId: string) => void;
   visibleFields: ClueNodeField[];
-  sceneName?: string;
 }
 
 // Helper to format date for display
@@ -104,37 +90,27 @@ function formatShortDate(dateStr?: string): string {
 
 // Custom node component for clues
 function ClueNode({ data }: { data: ClueNodeData }) {
-  const { clue, onClick, visibleFields, sceneName } = data;
+  const { clue, onClick, visibleFields } = data;
 
-  const borderColor = clueTypeColors[clue.clue_type] || '#d9d9d9';
-  const bgColor = clue.status === 'disabled' ? '#f5f5f5' : '#fff';
+  const typeColor = clue.type === 'image' ? '#722ed1' : '#1890ff';
 
   // Check which fields to show
-  const showTitleInternal = visibleFields.includes('title_internal');
-  const showTitlePlayer = visibleFields.includes('title_player');
-  const showType = visibleFields.includes('clue_type');
-  const showImportance = visibleFields.includes('importance');
-  const showStage = visibleFields.includes('stage');
-  const showStatus = visibleFields.includes('status');
-  const showScene = visibleFields.includes('scene_id');
-  const showContentText = visibleFields.includes('content_text');
-  const showContentType = visibleFields.includes('content_type');
-  const showNpcIds = visibleFields.includes('npc_ids');
+  const showName = visibleFields.includes('name');
+  const showType = visibleFields.includes('type');
+  const showDetail = visibleFields.includes('detail');
+  const showNpcId = visibleFields.includes('npc_id');
   const showPrereqIds = visibleFields.includes('prereq_clue_ids');
-  const showVersion = visibleFields.includes('version');
+  const showKeywords = visibleFields.includes('trigger_keywords');
   const showCreatedAt = visibleFields.includes('created_at');
   const showUpdatedAt = visibleFields.includes('updated_at');
-
-  const hasTags = showType || showImportance || showStage || showContentType || showVersion;
-  const hasTitle = showTitleInternal || showTitlePlayer;
 
   return (
     <div
       style={{
         padding: '10px 14px',
-        border: `2px solid ${borderColor}`,
+        border: `2px solid ${typeColor}`,
         borderRadius: 8,
-        background: bgColor,
+        background: '#fff',
         minWidth: 120,
         maxWidth: 240,
         cursor: 'pointer',
@@ -144,73 +120,52 @@ function ClueNode({ data }: { data: ClueNodeData }) {
     >
       <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
 
-      {showTitleInternal && (
+      {showName && (
         <div style={{ marginBottom: 4 }}>
           <Text strong ellipsis style={{ display: 'block', maxWidth: 210 }}>
-            {clue.title_internal || clue.title}
+            {clue.name}
           </Text>
         </div>
       )}
 
-      {showTitlePlayer && (
-        <div style={{ marginBottom: hasTitle ? 4 : 0 }}>
-          <Text ellipsis style={{ display: 'block', maxWidth: 210, fontSize: 12, color: '#666' }}>
-            {clue.title_player}
-          </Text>
-        </div>
-      )}
-
-      {showScene && sceneName && (
+      {showType && (
         <div style={{ marginBottom: 4 }}>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            📍 {sceneName}
-          </Text>
+          <Tag color={typeColor} style={{ margin: 0 }}>
+            {clue.type}
+          </Tag>
         </div>
       )}
 
-      {showContentText && clue.content_text && (
+      {showDetail && (clue as unknown as { detail?: string }).detail && (
         <div style={{ marginBottom: 4 }}>
           <Text ellipsis style={{ display: 'block', maxWidth: 210, fontSize: 11, color: '#888' }}>
-            {clue.content_text.substring(0, 50)}
-            {clue.content_text.length > 50 ? '...' : ''}
+            {((clue as unknown as { detail?: string }).detail || '').substring(0, 50)}
+            {((clue as unknown as { detail?: string }).detail || '').length > 50 ? '...' : ''}
           </Text>
         </div>
       )}
 
-      {hasTags && (
-        <Space size={4} wrap style={{ marginBottom: 4 }}>
-          {showType && (
-            <Tag color={clueTypeColors[clue.clue_type]} style={{ margin: 0 }}>
-              {clue.clue_type}
-            </Tag>
-          )}
-          {showImportance && (
-            <Tag color={importanceColors[clue.importance]} style={{ margin: 0 }}>
-              {clue.importance}
-            </Tag>
-          )}
-          {showStage && <Tag style={{ margin: 0 }}>S{clue.stage}</Tag>}
-          {showContentType && clue.content_type && (
-            <Tag style={{ margin: 0 }}>{clue.content_type}</Tag>
-          )}
-          {showVersion && clue.version !== undefined && (
-            <Tag style={{ margin: 0 }}>v{clue.version}</Tag>
-          )}
-        </Space>
-      )}
-
-      {showNpcIds && clue.npc_ids && clue.npc_ids.length > 0 && (
+      {showNpcId && clue.npc_id && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            👥 {clue.npc_ids.length} NPC(s)
+            👤 NPC
           </Text>
         </div>
       )}
 
-      {showPrereqIds && clue.prerequisite_clue_ids && clue.prerequisite_clue_ids.length > 0 && (
+      {showPrereqIds && clue.prereq_clue_ids && clue.prereq_clue_ids.length > 0 && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            🔗 {clue.prerequisite_clue_ids.length} prereq(s)
+            🔗 {clue.prereq_clue_ids.length} prereq(s)
+          </Text>
+        </div>
+      )}
+
+      {showKeywords && (clue as unknown as { trigger_keywords?: string[] }).trigger_keywords &&
+       (clue as unknown as { trigger_keywords?: string[] }).trigger_keywords!.length > 0 && (
+        <div style={{ marginBottom: 4 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            🔑 {(clue as unknown as { trigger_keywords?: string[] }).trigger_keywords!.length} keyword(s)
           </Text>
         </div>
       )}
@@ -218,16 +173,10 @@ function ClueNode({ data }: { data: ClueNodeData }) {
       {(showCreatedAt || showUpdatedAt) && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 10 }}>
-            {showCreatedAt && `📅 ${formatShortDate(clue.created_at)}`}
+            {showCreatedAt && `📅 ${formatShortDate((clue as unknown as { created_at?: string }).created_at)}`}
             {showCreatedAt && showUpdatedAt && ' | '}
-            {showUpdatedAt && `✏️ ${formatShortDate(clue.updated_at)}`}
+            {showUpdatedAt && `✏️ ${formatShortDate((clue as unknown as { updated_at?: string }).updated_at)}`}
           </Text>
-        </div>
-      )}
-
-      {showStatus && clue.status !== 'active' && (
-        <div style={{ marginTop: 4 }}>
-          <StatusTag status={clue.status} />
         </div>
       )}
 
@@ -286,7 +235,6 @@ export default function ClueTree() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { scripts, fetchScripts } = useScripts();
-  const { scenes, fetchScenes } = useScenes();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -303,31 +251,23 @@ export default function ClueTree() {
   const hasUnsavedChanges = pendingChanges.size > 0;
 
   const scriptId = searchParams.get('script_id');
-  const sceneId = searchParams.get('scene_id');
 
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
 
-  useEffect(() => {
-    if (scriptId) {
-      fetchScenes({ script_id: scriptId });
-    }
-  }, [scriptId, fetchScenes]);
-
   const fetchTree = useCallback(async () => {
     if (!scriptId) return;
     setLoading(true);
     try {
-      const data = await clueApi.getTree(scriptId, sceneId || undefined);
-      // Normalize field names from backend (prerequisites -> prerequisite_clue_ids)
+      const data = await clueApi.getTree(scriptId);
+      // Normalize field names from backend
       const normalizedData: ClueTreeData = {
         ...data,
         nodes: data.nodes.map((node) => ({
           ...node,
-          title: node.title || node.title_internal || '',
-          prerequisite_clue_ids: node.prerequisite_clue_ids || node.prerequisites || [],
-          dependent_clue_ids: node.dependent_clue_ids || node.dependents || [],
+          name: node.name || '',
+          prereq_clue_ids: node.prereq_clue_ids || [],
         })),
       };
       setTreeData(normalizedData);
@@ -336,13 +276,13 @@ export default function ClueTree() {
     } finally {
       setLoading(false);
     }
-  }, [scriptId, sceneId, t]);
+  }, [scriptId, t]);
 
   useEffect(() => {
     if (scriptId) {
       fetchTree();
     }
-  }, [scriptId, sceneId, fetchTree]);
+  }, [scriptId, fetchTree]);
 
   // Convert tree data to React Flow nodes and edges
   useEffect(() => {
@@ -370,7 +310,7 @@ export default function ClueTree() {
     });
 
     // Calculate levels (BFS from nodes without prerequisites)
-    const rootNodes = treeData.nodes.filter((n) => (n.prerequisite_clue_ids?.length ?? 0) === 0);
+    const rootNodes = treeData.nodes.filter((n) => (n.prereq_clue_ids?.length ?? 0) === 0);
     const queue: Array<{ id: string; level: number }> = rootNodes.map((n) => ({
       id: n.id,
       level: 0,
@@ -415,7 +355,6 @@ export default function ClueTree() {
 
       nodeIds.forEach((nodeId, index) => {
         const clueNode = nodeMap.get(nodeId)!;
-        const scene = clueNode.scene_id ? scenes.find((s) => s.id === clueNode.scene_id) : null;
         flowNodes.push({
           id: nodeId,
           type: 'clueNode',
@@ -427,7 +366,6 @@ export default function ClueTree() {
             clue: clueNode,
             onClick: handleClueClick,
             visibleFields,
-            sceneName: scene?.name,
           },
         });
       });
@@ -448,7 +386,7 @@ export default function ClueTree() {
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [treeData, setNodes, setEdges, visibleFields, scenes]);
+  }, [treeData, setNodes, setEdges, visibleFields]);
 
   // Get current prerequisites for a node (considering pending changes)
   const getCurrentPrerequisites = useCallback(
@@ -457,7 +395,7 @@ export default function ClueTree() {
         return pendingChanges.get(nodeId)!;
       }
       const node = treeData?.nodes.find((n) => n.id === nodeId);
-      return node?.prerequisite_clue_ids || [];
+      return node?.prereq_clue_ids || [];
     },
     [treeData, pendingChanges]
   );
@@ -486,7 +424,7 @@ export default function ClueTree() {
       // Add edges from pending additions
       pendingChanges.forEach((prereqs, targetId) => {
         const originalNode = treeData?.nodes.find((n) => n.id === targetId);
-        const originalPrereqs = originalNode?.prerequisite_clue_ids || [];
+        const originalPrereqs = originalNode?.prereq_clue_ids || [];
         prereqs.forEach((prereqId) => {
           if (!originalPrereqs.includes(prereqId)) {
             currentEdges.push({ source: prereqId, target: targetId });
@@ -678,25 +616,7 @@ export default function ClueTree() {
           >
             {scripts.map((s) => (
               <Option key={s.id} value={s.id}>
-                {s.name}
-              </Option>
-            ))}
-          </Select>
-          <Select
-            placeholder={t('clue.filterByScene')}
-            value={sceneId || undefined}
-            onChange={(value) => {
-              const params: Record<string, string> = { script_id: scriptId! };
-              if (value) params.scene_id = value;
-              setSearchParams(params);
-            }}
-            style={{ width: 180 }}
-            allowClear
-            disabled={!scriptId}
-          >
-            {scenes.map((s) => (
-              <Option key={s.id} value={s.id}>
-                {s.name}
+                {s.title}
               </Option>
             ))}
           </Select>
@@ -818,7 +738,8 @@ export default function ClueTree() {
               <MiniMap
                 nodeColor={(node) => {
                   const data = node.data as unknown as ClueNodeData;
-                  return data?.clue ? clueTypeColors[data.clue.clue_type] || '#eee' : '#eee';
+                  if (!data?.clue) return '#eee';
+                  return data.clue.type === 'image' ? '#722ed1' : '#1890ff';
                 }}
               />
             </ReactFlow>
@@ -843,23 +764,18 @@ export default function ClueTree() {
       >
         {selectedClue && (
           <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label={t('common.name')}>{selectedClue.title}</Descriptions.Item>
+            <Descriptions.Item label={t('common.name')}>{selectedClue.name}</Descriptions.Item>
             <Descriptions.Item label={t('clue.type')}>
-              <ClueTypeTag type={selectedClue.clue_type} />
-            </Descriptions.Item>
-            <Descriptions.Item label={t('clue.importance')}>
-              <ImportanceTag importance={selectedClue.importance} />
-            </Descriptions.Item>
-            <Descriptions.Item label={t('clue.stage')}>{selectedClue.stage}</Descriptions.Item>
-            <Descriptions.Item label={t('common.status')}>
-              <StatusTag status={selectedClue.status} />
+              <Tag color={selectedClue.type === 'image' ? '#722ed1' : '#1890ff'}>
+                {selectedClue.type}
+              </Tag>
             </Descriptions.Item>
             <Descriptions.Item label={t('clue.prerequisites')}>
-              {(selectedClue.prerequisite_clue_ids?.length ?? 0) === 0 ? (
+              {(selectedClue.prereq_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneRoot')}</Text>
               ) : (
                 <Space direction="vertical">
-                  {(selectedClue.prerequisite_clue_ids || []).map((id) => {
+                  {(selectedClue.prereq_clue_ids || []).map((id) => {
                     const prereq = treeData?.nodes.find((n) => n.id === id);
                     return (
                       <Tag
@@ -867,7 +783,7 @@ export default function ClueTree() {
                         style={{ cursor: 'pointer' }}
                         onClick={() => setSelectedClueId(id)}
                       >
-                        {prereq?.title || id}
+                        {prereq?.name || id}
                       </Tag>
                     );
                   })}
@@ -875,11 +791,11 @@ export default function ClueTree() {
               )}
             </Descriptions.Item>
             <Descriptions.Item label={t('clue.dependents')}>
-              {(selectedClue.dependent_clue_ids?.length ?? 0) === 0 ? (
+              {((selectedClue as unknown as { dependent_clue_ids?: string[] }).dependent_clue_ids?.length ?? 0) === 0 ? (
                 <Text type="secondary">{t('clue.noneLeaf')}</Text>
               ) : (
                 <Space direction="vertical">
-                  {(selectedClue.dependent_clue_ids || []).map((id) => {
+                  {((selectedClue as unknown as { dependent_clue_ids?: string[] }).dependent_clue_ids || []).map((id) => {
                     const dep = treeData?.nodes.find((n) => n.id === id);
                     return (
                       <Tag
@@ -887,7 +803,7 @@ export default function ClueTree() {
                         style={{ cursor: 'pointer' }}
                         onClick={() => setSelectedClueId(id)}
                       >
-                        {dep?.title || id}
+                        {dep?.name || id}
                       </Tag>
                     );
                   })}
