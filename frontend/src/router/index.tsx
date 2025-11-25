@@ -16,9 +16,6 @@ import { DialogueLogs } from '@/pages/experiments';
 // Debug
 import { DialogueSimulation } from '@/pages/debug';
 
-// Settings
-import { GlobalSettings } from '@/pages/settings';
-
 // Templates
 import { TemplateList, TemplateDetail } from '@/pages/templates';
 
@@ -75,10 +72,6 @@ const router = createBrowserRouter([
         element: <DialogueLogs />,
       },
       // Settings
-      {
-        path: 'settings/global',
-        element: <GlobalSettings />,
-      },
       {
         path: 'settings/templates',
         element: <TemplateList />,

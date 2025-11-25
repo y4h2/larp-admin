@@ -22,6 +22,7 @@ export interface PresetConfig {
   // Runtime override options
   overrideSimilarityThreshold: number | undefined;
   overrideTemperature: number | undefined;
+  overrideMaxTokens: number | undefined;
 }
 
 export interface HistoryPreset {
@@ -55,7 +56,8 @@ const isSameConfig = (a: PresetConfig, b: PresetConfig): boolean => {
     a.npcNoClueTemplateId === b.npcNoClueTemplateId &&
     a.npcChatConfigId === b.npcChatConfigId &&
     a.overrideSimilarityThreshold === b.overrideSimilarityThreshold &&
-    a.overrideTemperature === b.overrideTemperature
+    a.overrideTemperature === b.overrideTemperature &&
+    a.overrideMaxTokens === b.overrideMaxTokens
   );
 };
 

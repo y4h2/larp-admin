@@ -16,7 +16,6 @@ import {
   FileTextOutlined,
   CommentOutlined,
   MessageOutlined,
-  GlobalOutlined,
   TranslationOutlined,
   CodeOutlined,
   ApiOutlined,
@@ -70,7 +69,6 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
     getItem(t('menu.dialogueLogs'), '/debug/logs', <CommentOutlined />),
   ]),
   getItem(t('menu.settings'), 'settings', <SettingOutlined />, [
-    getItem(t('menu.globalSettings'), '/settings/global', <GlobalOutlined />),
     getItem(t('menu.templates'), '/settings/templates', <CodeOutlined />),
     getItem(t('menu.llmConfigs'), '/settings/llm-configs', <ApiOutlined />),
   ]),

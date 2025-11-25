@@ -49,7 +49,7 @@ import {
 import { PageHeader, ClueTypeTag } from '@/components/common';
 import { simulationApi, clueApi } from '@/api';
 import { templateApi, type PromptTemplate, type TemplateRenderResponse } from '@/api/templates';
-import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
+import { llmConfigApi, type LLMConfig, type EmbeddingOptions, type ChatOptions } from '@/api/llmConfigs';
 import { useScripts, useNpcs, usePresets, type PresetConfig } from '@/hooks';
 import type { Clue, SimulationResult, MatchedClue, MatchingStrategy } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -74,6 +74,7 @@ interface StoredConfig {
   // Runtime override options
   overrideSimilarityThreshold: number | undefined;
   overrideTemperature: number | undefined;
+  overrideMaxTokens: number | undefined;
 }
 
 const loadStoredConfig = (): Partial<StoredConfig> => {
@@ -101,6 +102,101 @@ const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React
   { value: 'embedding', label: 'debug.embeddingMatching', icon: <ThunderboltOutlined /> },
   { value: 'llm', label: 'debug.llmMatching', icon: <RobotOutlined /> },
 ];
+
+// Helper component to display LLM config details
+interface ConfigDetailsProps {
+  config: LLMConfig | undefined;
+  type: 'embedding' | 'chat';
+  t: (key: string) => string;
+}
+
+const ConfigDetails: React.FC<ConfigDetailsProps> = ({ config, type, t }) => {
+  if (!config) return null;
+
+  const options = config.options;
+
+  // Check if there are any options to display
+  const hasEmbeddingOptions = type === 'embedding' && options && (
+    (options as EmbeddingOptions).similarity_threshold !== undefined ||
+    (options as EmbeddingOptions).dimensions !== undefined
+  );
+  const hasChatOptions = type === 'chat' && options && (
+    (options as ChatOptions).temperature !== undefined ||
+    (options as ChatOptions).max_tokens !== undefined ||
+    (options as ChatOptions).top_p !== undefined ||
+    (options as ChatOptions).frequency_penalty !== undefined ||
+    (options as ChatOptions).presence_penalty !== undefined
+  );
+
+  if (!hasEmbeddingOptions && !hasChatOptions) return null;
+
+  return (
+    <div
+      style={{
+        background: '#fafafa',
+        padding: '8px 12px',
+        borderRadius: 6,
+        marginTop: 8,
+        border: '1px solid #f0f0f0',
+        fontSize: 12,
+      }}
+    >
+      <Text type="secondary" style={{ fontSize: 11, marginBottom: 4, display: 'block' }}>
+        {t('debug.configDetails')}:
+      </Text>
+      {type === 'embedding' && options && (
+        <Space wrap size={[8, 4]}>
+          {(options as EmbeddingOptions).similarity_threshold !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('llmConfig.similarityThreshold')}:</Text>
+              <Tag color="blue" style={{ marginLeft: 4 }}>{(options as EmbeddingOptions).similarity_threshold}</Tag>
+            </span>
+          )}
+          {(options as EmbeddingOptions).dimensions !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('llmConfig.dimensions')}:</Text>
+              <Tag style={{ marginLeft: 4 }}>{(options as EmbeddingOptions).dimensions}</Tag>
+            </span>
+          )}
+        </Space>
+      )}
+      {type === 'chat' && options && (
+        <Space wrap size={[8, 4]}>
+          {(options as ChatOptions).temperature !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('llmConfig.temperature')}:</Text>
+              <Tag color="blue" style={{ marginLeft: 4 }}>{(options as ChatOptions).temperature}</Tag>
+            </span>
+          )}
+          {(options as ChatOptions).max_tokens !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('llmConfig.maxTokens')}:</Text>
+              <Tag color="blue" style={{ marginLeft: 4 }}>{(options as ChatOptions).max_tokens}</Tag>
+            </span>
+          )}
+          {(options as ChatOptions).top_p !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('llmConfig.topP')}:</Text>
+              <Tag style={{ marginLeft: 4 }}>{(options as ChatOptions).top_p}</Tag>
+            </span>
+          )}
+          {(options as ChatOptions).frequency_penalty !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.frequencyPenalty')}:</Text>
+              <Tag style={{ marginLeft: 4 }}>{(options as ChatOptions).frequency_penalty}</Tag>
+            </span>
+          )}
+          {(options as ChatOptions).presence_penalty !== undefined && (
+            <span>
+              <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.presencePenalty')}:</Text>
+              <Tag style={{ marginLeft: 4 }}>{(options as ChatOptions).presence_penalty}</Tag>
+            </span>
+          )}
+        </Space>
+      )}
+    </div>
+  );
+};
 
 interface ChatMessage {
   role: 'player' | 'system' | 'npc';
@@ -176,6 +272,9 @@ export default function DialogueSimulation() {
   const [overrideTemperature, setOverrideTemperature] = useState<number | undefined>(
     storedConfig.overrideTemperature
   );
+  const [overrideMaxTokens, setOverrideMaxTokens] = useState<number | undefined>(
+    storedConfig.overrideMaxTokens
+  );
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
@@ -232,6 +331,20 @@ export default function DialogueSimulation() {
     return scripts.find((s) => s.id === selectedScriptId) || null;
   }, [scripts, selectedScriptId]);
 
+  // Get selected LLM config objects
+  const selectedMatchingConfig = useMemo(() => {
+    if (matchingStrategy === 'embedding') {
+      return embeddingConfigs.find((c) => c.id === matchingLlmConfigId);
+    } else if (matchingStrategy === 'llm') {
+      return chatConfigs.find((c) => c.id === matchingLlmConfigId);
+    }
+    return undefined;
+  }, [matchingStrategy, matchingLlmConfigId, embeddingConfigs, chatConfigs]);
+
+  const selectedNpcChatConfig = useMemo(() => {
+    return chatConfigs.find((c) => c.id === npcChatConfigId);
+  }, [chatConfigs, npcChatConfigId]);
+
   // Compute locked clues (clues not in unlocked list)
   const lockedClues = useMemo(() => {
     const unlockedSet = new Set(unlockedClueIds || []);
@@ -251,6 +364,7 @@ export default function DialogueSimulation() {
     npcChatConfigId,
     overrideSimilarityThreshold,
     overrideTemperature,
+    overrideMaxTokens,
   });
 
   // Generate display name for preset
@@ -281,6 +395,7 @@ export default function DialogueSimulation() {
     setNpcChatConfigId(config.npcChatConfigId);
     setOverrideSimilarityThreshold(config.overrideSimilarityThreshold);
     setOverrideTemperature(config.overrideTemperature);
+    setOverrideMaxTokens(config.overrideMaxTokens);
     message.success(t('debug.presetLoaded'));
   };
 
@@ -355,6 +470,7 @@ export default function DialogueSimulation() {
       npcChatConfigId,
       overrideSimilarityThreshold,
       overrideTemperature,
+      overrideMaxTokens,
     });
   }, [
     selectedScriptId,
@@ -368,6 +484,7 @@ export default function DialogueSimulation() {
     npcChatConfigId,
     overrideSimilarityThreshold,
     overrideTemperature,
+    overrideMaxTokens,
   ]);
 
   useEffect(() => {
@@ -458,8 +575,11 @@ export default function DialogueSimulation() {
         embedding_options_override: overrideSimilarityThreshold !== undefined
           ? { similarity_threshold: overrideSimilarityThreshold }
           : undefined,
-        chat_options_override: overrideTemperature !== undefined
-          ? { temperature: overrideTemperature }
+        chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined)
+          ? {
+              temperature: overrideTemperature,
+              max_tokens: overrideMaxTokens,
+            }
           : undefined,
       });
 
@@ -1049,6 +1169,7 @@ export default function DialogueSimulation() {
                                 </Option>
                               ))}
                             </Select>
+                            <ConfigDetails config={selectedMatchingConfig} type="embedding" t={t} />
                           </div>
                           <div>
                             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
@@ -1107,6 +1228,7 @@ export default function DialogueSimulation() {
                               </Option>
                             ))}
                           </Select>
+                          <ConfigDetails config={selectedMatchingConfig} type="chat" t={t} />
                         </div>
                       )}
                     </Space>
@@ -1229,42 +1351,78 @@ export default function DialogueSimulation() {
                             </Option>
                           ))}
                         </Select>
+                        {enableNpcReply && <ConfigDetails config={selectedNpcChatConfig} type="chat" t={t} />}
                       </div>
 
                       {enableNpcReply && npcChatConfigId && (
-                        <div>
-                          <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
-                            <Space>
-                              {t('debug.temperature')}
+                        <>
+                          <div>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              <Space>
+                                {t('debug.temperature')}
+                                {overrideTemperature !== undefined && (
+                                  <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                                )}
+                              </Space>
+                            </div>
+                            <Slider
+                              min={0}
+                              max={2}
+                              step={0.1}
+                              value={overrideTemperature ?? 0.7}
+                              onChange={(val) => setOverrideTemperature(val)}
+                              marks={{ 0: '0', 0.7: '0.7', 1: '1', 2: '2' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {t('debug.temperatureHint')}
+                              </Text>
                               {overrideTemperature !== undefined && (
-                                <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  onClick={() => setOverrideTemperature(undefined)}
+                                  style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                                >
+                                  {t('debug.resetToDefault')}
+                                </Button>
                               )}
-                            </Space>
+                            </div>
                           </div>
-                          <Slider
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={overrideTemperature ?? 0.7}
-                            onChange={(val) => setOverrideTemperature(val)}
-                            marks={{ 0: '0', 0.7: '0.7', 1: '1', 2: '2' }}
-                          />
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {t('debug.temperatureHint')}
-                            </Text>
-                            {overrideTemperature !== undefined && (
-                              <Button
-                                type="link"
-                                size="small"
-                                onClick={() => setOverrideTemperature(undefined)}
-                                style={{ padding: 0, height: 'auto', fontSize: 11 }}
-                              >
-                                {t('debug.resetToDefault')}
-                              </Button>
-                            )}
+                          <div>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              <Space>
+                                {t('debug.maxTokens')}
+                                {overrideMaxTokens !== undefined && (
+                                  <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                                )}
+                              </Space>
+                            </div>
+                            <Slider
+                              min={100}
+                              max={8000}
+                              step={100}
+                              value={overrideMaxTokens ?? 2000}
+                              onChange={(val) => setOverrideMaxTokens(val)}
+                              marks={{ 100: '100', 2000: '2k', 4000: '4k', 8000: '8k' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {t('debug.maxTokensHint')}
+                              </Text>
+                              {overrideMaxTokens !== undefined && (
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  onClick={() => setOverrideMaxTokens(undefined)}
+                                  style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                                >
+                                  {t('debug.resetToDefault')}
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        </>
                       )}
 
                       {/* Warning if NPC reply enabled but configs missing */}

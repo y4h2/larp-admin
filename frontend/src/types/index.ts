@@ -162,11 +162,6 @@ export interface User {
   created_at: string;
 }
 
-export interface GlobalSettings {
-  default_embedding_model: string;
-  default_similarity_threshold: number;
-}
-
 // API response types
 export interface PaginatedResponse<T> {
   items: T[];

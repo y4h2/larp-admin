@@ -44,7 +44,6 @@
     "dialogueSimulation": "对话模拟",
     "singleClueDebug": "线索调试",
     "settings": "设置",
-    "globalSettings": "全局设置",
     "templates": "提示词模板",
     "llmConfigs": "模型配置"
   },
@@ -281,19 +280,12 @@
     "temperature": "温度",
     "temperatureHint": "临时覆盖本次会话的温度参数 (0.0 - 2.0)",
     "override": "覆盖",
-    "resetToDefault": "重置"
-  },
-  "settings": {
-    "globalSettings": "全局设置",
-    "globalSettingsSubtitle": "配置默认系统设置",
-    "saveSettings": "保存设置",
-    "embeddingSettings": "向量嵌入设置",
-    "defaultEmbeddingModel": "默认嵌入模型",
-    "defaultEmbeddingModelExtra": "用于语义匹配的嵌入模型",
-    "defaultSimilarityThreshold": "默认相似度阈值",
-    "defaultSimilarityThresholdExtra": "语义匹配的最低相似度分数 (0.0 - 1.0)",
-    "settingsSaved": "设置保存成功",
-    "settingsSaveFailed": "设置保存失败"
+    "resetToDefault": "重置",
+    "frequencyPenalty": "频率惩罚",
+    "presencePenalty": "存在惩罚",
+    "configDetails": "配置详情",
+    "maxTokens": "最大令牌数",
+    "maxTokensHint": "临时覆盖本次会话的最大令牌数"
   },
   "logs": {
     "title": "对话日志",
