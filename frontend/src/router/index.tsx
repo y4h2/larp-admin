@@ -13,14 +13,14 @@ import { ClueList, ClueDetail, ClueTree } from '@/pages/clues';
 // Algorithms
 import { ImplementationList, StrategyList, StrategyDetail } from '@/pages/algorithms';
 
-// Experiments
-import { DialogueLogs, ABTestConfig, OfflineEvaluation } from '@/pages/experiments';
+// Logs
+import { DialogueLogs } from '@/pages/experiments';
 
 // Debug
 import { DialogueSimulation, ClueDebug } from '@/pages/debug';
 
 // Settings
-import { GlobalSettings, UserManagement, AuditLogs } from '@/pages/settings';
+import { GlobalSettings } from '@/pages/settings';
 
 const router = createBrowserRouter([
   {
@@ -75,19 +75,6 @@ const router = createBrowserRouter([
         path: 'algorithms/strategies/:id',
         element: <StrategyDetail />,
       },
-      // Experiments
-      {
-        path: 'experiments/logs',
-        element: <DialogueLogs />,
-      },
-      {
-        path: 'experiments/evaluation',
-        element: <OfflineEvaluation />,
-      },
-      {
-        path: 'experiments/ab-tests',
-        element: <ABTestConfig />,
-      },
       // Debug
       {
         path: 'debug/simulation',
@@ -97,18 +84,14 @@ const router = createBrowserRouter([
         path: 'debug/clue',
         element: <ClueDebug />,
       },
+      {
+        path: 'debug/logs',
+        element: <DialogueLogs />,
+      },
       // Settings
       {
         path: 'settings/global',
         element: <GlobalSettings />,
-      },
-      {
-        path: 'settings/users',
-        element: <UserManagement />,
-      },
-      {
-        path: 'settings/audit-logs',
-        element: <AuditLogs />,
       },
     ],
   },

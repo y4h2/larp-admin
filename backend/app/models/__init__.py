@@ -1,7 +1,8 @@
 """SQLAlchemy models for the LARP Admin application."""
 
 from app.models.algorithm import AlgorithmImplementation, AlgorithmStrategy
-from app.models.clue import Clue, ClueRelation
+from app.models.clue import Clue
+from app.models.debug_audit_log import DebugAuditLog
 from app.models.log import DialogueLog
 from app.models.npc import NPC
 from app.models.prompt_template import PromptTemplate
@@ -13,9 +14,9 @@ __all__ = [
     "Scene",
     "NPC",
     "Clue",
-    "ClueRelation",
     "AlgorithmImplementation",
     "AlgorithmStrategy",
     "DialogueLog",
     "PromptTemplate",
+    "DebugAuditLog",
 ]

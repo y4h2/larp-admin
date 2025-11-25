@@ -1,7 +1,6 @@
-"""Script API endpoints."""
+"""Script API endpoints based on data/sample/clue.py."""
 
 import logging
-from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -9,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.database import DBSession
-from app.models.script import Script, ScriptDifficulty, ScriptStatus
+from app.models.script import Script, ScriptDifficulty
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.script import ScriptCreate, ScriptListResponse, ScriptResponse, ScriptUpdate
 
@@ -22,34 +21,19 @@ async def list_scripts(
     db: DBSession,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    status_filter: Literal["draft", "test", "online"] | None = Query(
-        default=None, alias="status"
-    ),
-    search: str | None = Query(default=None, description="Search by name"),
+    difficulty: str | None = Query(default=None, description="Filter by difficulty"),
+    search: str | None = Query(default=None, description="Search by title"),
 ) -> PaginatedResponse[ScriptListResponse]:
-    """
-    List all scripts with pagination and filtering.
-
-    Args:
-        db: Database session.
-        page: Page number (1-indexed).
-        page_size: Number of items per page.
-        status_filter: Filter by script status.
-        search: Search term for script name.
-
-    Returns:
-        Paginated list of scripts.
-    """
+    """List all scripts with pagination and filtering."""
     pagination = PaginationParams(page=page, page_size=page_size)
 
-    # Build query
     query = select(Script).where(Script.deleted_at.is_(None))
 
-    if status_filter:
-        query = query.where(Script.status == ScriptStatus(status_filter))
+    if difficulty:
+        query = query.where(Script.difficulty == ScriptDifficulty(difficulty))
 
     if search:
-        query = query.where(Script.name.ilike(f"%{search}%"))
+        query = query.where(Script.title.ilike(f"%{search}%"))
 
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
@@ -76,16 +60,12 @@ async def list_scripts(
     for script in scripts:
         item = ScriptListResponse(
             id=script.id,
-            name=script.name,
-            description=script.description,
-            status=script.status.value,
-            version=script.version,
-            player_count=script.player_count,
-            expected_duration=script.expected_duration,
+            title=script.title,
+            summary=script.summary,
+            background=script.background,
             difficulty=script.difficulty.value,
-            created_by=script.created_by,
+            truth=script.truth,
             created_at=script.created_at,
-            updated_by=script.updated_by,
             updated_at=script.updated_at,
             deleted_at=script.deleted_at,
             scene_count=len(script.scenes),
@@ -107,24 +87,14 @@ async def create_script(
     db: DBSession,
     script_data: ScriptCreate,
 ) -> ScriptResponse:
-    """
-    Create a new script.
-
-    Args:
-        db: Database session.
-        script_data: Script creation data.
-
-    Returns:
-        Created script.
-    """
+    """Create a new script."""
     script = Script(
         id=str(uuid4()),
-        name=script_data.name,
-        description=script_data.description,
-        player_count=script_data.player_count,
-        expected_duration=script_data.expected_duration,
+        title=script_data.title,
+        summary=script_data.summary,
+        background=script_data.background,
         difficulty=ScriptDifficulty(script_data.difficulty),
-        created_by=script_data.created_by,
+        truth=script_data.truth,
     )
 
     db.add(script)
@@ -140,19 +110,7 @@ async def get_script(
     db: DBSession,
     script_id: str,
 ) -> ScriptResponse:
-    """
-    Get a script by ID.
-
-    Args:
-        db: Database session.
-        script_id: Script ID.
-
-    Returns:
-        Script details.
-
-    Raises:
-        HTTPException: If script not found.
-    """
+    """Get a script by ID."""
     result = await db.execute(
         select(Script)
         .where(Script.id == script_id)
@@ -175,20 +133,7 @@ async def update_script(
     script_id: str,
     script_data: ScriptUpdate,
 ) -> ScriptResponse:
-    """
-    Update an existing script.
-
-    Args:
-        db: Database session.
-        script_id: Script ID.
-        script_data: Script update data.
-
-    Returns:
-        Updated script.
-
-    Raises:
-        HTTPException: If script not found.
-    """
+    """Update an existing script."""
     result = await db.execute(
         select(Script)
         .where(Script.id == script_id)
@@ -205,15 +150,10 @@ async def update_script(
     # Update fields
     update_data = script_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == "status" and value:
-            setattr(script, field, ScriptStatus(value))
-        elif field == "difficulty" and value:
+        if field == "difficulty" and value:
             setattr(script, field, ScriptDifficulty(value))
         else:
             setattr(script, field, value)
-
-    # Increment version
-    script.version += 1
 
     await db.flush()
     await db.refresh(script)
@@ -227,16 +167,7 @@ async def delete_script(
     db: DBSession,
     script_id: str,
 ) -> None:
-    """
-    Soft delete a script.
-
-    Args:
-        db: Database session.
-        script_id: Script ID.
-
-    Raises:
-        HTTPException: If script not found.
-    """
+    """Soft delete a script."""
     result = await db.execute(
         select(Script)
         .where(Script.id == script_id)
@@ -263,24 +194,9 @@ async def delete_script(
 async def copy_script(
     db: DBSession,
     script_id: str,
-    new_name: str | None = Query(default=None, description="Name for the copied script"),
-    created_by: str | None = Query(default=None, description="Creator of the copy"),
+    new_title: str | None = Query(default=None, description="Title for the copied script"),
 ) -> ScriptResponse:
-    """
-    Create a copy of an existing script.
-
-    Args:
-        db: Database session.
-        script_id: Script ID to copy.
-        new_name: Optional name for the copy.
-        created_by: Creator ID for the copy.
-
-    Returns:
-        Copied script.
-
-    Raises:
-        HTTPException: If source script not found.
-    """
+    """Create a copy of an existing script."""
     result = await db.execute(
         select(Script)
         .where(Script.id == script_id)
@@ -302,14 +218,11 @@ async def copy_script(
     # Create copy
     new_script = Script(
         id=str(uuid4()),
-        name=new_name or f"{source.name} (Copy)",
-        description=source.description,
-        status=ScriptStatus.DRAFT,
-        version=1,
-        player_count=source.player_count,
-        expected_duration=source.expected_duration,
+        title=new_title or f"{source.title} (Copy)",
+        summary=source.summary,
+        background=source.background,
         difficulty=source.difficulty,
-        created_by=created_by,
+        truth=source.truth,
     )
 
     db.add(new_script)

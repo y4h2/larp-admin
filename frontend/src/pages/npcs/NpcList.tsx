@@ -16,8 +16,8 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, RoleTypeTag, ResizableTable, type ResizableColumn } from '@/components/common';
-import { useNpcs, useScripts, useScenes } from '@/hooks';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
+import { useNpcs, useScripts } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { NPC } from '@/types';
 
@@ -30,14 +30,10 @@ export default function NpcList() {
   const [form] = Form.useForm();
   const { loading, npcs, total, fetchNpcs, createNpc, deleteNpc } = useNpcs();
   const { scripts, fetchScripts } = useScripts();
-  const { scenes, fetchScenes } = useScenes();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState<{
     script_id?: string;
-    scene_id?: string;
-    role_type?: NPC['role_type'];
-    status?: NPC['status'];
     search?: string;
     page: number;
     page_size: number;
@@ -52,12 +48,6 @@ export default function NpcList() {
   }, [fetchScripts]);
 
   useEffect(() => {
-    if (filters.script_id) {
-      fetchScenes({ script_id: filters.script_id });
-    }
-  }, [filters.script_id, fetchScenes]);
-
-  useEffect(() => {
     fetchNpcs(filters);
   }, [filters, fetchNpcs]);
 
@@ -65,12 +55,7 @@ export default function NpcList() {
     try {
       const npc = await createNpc({
         ...values,
-        personality: '',
-        speech_style: '',
-        background_story: '',
-        relations: {},
-        system_prompt_template: '',
-        extra_prompt_vars: {},
+        knowledge_scope: { knows: [], does_not_know: [], world_model_limits: [] },
       });
       setModalVisible(false);
       form.resetFields();
@@ -99,32 +84,19 @@ export default function NpcList() {
       ),
     },
     {
-      title: t('npc.role'),
-      dataIndex: 'role_type',
-      key: 'role_type',
-      width: 100,
-      render: (roleType) => <RoleTypeTag roleType={roleType} />,
-    },
-    {
-      title: t('npc.job'),
-      dataIndex: 'job',
-      key: 'job',
-      width: 120,
-      render: (job) => job || '-',
-    },
-    {
       title: t('npc.age'),
       dataIndex: 'age',
       key: 'age',
-      width: 60,
+      width: 80,
       render: (age) => age || '-',
     },
     {
-      title: t('common.status'),
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status) => <StatusTag status={status} />,
+      title: t('npc.personality'),
+      dataIndex: 'personality',
+      key: 'personality',
+      width: 200,
+      ellipsis: true,
+      render: (personality) => personality || '-',
     },
     {
       title: t('common.updatedAt'),
@@ -183,51 +155,16 @@ export default function NpcList() {
           placeholder={t('npc.selectScript')}
           value={filters.script_id}
           onChange={(value) =>
-            setFilters({ ...filters, script_id: value, scene_id: undefined, page: 1 })
+            setFilters({ ...filters, script_id: value, page: 1 })
           }
           style={{ width: 180 }}
           allowClear
         >
           {scripts.map((s) => (
             <Option key={s.id} value={s.id}>
-              {s.name}
+              {s.title}
             </Option>
           ))}
-        </Select>
-        <Select
-          placeholder={t('npc.selectScene')}
-          value={filters.scene_id}
-          onChange={(value) => setFilters({ ...filters, scene_id: value, page: 1 })}
-          style={{ width: 180 }}
-          allowClear
-          disabled={!filters.script_id}
-        >
-          {scenes.map((s) => (
-            <Option key={s.id} value={s.id}>
-              {s.name}
-            </Option>
-          ))}
-        </Select>
-        <Select
-          placeholder={t('npc.roleType')}
-          value={filters.role_type}
-          onChange={(value) => setFilters({ ...filters, role_type: value, page: 1 })}
-          style={{ width: 120 }}
-          allowClear
-        >
-          <Option value="suspect">{t('npc.suspect')}</Option>
-          <Option value="witness">{t('npc.witness')}</Option>
-          <Option value="other">{t('npc.other')}</Option>
-        </Select>
-        <Select
-          placeholder={t('common.status')}
-          value={filters.status}
-          onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
-          style={{ width: 120 }}
-          allowClear
-        >
-          <Option value="active">{t('npc.active')}</Option>
-          <Option value="archived">{t('npc.archived')}</Option>
         </Select>
       </Space>
 
@@ -266,7 +203,7 @@ export default function NpcList() {
             <Select placeholder={t('npc.selectScript')}>
               {scripts.map((s) => (
                 <Option key={s.id} value={s.id}>
-                  {s.name}
+                  {s.title}
                 </Option>
               ))}
             </Select>
@@ -278,25 +215,14 @@ export default function NpcList() {
           >
             <Input placeholder={t('npc.enterNpcName')} />
           </Form.Item>
-          <Form.Item name="name_en" label={t('npc.englishName')}>
-            <Input placeholder={t('npc.enterEnglishName')} />
-          </Form.Item>
-          <Form.Item
-            name="role_type"
-            label={t('npc.roleType')}
-            rules={[{ required: true, message: t('npc.pleaseSelectRoleType') }]}
-          >
-            <Select placeholder={t('npc.roleType')}>
-              <Option value="suspect">{t('npc.suspect')}</Option>
-              <Option value="witness">{t('npc.witness')}</Option>
-              <Option value="other">{t('npc.other')}</Option>
-            </Select>
-          </Form.Item>
           <Form.Item name="age" label={t('npc.age')}>
             <Input type="number" placeholder={t('npc.enterAge')} />
           </Form.Item>
-          <Form.Item name="job" label={t('npc.job')}>
-            <Input placeholder={t('npc.enterJob')} />
+          <Form.Item name="personality" label={t('npc.personality')}>
+            <Input.TextArea placeholder={t('npc.enterPersonality')} rows={2} />
+          </Form.Item>
+          <Form.Item name="background" label={t('npc.background')}>
+            <Input.TextArea placeholder={t('npc.enterBackground')} rows={3} />
           </Form.Item>
           <Form.Item>
             <Space>

@@ -1,4 +1,4 @@
-// Script types
+// Script types based on data/sample/clue.py
 export interface Truth {
   murderer?: string;
   weapon?: string;
@@ -8,20 +8,14 @@ export interface Truth {
 
 export interface Script {
   id: string;
-  name: string;
-  description: string;
+  title: string;
   summary?: string;
   background?: string;
-  truth: Truth;
-  status: 'draft' | 'test' | 'online' | 'archived';
-  version: number;
-  player_count: number;
-  expected_duration?: number;
   difficulty: 'easy' | 'medium' | 'hard';
-  created_by: string;
+  truth: Truth;
   created_at: string;
-  updated_by: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Scene {
@@ -35,7 +29,7 @@ export interface Scene {
   updated_at: string;
 }
 
-// NPC types
+// NPC types based on data/sample/clue.py
 export interface KnowledgeScope {
   knows: string[];
   does_not_know: string[];
@@ -45,92 +39,47 @@ export interface KnowledgeScope {
 export interface NPC {
   id: string;
   script_id: string;
-  scene_id?: string | null;
   name: string;
-  name_en: string | null;
   age: number | null;
-  job: string | null;
-  role_type: 'suspect' | 'witness' | 'other';
-  personality: string;
-  speech_style: string;
-  background_story: string;
-  relations: Record<string, unknown>;
+  background: string | null;
+  personality: string | null;
   knowledge_scope: KnowledgeScope;
-  system_prompt_template: string;
-  extra_prompt_vars: Record<string, unknown>;
-  status: 'active' | 'archived';
   created_at: string;
   updated_at: string;
 }
 
-// Clue types
-export interface KeywordCondition {
-  keywords: string[];
-  logic: 'AND' | 'OR';
-  requirement: 'must' | 'should';
-}
-
-export interface SemanticCondition {
-  target_queries: string[];
-  similarity_threshold: number;
-  context_window?: number;
-}
-
-export interface StateCondition {
-  prerequisite_clue_ids: string[];
-  player_state_requirements: Record<string, unknown>;
-  stage_lock?: number;
-}
-
-export interface TextConditions {
-  keyword_lists: KeywordCondition[];
-  blacklist: string[];
-}
-
-export interface UnlockConditions {
-  text_conditions: TextConditions;
-  semantic_conditions: SemanticCondition | null;
-  state_conditions: StateCondition | null;
-}
-
-export interface ClueEffects {
-  display_text: string;
-  game_state_updates: Record<string, unknown>;
-  one_time_trigger: boolean;
-}
-
+// Clue types based on data/sample/clue.py
 export interface Clue {
   id: string;
   script_id: string;
-  scene_id: string | null;
-  title_internal: string;
-  title_player: string;
-  content_text: string;
-  detail_for_npc?: string;
-  content_type: 'text' | 'image' | 'structured';
-  content_payload: Record<string, unknown>;
-  clue_type: 'evidence' | 'testimony' | 'world_info' | 'decoy';
-  importance: 'critical' | 'major' | 'minor' | 'easter_egg';
-  stage: number;
-  npc_ids: string[];
+  npc_id: string;
+  name: string;
+  type: 'text' | 'image';
+  detail: string;
+  detail_for_npc: string;
+  trigger_keywords: string[];
+  trigger_semantic_summary: string;
   prereq_clue_ids: string[];
-  status: 'draft' | 'active' | 'disabled';
-  unlock_conditions: UnlockConditions;
-  effects: ClueEffects;
-  created_by: string;
   created_at: string;
-  updated_by: string;
   updated_at: string;
-  version: number;
 }
 
-export interface ClueVersion {
+export interface ClueTreeNode {
   id: string;
-  clue_id: string;
-  version: number;
-  data: Clue;
-  created_by: string;
-  created_at: string;
+  name: string;
+  type: string;
+  npc_id: string;
+  prereq_clue_ids: string[];
+}
+
+export interface ClueTreeEdge {
+  source: string;
+  target: string;
+}
+
+export interface ClueTreeResponse {
+  nodes: ClueTreeNode[];
+  edges: ClueTreeEdge[];
 }
 
 // Algorithm types
@@ -156,20 +105,7 @@ export interface AlgorithmStrategy {
   updated_at: string;
 }
 
-// Experiment types
-export interface DialogueLog {
-  id: string;
-  session_id: string;
-  script_id: string;
-  scene_id: string;
-  npc_id: string;
-  player_message: string;
-  npc_response: string;
-  matched_clues: MatchedClue[];
-  strategy_id: string;
-  created_at: string;
-}
-
+// Simulation types
 export interface MatchedClue {
   clue_id: string;
   score: number;
@@ -178,20 +114,6 @@ export interface MatchedClue {
   embedding_similarity?: number;
 }
 
-export interface ABTestConfig {
-  id: string;
-  name: string;
-  description: string;
-  strategy_a_id: string;
-  strategy_b_id: string;
-  traffic_split: number;
-  status: 'draft' | 'running' | 'completed';
-  start_at: string | null;
-  end_at: string | null;
-  created_at: string;
-}
-
-// Simulation types
 export interface SimulationRequest {
   script_id: string;
   scene_id: string;
@@ -211,6 +133,32 @@ export interface SimulationResult {
   };
 }
 
+// Dialogue Log types
+export interface DialogueLog {
+  id: string;
+  session_id: string;
+  script_id: string;
+  scene_id: string;
+  npc_id: string;
+  player_message: string;
+  npc_response: string;
+  matched_clues: MatchedClue[];
+  strategy_id: string;
+  created_at: string;
+}
+
+// Debug Audit Log types
+export interface DebugAuditLog {
+  id: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  source: string;
+  message: string;
+  context: Record<string, unknown>;
+  request_id?: string;
+  user_id?: string;
+  created_at: string;
+}
+
 // System types
 export interface User {
   id: string;
@@ -218,16 +166,6 @@ export interface User {
   email: string;
   role: 'admin' | 'editor' | 'viewer';
   status: 'active' | 'inactive';
-  created_at: string;
-}
-
-export interface AuditLog {
-  id: string;
-  user_id: string;
-  action: string;
-  resource_type: string;
-  resource_id: string;
-  changes: Record<string, unknown>;
   created_at: string;
 }
 

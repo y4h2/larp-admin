@@ -8,6 +8,7 @@ import {
   Modal,
   Form,
   Dropdown,
+  Tag,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -16,11 +17,10 @@ import {
   MoreOutlined,
   CopyOutlined,
   DeleteOutlined,
-  InboxOutlined,
   EditOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, ResizableTable, type ResizableColumn } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useScripts } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { Script } from '@/types';
@@ -39,12 +39,11 @@ export default function ScriptList() {
     createScript,
     deleteScript,
     copyScript,
-    archiveScript,
   } = useScripts();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState<{
-    status?: Script['status'];
+    difficulty?: Script['difficulty'];
     search?: string;
     page: number;
     page_size: number;
@@ -87,12 +86,16 @@ export default function ScriptList() {
     }
   };
 
-  const handleArchive = async (id: string) => {
-    try {
-      await archiveScript(id);
-      fetchScripts(filters);
-    } catch {
-      // Error already handled
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy':
+        return 'green';
+      case 'medium':
+        return 'orange';
+      case 'hard':
+        return 'red';
+      default:
+        return 'default';
     }
   };
 
@@ -109,13 +112,6 @@ export default function ScriptList() {
       label: t('common.copy'),
       onClick: () => handleCopy(record.id),
     },
-    {
-      key: 'archive',
-      icon: <InboxOutlined />,
-      label: t('common.archive'),
-      onClick: () => handleArchive(record.id),
-      disabled: record.status === 'archived',
-    },
     { type: 'divider' },
     {
       key: 'delete',
@@ -125,7 +121,7 @@ export default function ScriptList() {
       onClick: () => {
         Modal.confirm({
           title: t('script.deleteScript'),
-          content: t('script.deleteConfirm', { name: record.name }),
+          content: t('script.deleteConfirm', { name: record.title }),
           okText: t('common.delete'),
           okType: 'danger',
           onOk: () => handleDelete(record.id),
@@ -136,32 +132,28 @@ export default function ScriptList() {
 
   const columns: ResizableColumn<Script>[] = [
     {
-      title: t('common.name'),
-      dataIndex: 'name',
-      key: 'name',
+      title: t('script.scriptTitle'),
+      dataIndex: 'title',
+      key: 'title',
       render: (text, record) => (
         <a onClick={() => navigate(`/scripts/${record.id}`)}>{text}</a>
       ),
     },
     {
-      title: t('common.status'),
-      dataIndex: 'status',
-      key: 'status',
+      title: t('script.difficulty'),
+      dataIndex: 'difficulty',
+      key: 'difficulty',
       width: 100,
-      render: (status) => <StatusTag status={status} />,
+      render: (difficulty) => (
+        <Tag color={getDifficultyColor(difficulty)}>{t(`script.${difficulty}`)}</Tag>
+      ),
     },
     {
-      title: t('common.version'),
-      dataIndex: 'version',
-      key: 'version',
-      width: 80,
-      render: (version) => `v${version}`,
-    },
-    {
-      title: t('common.creator'),
-      dataIndex: 'created_by',
-      key: 'created_by',
-      width: 120,
+      title: t('script.summary'),
+      dataIndex: 'summary',
+      key: 'summary',
+      width: 300,
+      ellipsis: true,
     },
     {
       title: t('common.updatedAt'),
@@ -204,16 +196,15 @@ export default function ScriptList() {
           allowClear
         />
         <Select
-          placeholder={t('common.status')}
-          value={filters.status}
-          onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
+          placeholder={t('script.difficulty')}
+          value={filters.difficulty}
+          onChange={(value) => setFilters({ ...filters, difficulty: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="draft">{t('script.draft')}</Option>
-          <Option value="test">{t('script.test')}</Option>
-          <Option value="online">{t('script.online')}</Option>
-          <Option value="archived">{t('script.archived')}</Option>
+          <Option value="easy">{t('script.easy')}</Option>
+          <Option value="medium">{t('script.medium')}</Option>
+          <Option value="hard">{t('script.hard')}</Option>
         </Select>
       </Space>
 
@@ -244,14 +235,21 @@ export default function ScriptList() {
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
           <Form.Item
-            name="name"
-            label={t('script.scriptName')}
-            rules={[{ required: true, message: t('script.enterScriptName') }]}
+            name="title"
+            label={t('script.scriptTitle')}
+            rules={[{ required: true, message: t('script.enterScriptTitle') }]}
           >
-            <Input placeholder={t('script.enterScriptName')} />
+            <Input placeholder={t('script.enterScriptTitle')} />
           </Form.Item>
-          <Form.Item name="description" label={t('common.description')}>
-            <Input.TextArea placeholder={t('script.enterDescription')} rows={3} />
+          <Form.Item name="summary" label={t('script.summary')}>
+            <Input.TextArea placeholder={t('script.enterSummary')} rows={3} />
+          </Form.Item>
+          <Form.Item name="difficulty" label={t('script.difficulty')} initialValue="medium">
+            <Select>
+              <Option value="easy">{t('script.easy')}</Option>
+              <Option value="medium">{t('script.medium')}</Option>
+              <Option value="hard">{t('script.hard')}</Option>
+            </Select>
           </Form.Item>
           <Form.Item>
             <Space>

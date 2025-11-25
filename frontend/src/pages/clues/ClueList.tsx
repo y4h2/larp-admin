@@ -18,8 +18,8 @@ import {
   NodeIndexOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag, ResizableTable, type ResizableColumn } from '@/components/common';
-import { useClues, useScripts, useScenes, useNpcs } from '@/hooks';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
+import { useClues, useScripts, useNpcs } from '@/hooks';
 import { formatDate } from '@/utils';
 import type { Clue } from '@/types';
 
@@ -32,18 +32,13 @@ export default function ClueList() {
   const [form] = Form.useForm();
   const { loading, clues, total, fetchClues, createClue, deleteClue } = useClues();
   const { scripts, fetchScripts } = useScripts();
-  const { scenes, fetchScenes } = useScenes();
   const { npcs, fetchNpcs } = useNpcs();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState<{
     script_id?: string;
-    scene_id?: string;
     npc_id?: string;
-    stage?: number;
-    clue_type?: Clue['clue_type'];
-    importance?: Clue['importance'];
-    status?: Clue['status'];
+    type?: Clue['type'];
     search?: string;
     page: number;
     page_size: number;
@@ -59,10 +54,9 @@ export default function ClueList() {
 
   useEffect(() => {
     if (filters.script_id) {
-      fetchScenes({ script_id: filters.script_id });
       fetchNpcs({ script_id: filters.script_id });
     }
-  }, [filters.script_id, fetchScenes, fetchNpcs]);
+  }, [filters.script_id, fetchNpcs]);
 
   useEffect(() => {
     fetchClues(filters);
@@ -70,20 +64,7 @@ export default function ClueList() {
 
   const handleCreate = async (values: Partial<Clue>) => {
     try {
-      const clue = await createClue({
-        ...values,
-        content_payload: {},
-        unlock_conditions: {
-          text_conditions: { keyword_lists: [], blacklist: [] },
-          semantic_conditions: null,
-          state_conditions: null,
-        },
-        effects: {
-          display_text: '',
-          game_state_updates: {},
-          one_time_trigger: false,
-        },
-      });
+      const clue = await createClue(values);
       setModalVisible(false);
       form.resetFields();
       navigate(`/clues/${clue.id}`);
@@ -103,55 +84,43 @@ export default function ClueList() {
 
   const columns: ResizableColumn<Clue>[] = [
     {
-      title: t('clue.internalTitle'),
-      dataIndex: 'title_internal',
-      key: 'title_internal',
+      title: t('clue.name'),
+      dataIndex: 'name',
+      key: 'name',
       render: (text, record) => (
         <a onClick={() => navigate(`/clues/${record.id}`)}>{text}</a>
       ),
     },
     {
-      title: t('clue.playerTitle'),
-      dataIndex: 'title_player',
-      key: 'title_player',
-      ellipsis: true,
-    },
-    {
       title: t('clue.type'),
-      dataIndex: 'clue_type',
-      key: 'clue_type',
+      dataIndex: 'type',
+      key: 'type',
       width: 100,
-      render: (type) => <ClueTypeTag type={type} />,
+      render: (type) => (
+        <Tag color={type === 'text' ? 'blue' : 'green'}>{type}</Tag>
+      ),
     },
     {
-      title: t('clue.importance'),
-      dataIndex: 'importance',
-      key: 'importance',
-      width: 100,
-      render: (importance) => <ImportanceTag importance={importance} />,
-    },
-    {
-      title: t('clue.stage'),
-      dataIndex: 'stage',
-      key: 'stage',
-      width: 70,
-    },
-    {
-      title: 'NPCs',
-      dataIndex: 'npc_ids',
-      key: 'npc_ids',
+      title: 'NPC',
+      dataIndex: 'npc_id',
+      key: 'npc_id',
       width: 150,
-      render: (npcIds: string[]) => (
+      render: (npcId: string) => {
+        const npc = npcs.find((n) => n.id === npcId);
+        return <Tag>{npc?.name || npcId}</Tag>;
+      },
+    },
+    {
+      title: t('clue.triggerKeywords'),
+      dataIndex: 'trigger_keywords',
+      key: 'trigger_keywords',
+      width: 200,
+      render: (keywords: string[]) => (
         <Space size={[0, 4]} wrap>
-          {npcIds.slice(0, 2).map((npcId) => {
-            const npc = npcs.find((n) => n.id === npcId);
-            return (
-              <Tag key={npcId} style={{ margin: 0 }}>
-                {npc?.name || npcId}
-              </Tag>
-            );
-          })}
-          {npcIds.length > 2 && <Tag>+{npcIds.length - 2}</Tag>}
+          {keywords.slice(0, 3).map((kw, i) => (
+            <Tag key={i} style={{ margin: 0 }}>{kw}</Tag>
+          ))}
+          {keywords.length > 3 && <Tag>+{keywords.length - 3}</Tag>}
         </Space>
       ),
     },
@@ -170,7 +139,7 @@ export default function ClueList() {
               const prereq = clues.find((c) => c.id === prereqId);
               return (
                 <Tag key={prereqId} style={{ margin: 0 }} color="blue">
-                  {prereq?.title_internal || prereqId.slice(0, 8)}
+                  {prereq?.name || prereqId.slice(0, 8)}
                 </Tag>
               );
             })}
@@ -178,20 +147,6 @@ export default function ClueList() {
           </Space>
         );
       },
-    },
-    {
-      title: t('common.status'),
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (status) => <StatusTag status={status} />,
-    },
-    {
-      title: t('common.version'),
-      dataIndex: 'version',
-      key: 'version',
-      width: 70,
-      render: (v) => `v${v}`,
     },
     {
       title: t('common.updatedAt'),
@@ -258,26 +213,12 @@ export default function ClueList() {
           placeholder={t('clue.selectScript')}
           value={filters.script_id}
           onChange={(value) =>
-            setFilters({ ...filters, script_id: value, scene_id: undefined, npc_id: undefined, page: 1 })
+            setFilters({ ...filters, script_id: value, npc_id: undefined, page: 1 })
           }
           style={{ width: 160 }}
           allowClear
         >
           {scripts.map((s) => (
-            <Option key={s.id} value={s.id}>
-              {s.name}
-            </Option>
-          ))}
-        </Select>
-        <Select
-          placeholder={t('clue.selectScene')}
-          value={filters.scene_id}
-          onChange={(value) => setFilters({ ...filters, scene_id: value, page: 1 })}
-          style={{ width: 160 }}
-          allowClear
-          disabled={!filters.script_id}
-        >
-          {scenes.map((s) => (
             <Option key={s.id} value={s.id}>
               {s.name}
             </Option>
@@ -299,47 +240,13 @@ export default function ClueList() {
         </Select>
         <Select
           placeholder={t('clue.type')}
-          value={filters.clue_type}
-          onChange={(value) => setFilters({ ...filters, clue_type: value, page: 1 })}
+          value={filters.type}
+          onChange={(value) => setFilters({ ...filters, type: value, page: 1 })}
           style={{ width: 120 }}
           allowClear
         >
-          <Option value="evidence">{t('clue.evidence')}</Option>
-          <Option value="testimony">{t('clue.testimony')}</Option>
-          <Option value="world_info">{t('clue.worldInfo')}</Option>
-          <Option value="decoy">{t('clue.decoy')}</Option>
-        </Select>
-        <Select
-          placeholder={t('clue.importance')}
-          value={filters.importance}
-          onChange={(value) => setFilters({ ...filters, importance: value, page: 1 })}
-          style={{ width: 120 }}
-          allowClear
-        >
-          <Option value="critical">{t('clue.critical')}</Option>
-          <Option value="major">{t('clue.major')}</Option>
-          <Option value="minor">{t('clue.minor')}</Option>
-          <Option value="easter_egg">{t('clue.easterEgg')}</Option>
-        </Select>
-        <Input
-          placeholder={t('clue.stage')}
-          type="number"
-          value={filters.stage}
-          onChange={(e) =>
-            setFilters({ ...filters, stage: e.target.value ? Number(e.target.value) : undefined, page: 1 })
-          }
-          style={{ width: 80 }}
-        />
-        <Select
-          placeholder={t('common.status')}
-          value={filters.status}
-          onChange={(value) => setFilters({ ...filters, status: value, page: 1 })}
-          style={{ width: 100 }}
-          allowClear
-        >
-          <Option value="draft">{t('clue.draft')}</Option>
-          <Option value="active">{t('clue.active')}</Option>
-          <Option value="disabled">{t('clue.disabled')}</Option>
+          <Option value="text">{t('common.text')}</Option>
+          <Option value="image">{t('common.image')}</Option>
         </Select>
       </Space>
 
@@ -348,7 +255,7 @@ export default function ClueList() {
         dataSource={clues}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1000 }}
         pagination={{
           current: filters.page,
           pageSize: filters.page_size,
@@ -381,7 +288,6 @@ export default function ClueList() {
               placeholder={t('clue.selectScript')}
               onChange={(value) => {
                 if (value) {
-                  fetchScenes({ script_id: value });
                   fetchNpcs({ script_id: value });
                 }
               }}
@@ -393,77 +299,12 @@ export default function ClueList() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="scene_id" label={t('common.scene')}>
-            <Select placeholder={`${t('clue.selectScene')} (${t('common.optional')})`} allowClear>
-              {scenes.map((s) => (
-                <Option key={s.id} value={s.id}>
-                  {s.name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
           <Form.Item
-            name="title_internal"
-            label={t('clue.internalTitle')}
-            rules={[{ required: true, message: t('clue.pleaseEnterInternalTitle') }]}
+            name="npc_id"
+            label="NPC"
+            rules={[{ required: true, message: t('clue.selectNpc') }]}
           >
-            <Input placeholder={t('clue.internalTitlePlaceholder')} />
-          </Form.Item>
-          <Form.Item
-            name="title_player"
-            label={t('clue.playerTitle')}
-            rules={[{ required: true, message: t('clue.pleaseEnterPlayerTitle') }]}
-          >
-            <Input placeholder={t('clue.playerTitlePlaceholder')} />
-          </Form.Item>
-          <Form.Item
-            name="content_text"
-            label={t('clue.content')}
-            rules={[{ required: true, message: t('clue.pleaseEnterContent') }]}
-          >
-            <Input.TextArea placeholder={t('clue.contentPlaceholder')} rows={3} />
-          </Form.Item>
-          <Space style={{ width: '100%' }} size={16}>
-            <Form.Item
-              name="clue_type"
-              label={t('clue.type')}
-              rules={[{ required: true }]}
-              style={{ width: 180 }}
-            >
-              <Select placeholder={t('clue.type')}>
-                <Option value="evidence">{t('clue.evidence')}</Option>
-                <Option value="testimony">{t('clue.testimony')}</Option>
-                <Option value="world_info">{t('clue.worldInfo')}</Option>
-                <Option value="decoy">{t('clue.decoy')}</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              name="importance"
-              label={t('clue.importance')}
-              rules={[{ required: true }]}
-              style={{ width: 180 }}
-            >
-              <Select placeholder={t('clue.importance')}>
-                <Option value="critical">{t('clue.critical')}</Option>
-                <Option value="major">{t('clue.major')}</Option>
-                <Option value="minor">{t('clue.minor')}</Option>
-                <Option value="easter_egg">{t('clue.easterEgg')}</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item
-              name="stage"
-              label={t('clue.stage')}
-              initialValue={1}
-              style={{ width: 100 }}
-            >
-              <Input type="number" min={1} />
-            </Form.Item>
-          </Space>
-          <Form.Item
-            name="npc_ids"
-            label={t('clue.associatedNpcs')}
-          >
-            <Select mode="multiple" placeholder={t('clue.selectNpc')}>
+            <Select placeholder={t('clue.selectNpc')}>
               {npcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
@@ -471,12 +312,38 @@ export default function ClueList() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item name="content_type" label={t('clue.contentType')} initialValue="text">
+          <Form.Item
+            name="name"
+            label={t('clue.name')}
+            rules={[{ required: true }]}
+          >
+            <Input placeholder={t('clue.name')} />
+          </Form.Item>
+          <Form.Item name="type" label={t('clue.type')} initialValue="text">
             <Select>
               <Option value="text">{t('common.text')}</Option>
               <Option value="image">{t('common.image')}</Option>
-              <Option value="structured">{t('common.structured')}</Option>
             </Select>
+          </Form.Item>
+          <Form.Item
+            name="detail"
+            label={t('clue.detail')}
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea placeholder={t('clue.detailPlaceholder')} rows={3} />
+          </Form.Item>
+          <Form.Item
+            name="detail_for_npc"
+            label={t('clue.detailForNpc')}
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea placeholder={t('clue.detailForNpcPlaceholder')} rows={3} />
+          </Form.Item>
+          <Form.Item name="trigger_keywords" label={t('clue.triggerKeywords')}>
+            <Select mode="tags" placeholder={t('clue.triggerKeywordsPlaceholder')} />
+          </Form.Item>
+          <Form.Item name="trigger_semantic_summary" label={t('clue.triggerSemanticSummary')}>
+            <Input.TextArea placeholder={t('clue.triggerSemanticSummaryPlaceholder')} rows={2} />
           </Form.Item>
           <Form.Item>
             <Space>

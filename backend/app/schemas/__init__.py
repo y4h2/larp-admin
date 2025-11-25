@@ -10,15 +10,17 @@ from app.schemas.algorithm import (
 )
 from app.schemas.clue import (
     ClueCreate,
-    ClueRelationCreate,
-    ClueRelationResponse,
     ClueResponse,
+    ClueTreeEdge,
     ClueTreeNode,
     ClueTreeResponse,
-    ClueTreeValidation,
     ClueUpdate,
 )
 from app.schemas.common import PaginatedResponse, PaginationParams
+from app.schemas.debug_audit_log import (
+    DebugAuditLogCreate,
+    DebugAuditLogResponse,
+)
 from app.schemas.log import DialogueLogResponse
 from app.schemas.npc import NPCCreate, NPCResponse, NPCUpdate
 from app.schemas.scene import SceneCreate, SceneReorder, SceneResponse, SceneUpdate
@@ -46,11 +48,9 @@ __all__ = [
     "ClueCreate",
     "ClueUpdate",
     "ClueResponse",
-    "ClueRelationCreate",
-    "ClueRelationResponse",
     "ClueTreeNode",
+    "ClueTreeEdge",
     "ClueTreeResponse",
-    "ClueTreeValidation",
     # Algorithm
     "AlgorithmImplementationResponse",
     "AlgorithmStrategyCreate",
@@ -63,4 +63,7 @@ __all__ = [
     "SimulateResponse",
     # Log
     "DialogueLogResponse",
+    # Debug Audit Log
+    "DebugAuditLogCreate",
+    "DebugAuditLogResponse",
 ]

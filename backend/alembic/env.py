@@ -16,9 +16,10 @@ from app.models import (  # noqa: F401
     AlgorithmImplementation,
     AlgorithmStrategy,
     Clue,
-    ClueRelation,
+    DebugAuditLog,
     DialogueLog,
     NPC,
+    PromptTemplate,
     Scene,
     Script,
 )

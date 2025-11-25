@@ -1,11 +1,11 @@
-"""Script (剧本) model definition."""
+"""Script (剧本) model definition based on data/sample/clue.py."""
 
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,14 +15,6 @@ if TYPE_CHECKING:
     from app.models.clue import Clue
     from app.models.npc import NPC
     from app.models.scene import Scene
-
-
-class ScriptStatus(str, enum.Enum):
-    """Status of a script."""
-
-    DRAFT = "draft"
-    TEST = "test"
-    ONLINE = "online"
 
 
 class ScriptDifficulty(str, enum.Enum):
@@ -37,7 +29,13 @@ class Script(Base):
     """
     Script model representing a complete murder mystery case.
 
-    A script is the top-level container for scenes, NPCs, and clues.
+    Based on the Script dataclass in data/sample/clue.py:
+    - id: ScriptId
+    - title: str
+    - summary: str
+    - background: str
+    - difficulty: Difficulty
+    - truth: Truth (murderer, weapon, motive, crime_method)
     """
 
     __tablename__ = "scripts"
@@ -47,8 +45,12 @@ class Script(Base):
         primary_key=True,
         default=lambda: str(uuid4()),
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+        comment="Script title",
+    )
     summary: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
@@ -59,34 +61,22 @@ class Script(Base):
         nullable=True,
         comment="Background setting and context for the story",
     )
+    difficulty: Mapped[ScriptDifficulty] = mapped_column(
+        Enum(ScriptDifficulty, name="script_difficulty", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        default=ScriptDifficulty.MEDIUM,
+        nullable=False,
+    )
     truth: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,
         nullable=False,
         comment="The truth of the case: murderer, weapon, motive, crime_method",
     )
-    status: Mapped[ScriptStatus] = mapped_column(
-        Enum(ScriptStatus, name="script_status", create_type=False, values_callable=lambda x: [e.value for e in x]),
-        default=ScriptStatus.DRAFT,
-        nullable=False,
-    )
-    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    player_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    expected_duration: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, comment="Expected duration in minutes"
-    )
-    difficulty: Mapped[ScriptDifficulty] = mapped_column(
-        Enum(ScriptDifficulty, name="script_difficulty", create_type=False, values_callable=lambda x: [e.value for e in x]),
-        default=ScriptDifficulty.MEDIUM,
-        nullable=False,
-    )
-    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -120,4 +110,4 @@ class Script(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Script(id={self.id}, name={self.name}, status={self.status})>"
+        return f"<Script(id={self.id}, title={self.title})>"
