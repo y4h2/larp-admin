@@ -3,7 +3,6 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -32,6 +31,7 @@ class MatchContext:
     npc_id: str
     matching_strategy: MatchingStrategy = MatchingStrategy.KEYWORD
     template_id: str | None = None
+    llm_config_id: str | None = None
 
 
 @dataclass
@@ -77,6 +77,7 @@ class MatchingService:
             npc_id=request.npc_id,
             matching_strategy=request.matching_strategy,
             template_id=request.template_id,
+            llm_config_id=request.llm_config_id,
         )
 
         # Get candidate clues for this NPC
@@ -226,13 +227,17 @@ class MatchingService:
         """
         Match clues using embedding similarity.
 
-        Uses the default embedding LLM config to compute similarity
-        between player message and clue semantic summaries.
+        Uses the embedding LLM config to compute similarity between player message
+        and clue content rendered via template (if provided).
+
+        Based on VectorClueRetrievalStrategy from data/sample/clue.py:
+        - Renders clue content using template before embedding
+        - Computes cosine similarity between message and clue embeddings
         """
         results = []
 
-        # Get embedding config
-        embedding_config = await self._get_default_llm_config(LLMConfigType.EMBEDDING)
+        # Get embedding config - prefer specified config, otherwise use default
+        embedding_config = await self._get_llm_config_for_embedding(context.llm_config_id)
         if not embedding_config:
             logger.warning("No embedding config found, falling back to keyword matching")
             for clue in candidates:
@@ -240,6 +245,13 @@ class MatchingService:
                 if result.score > 0:
                     results.append(result)
             return results
+
+        # Load template if specified
+        template_content: str | None = None
+        if context.template_id:
+            template_content = await self._load_template_content(context.template_id)
+            if template_content:
+                logger.info(f"Using template {context.template_id} for embedding")
 
         # Get embedding for player message
         try:
@@ -259,8 +271,9 @@ class MatchingService:
 
             result = MatchResult(clue=clue)
 
-            # Get clue embedding (use semantic summary if available)
-            clue_text = clue.trigger_semantic_summary or clue.detail or clue.name
+            # Render clue content using template if available
+            clue_text = self._render_clue_for_embedding(clue, template_content)
+
             try:
                 clue_embedding = await self._get_embedding(clue_text, embedding_config)
                 similarity = self._cosine_similarity(message_embedding, clue_embedding)
@@ -271,11 +284,78 @@ class MatchingService:
                     result.match_reasons.append(
                         f"Embedding similarity: {similarity:.3f}"
                     )
+                    if template_content:
+                        result.match_reasons.append("Matched using template rendering")
                     results.append(result)
             except Exception as e:
                 logger.error(f"Failed to get clue embedding for {clue.id}: {e}")
 
         return results
+
+    async def _get_llm_config_for_embedding(
+        self, llm_config_id: str | None
+    ) -> LLMConfig | None:
+        """Get embedding config - prefer specified ID, otherwise use default."""
+        if llm_config_id:
+            query = select(LLMConfig).where(
+                LLMConfig.id == llm_config_id,
+                LLMConfig.type == LLMConfigType.EMBEDDING,
+            )
+            result = await self.db.execute(query)
+            config = result.scalars().first()
+            if config:
+                return config
+            logger.warning(
+                f"Specified embedding config {llm_config_id} not found, using default"
+            )
+
+        return await self._get_default_llm_config(LLMConfigType.EMBEDDING)
+
+    async def _load_template_content(self, template_id: str) -> str | None:
+        """Load template content by ID."""
+        query = select(PromptTemplate).where(
+            PromptTemplate.id == template_id,
+            PromptTemplate.deleted_at.is_(None),
+        )
+        result = await self.db.execute(query)
+        template = result.scalars().first()
+        return template.content if template else None
+
+    def _render_clue_for_embedding(
+        self, clue: Clue, template_content: str | None
+    ) -> str:
+        """
+        Render clue content for embedding.
+
+        If template is provided, renders the clue using the template.
+        Otherwise, uses the default: trigger_semantic_summary or detail or name.
+
+        Based on VectorClueRetrievalStrategy.build_embedding_db pattern.
+        """
+        if template_content:
+            # Build context for template rendering
+            clue_context = {
+                "clue": {
+                    "id": clue.id,
+                    "name": clue.name,
+                    "type": clue.type.value if clue.type else "text",
+                    "detail": clue.detail or "",
+                    "detail_for_npc": clue.detail_for_npc or "",
+                    "trigger_keywords": clue.trigger_keywords or [],
+                    "trigger_semantic_summary": clue.trigger_semantic_summary or "",
+                }
+            }
+            render_result = template_renderer.render(template_content, clue_context)
+            if not render_result.unresolved_variables:
+                return render_result.rendered_content
+            else:
+                logger.warning(
+                    f"Template has unresolved variables: {render_result.unresolved_variables}, "
+                    f"using default clue text"
+                )
+
+        # Default: use semantic summary or detail or name
+        return clue.trigger_semantic_summary or clue.detail or clue.name
 
     async def _match_with_llm(
         self,

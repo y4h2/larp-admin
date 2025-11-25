@@ -93,11 +93,18 @@ export interface SimulationRequest {
   matching_strategy?: MatchingStrategy;
   template_id?: string;
   llm_config_id?: string;
+  // NPC reply configuration
+  npc_reply_template_id?: string;
+  npc_chat_config_id?: string;
+  // Session tracking
+  session_id?: string;
+  save_log?: boolean;
 }
 
 export interface SimulationResult {
   matched_clues: MatchedClue[];
   triggered_clues: MatchedClue[];
+  npc_response?: string | null;
   debug_info: {
     total_candidates: number;
     total_matched: number;
@@ -105,6 +112,7 @@ export interface SimulationResult {
     threshold: number;
     strategy: MatchingStrategy;
   };
+  log_id?: string | null;
 }
 
 // Dialogue Log types

@@ -45,7 +45,7 @@ async def list_llm_configs(
     result = await db.execute(query)
     configs = result.scalars().all()
 
-    return PaginatedResponse(
+    return PaginatedResponse.create(
         items=[LLMConfigListResponse.from_model(c) for c in configs],
         total=total,
         page=page,

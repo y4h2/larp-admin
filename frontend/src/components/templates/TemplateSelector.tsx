@@ -9,8 +9,6 @@ const { Option, OptGroup } = Select;
 
 interface TemplateSelectorProps {
   type?: PromptTemplate['type'];
-  scopeType?: PromptTemplate['scope_type'];
-  scopeTargetId?: string;
   value?: string;
   onChange?: (templateId: string | undefined, template?: PromptTemplate) => void;
   onTemplateLoad?: (content: string) => void;
@@ -18,8 +16,6 @@ interface TemplateSelectorProps {
 
 export default function TemplateSelector({
   type,
-  scopeType,
-  scopeTargetId,
   value,
   onChange,
   onTemplateLoad,
@@ -35,7 +31,6 @@ export default function TemplateSelector({
     try {
       const data = await templateApi.list({
         type,
-        status: 'active',
         page_size: 100,
       });
       setTemplates(data.items);
@@ -48,7 +43,7 @@ export default function TemplateSelector({
 
   useEffect(() => {
     fetchTemplates();
-  }, [type, scopeType, scopeTargetId]);
+  }, [type]);
 
   const handleSelect = async (templateId: string) => {
     try {
@@ -80,11 +75,8 @@ export default function TemplateSelector({
       const createData: TemplateCreateData = {
         name: values.name,
         description: values.description,
-        type: type || 'npc_dialog',
-        scope_type: scopeType || 'global',
-        scope_target_id: scopeTargetId,
+        type: type || 'custom',
         content: '',
-        status: 'draft',
       };
       const created = await templateApi.create(createData);
       await fetchTemplates();
@@ -98,9 +90,9 @@ export default function TemplateSelector({
     }
   };
 
-  // Group templates by scope
-  const globalTemplates = templates.filter((t) => t.scope_type === 'global');
-  const scopedTemplates = templates.filter((t) => t.scope_type !== 'global');
+  // Group templates by default status
+  const defaultTemplates = templates.filter((t) => t.is_default);
+  const otherTemplates = templates.filter((t) => !t.is_default);
 
   return (
     <>
@@ -117,20 +109,20 @@ export default function TemplateSelector({
             onTemplateLoad?.('');
           }}
         >
-          {globalTemplates.length > 0 && (
-            <OptGroup label={t('template.globalTemplates')}>
-              {globalTemplates.map((template) => (
+          {defaultTemplates.length > 0 && (
+            <OptGroup label={t('template.default')}>
+              {defaultTemplates.map((template) => (
                 <Option key={template.id} value={template.id}>
                   {template.name}
                 </Option>
               ))}
             </OptGroup>
           )}
-          {scopedTemplates.length > 0 && (
-            <OptGroup label={t('template.scopedTemplates')}>
-              {scopedTemplates.map((template) => (
+          {otherTemplates.length > 0 && (
+            <OptGroup label={t('template.globalTemplates')}>
+              {otherTemplates.map((template) => (
                 <Option key={template.id} value={template.id}>
-                  {template.name} ({template.scope_type})
+                  {template.name}
                 </Option>
               ))}
             </OptGroup>

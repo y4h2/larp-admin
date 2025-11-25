@@ -30,7 +30,29 @@ class SimulateRequest(BaseModel):
     )
     template_id: str | None = Field(
         default=None,
-        description="Prompt template ID (used for LLM matching strategy)",
+        description="Prompt template ID (used for clue matching)",
+    )
+    llm_config_id: str | None = Field(
+        default=None,
+        description="LLM config ID for matching (embedding or chat)",
+    )
+    # NPC reply configuration
+    npc_reply_template_id: str | None = Field(
+        default=None,
+        description="Prompt template ID for NPC reply",
+    )
+    npc_chat_config_id: str | None = Field(
+        default=None,
+        description="LLM config ID for NPC chat",
+    )
+    # Session tracking
+    session_id: str | None = Field(
+        default=None,
+        description="Session ID for grouping dialogue logs",
+    )
+    save_log: bool = Field(
+        default=True,
+        description="Whether to save this dialogue to logs",
     )
 
 
@@ -64,6 +86,12 @@ class SimulateResponse(BaseModel):
     triggered_clues: list[MatchedClue] = Field(
         default_factory=list, description="Final triggered clues"
     )
+    npc_response: str | None = Field(
+        default=None, description="NPC response to player message"
+    )
     debug_info: dict[str, Any] = Field(
         default_factory=dict, description="Debug information"
+    )
+    log_id: str | None = Field(
+        default=None, description="ID of saved dialogue log"
     )

@@ -1,11 +1,13 @@
 """Simulation API endpoints."""
 
 import logging
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.database import DBSession
+from app.models.log import DialogueLog
 from app.models.npc import NPC
 from app.models.script import Script
 from app.schemas.simulate import SimulateRequest, SimulateResponse
@@ -66,5 +68,35 @@ async def simulate_dialogue(
         f"Simulation completed: {len(result.matched_clues)} matched, "
         f"{len(result.triggered_clues)} triggered"
     )
+
+    # Save dialogue log if requested
+    log_id = None
+    if request.save_log:
+        session_id = request.session_id or str(uuid4())
+        log = DialogueLog(
+            session_id=session_id,
+            script_id=request.script_id,
+            npc_id=request.npc_id,
+            player_message=request.player_message,
+            npc_response=result.npc_response,
+            context={
+                "unlocked_clue_ids": request.unlocked_clue_ids,
+                "matching_strategy": request.matching_strategy.value,
+                "template_id": request.template_id,
+                "llm_config_id": request.llm_config_id,
+                "npc_reply_template_id": request.npc_reply_template_id,
+                "npc_chat_config_id": request.npc_chat_config_id,
+            },
+            matched_clues=[mc.model_dump() for mc in result.matched_clues],
+            triggered_clues=[mc.clue_id for mc in result.triggered_clues],
+        )
+        db.add(log)
+        await db.commit()
+        await db.refresh(log)
+        log_id = log.id
+        logger.info(f"Saved dialogue log: {log_id}")
+
+    # Add log_id to result
+    result.log_id = log_id
 
     return result

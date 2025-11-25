@@ -12,11 +12,13 @@ class DialogueLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    session_id: str
     script_id: str
     npc_id: str
     player_message: str
+    npc_response: str | None = None
     context: dict[str, Any]
-    matched_clues: dict[str, Any]
+    matched_clues: dict[str, Any] | list[dict[str, Any]]
     triggered_clues: list[str]
     created_at: datetime
 

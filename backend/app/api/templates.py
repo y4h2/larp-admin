@@ -218,7 +218,7 @@ async def delete_template(
         )
 
     template.deleted_at = func.now()
-    await db.flush()
+    await db.commit()
 
     logger.info(f"Deleted prompt template: {template_id}")
 

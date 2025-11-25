@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +26,12 @@ class DialogueLog(Base):
         primary_key=True,
         default=lambda: str(uuid4()),
     )
+    session_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+        comment="Session identifier for grouping related dialogue logs",
+    )
     script_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("scripts.id", ondelete="CASCADE"),
@@ -39,6 +45,11 @@ class DialogueLog(Base):
         index=True,
     )
     player_message: Mapped[str] = mapped_column(Text, nullable=False)
+    npc_response: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="NPC response to the player message",
+    )
     context: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default=dict,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -13,18 +13,41 @@ import {
   Collapse,
   Empty,
   message,
+  Divider,
+  Typography,
+  Spin,
+  Tooltip,
+  Alert,
 } from 'antd';
-import { SendOutlined, ClearOutlined } from '@ant-design/icons';
-import { PageHeader } from '@/components/common';
+import {
+  SendOutlined,
+  ClearOutlined,
+  SearchOutlined,
+  ThunderboltOutlined,
+  RobotOutlined,
+  LockOutlined,
+  EyeOutlined,
+} from '@ant-design/icons';
+import { PageHeader, ClueTypeTag } from '@/components/common';
 import { simulationApi, clueApi } from '@/api';
+import { templateApi, type PromptTemplate, type TemplateRenderResponse } from '@/api/templates';
+import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
 import { useScripts, useNpcs } from '@/hooks';
-import type { Clue, SimulationResult, MatchedClue } from '@/types';
+import type { Clue, SimulationResult, MatchedClue, MatchingStrategy } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
 
 const { Option } = Select;
 const { TextArea } = Input;
+const { Text, Paragraph } = Typography;
+
+const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React.ReactNode }[] = [
+  { value: 'keyword', label: 'debug.keywordMatching', icon: <SearchOutlined /> },
+  { value: 'embedding', label: 'debug.embeddingMatching', icon: <ThunderboltOutlined /> },
+  { value: 'llm', label: 'debug.llmMatching', icon: <RobotOutlined /> },
+];
 
 interface ChatMessage {
-  role: 'player' | 'system';
+  role: 'player' | 'system' | 'npc';
   content: string;
   result?: SimulationResult;
 }
@@ -34,17 +57,71 @@ export default function DialogueSimulation() {
   const { scripts, fetchScripts } = useScripts();
   const { npcs, fetchNpcs } = useNpcs();
   const [clues, setClues] = useState<Clue[]>([]);
+  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
+  const [embeddingConfigs, setEmbeddingConfigs] = useState<LLMConfig[]>([]);
+  const [chatConfigs, setChatConfigs] = useState<LLMConfig[]>([]);
 
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [unlockedClueIds, setUnlockedClueIds] = useState<string[]>([]);
 
+  // Session tracking - generate new session ID on mount and when cleared
+  const sessionIdRef = useRef<string>(uuidv4());
+
+  // Matching configuration
+  const [matchingStrategy, setMatchingStrategy] = useState<MatchingStrategy>('keyword');
+  const [matchingTemplateId, setMatchingTemplateId] = useState<string | undefined>();
+  const [matchingLlmConfigId, setMatchingLlmConfigId] = useState<string | undefined>();
+
+  // NPC reply configuration
+  const [npcReplyTemplateId, setNpcReplyTemplateId] = useState<string | undefined>();
+  const [npcChatConfigId, setNpcChatConfigId] = useState<string | undefined>();
+
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Template rendering
+  const [renderedPreviews, setRenderedPreviews] = useState<Record<string, TemplateRenderResponse>>({});
+  const [renderingClueId, setRenderingClueId] = useState<string | null>(null);
+
+  // Filter templates by type
+  const matchingTemplates = templates.filter((t) =>
+    ['clue_embedding', 'clue_reveal', 'custom'].includes(t.type)
+  );
+  const npcReplyTemplates = templates.filter((t) =>
+    ['npc_system_prompt', 'custom'].includes(t.type)
+  );
+
+  // Get selected template object
+  const selectedMatchingTemplate = useMemo(() => {
+    return templates.find((t) => t.id === matchingTemplateId) || null;
+  }, [templates, matchingTemplateId]);
+
+  // Get selected NPC object
+  const selectedNpc = useMemo(() => {
+    return npcs.find((n) => n.id === selectedNpcId) || null;
+  }, [npcs, selectedNpcId]);
+
+  // Compute locked clues (clues not in unlocked list)
+  const lockedClues = useMemo(() => {
+    const unlockedSet = new Set(unlockedClueIds || []);
+    return clues.filter((c) => !unlockedSet.has(c.id));
+  }, [clues, unlockedClueIds]);
+
   useEffect(() => {
     fetchScripts();
+    // Fetch all templates
+    templateApi.list({ page_size: 100 }).then((res) => {
+      setTemplates(res.items);
+    });
+    // Fetch LLM configs
+    llmConfigApi.list({ type: 'embedding', page_size: 100 }).then((res) => {
+      setEmbeddingConfigs(res.items);
+    });
+    llmConfigApi.list({ type: 'chat', page_size: 100 }).then((res) => {
+      setChatConfigs(res.items);
+    });
   }, [fetchScripts]);
 
   useEffect(() => {
@@ -55,6 +132,47 @@ export default function DialogueSimulation() {
       });
     }
   }, [selectedScriptId, fetchNpcs]);
+
+  // Auto-render all locked clues when matching template or locked clues change
+  useEffect(() => {
+    setRenderedPreviews({});
+
+    if (matchingTemplateId && lockedClues.length > 0 && selectedNpc) {
+      const renderAllLocked = async () => {
+        const previews: Record<string, TemplateRenderResponse> = {};
+        for (const clue of lockedClues) {
+          try {
+            const result = await templateApi.render({
+              template_id: matchingTemplateId,
+              context: {
+                clue: {
+                  id: clue.id,
+                  name: clue.name,
+                  type: clue.type,
+                  detail: clue.detail,
+                  detail_for_npc: clue.detail_for_npc,
+                  trigger_keywords: clue.trigger_keywords,
+                  trigger_semantic_summary: clue.trigger_semantic_summary,
+                },
+                npc: {
+                  id: selectedNpc.id,
+                  name: selectedNpc.name,
+                  age: selectedNpc.age,
+                  personality: selectedNpc.personality,
+                  background: selectedNpc.background,
+                },
+              },
+            });
+            previews[clue.id] = result;
+          } catch {
+            // Skip failed renders silently
+          }
+        }
+        setRenderedPreviews(previews);
+      };
+      renderAllLocked();
+    }
+  }, [matchingTemplateId, lockedClues, selectedNpc]);
 
   const handleSend = async () => {
     if (!selectedScriptId || !selectedNpcId || !playerMessage.trim()) {
@@ -76,14 +194,31 @@ export default function DialogueSimulation() {
         npc_id: selectedNpcId,
         unlocked_clue_ids: unlockedClueIds,
         player_message: playerMessage,
+        matching_strategy: matchingStrategy,
+        template_id: matchingTemplateId,
+        llm_config_id: matchingLlmConfigId,
+        npc_reply_template_id: npcReplyTemplateId,
+        npc_chat_config_id: npcChatConfigId,
+        session_id: sessionIdRef.current,
+        save_log: true,
       });
 
+      // Add system message with match details
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Matched ${result.matched_clues.length} clue(s)`,
+        content: `${t('debug.cluesTriggered', { count: result.triggered_clues.length })}`,
         result,
       };
       setChatHistory((prev) => [...prev, systemMessage]);
+
+      // Add NPC response if available
+      if (result.npc_response) {
+        const npcMessage: ChatMessage = {
+          role: 'npc',
+          content: result.npc_response,
+        };
+        setChatHistory((prev) => [...prev, npcMessage]);
+      }
     } catch {
       message.error(t('debug.simulationFailed'));
     } finally {
@@ -94,6 +229,49 @@ export default function DialogueSimulation() {
   const handleClear = () => {
     setChatHistory([]);
     setUnlockedClueIds([]);
+    // Generate new session ID for next conversation
+    sessionIdRef.current = uuidv4();
+  };
+
+  // Render template for a specific clue
+  const handleRenderClue = async (clue: Clue) => {
+    if (!matchingTemplateId) {
+      message.warning(t('debug.selectTemplateFirst'));
+      return;
+    }
+
+    setRenderingClueId(clue.id);
+    try {
+      const result = await templateApi.render({
+        template_id: matchingTemplateId,
+        context: {
+          clue: {
+            id: clue.id,
+            name: clue.name,
+            type: clue.type,
+            detail: clue.detail,
+            detail_for_npc: clue.detail_for_npc,
+            trigger_keywords: clue.trigger_keywords,
+            trigger_semantic_summary: clue.trigger_semantic_summary,
+          },
+          npc: selectedNpc ? {
+            id: selectedNpc.id,
+            name: selectedNpc.name,
+            age: selectedNpc.age,
+            personality: selectedNpc.personality,
+            background: selectedNpc.background,
+          } : null,
+        },
+      });
+      setRenderedPreviews((prev) => ({
+        ...prev,
+        [clue.id]: result,
+      }));
+    } catch {
+      message.error(t('debug.renderFailed'));
+    } finally {
+      setRenderingClueId(null);
+    }
   };
 
   return (
@@ -104,7 +282,8 @@ export default function DialogueSimulation() {
       />
 
       <Row gutter={16}>
-        <Col span={8}>
+        {/* Left: Configuration */}
+        <Col span={6}>
           <Card title={t('debug.configuration')} size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
               <div>
@@ -156,6 +335,7 @@ export default function DialogueSimulation() {
                   onChange={setUnlockedClueIds}
                   style={{ width: '100%' }}
                   disabled={!selectedScriptId}
+                  maxTagCount={2}
                 >
                   {clues.map((c) => (
                     <Option key={c.id} value={c.id}>
@@ -164,11 +344,146 @@ export default function DialogueSimulation() {
                   ))}
                 </Select>
               </div>
+
+              <Divider orientation="left" plain style={{ margin: '12px 0' }}>
+                {t('debug.matchingConfig')}
+              </Divider>
+
+              <div>
+                <div style={{ marginBottom: 4 }}>{t('debug.matchingStrategy')}</div>
+                <Select
+                  value={matchingStrategy}
+                  onChange={setMatchingStrategy}
+                  style={{ width: '100%' }}
+                >
+                  {MATCHING_STRATEGIES.map((s) => (
+                    <Option key={s.value} value={s.value}>
+                      <Space>
+                        {s.icon}
+                        {t(s.label)}
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <div style={{ marginBottom: 4 }}>{t('debug.matchingTemplate')}</div>
+                <Select
+                  placeholder={t('debug.selectMatchingTemplate')}
+                  value={matchingTemplateId}
+                  onChange={setMatchingTemplateId}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {matchingTemplates.map((tpl) => (
+                    <Option key={tpl.id} value={tpl.id}>
+                      <Space>
+                        <span>{tpl.name}</span>
+                        <Tag color={tpl.type === 'clue_embedding' ? 'blue' : 'default'}>
+                          {t(`template.types.${tpl.type}`)}
+                        </Tag>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+
+              {matchingStrategy === 'embedding' && (
+                <div>
+                  <div style={{ marginBottom: 4 }}>{t('debug.selectEmbeddingConfig')}</div>
+                  <Select
+                    placeholder={t('debug.selectEmbeddingConfig')}
+                    value={matchingLlmConfigId}
+                    onChange={setMatchingLlmConfigId}
+                    style={{ width: '100%' }}
+                    allowClear
+                  >
+                    {embeddingConfigs.map((config) => (
+                      <Option key={config.id} value={config.id}>
+                        <Space>
+                          <span>{config.name}</span>
+                          <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                        </Space>
+                      </Option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+
+              {matchingStrategy === 'llm' && (
+                <div>
+                  <div style={{ marginBottom: 4 }}>{t('debug.selectChatConfig')}</div>
+                  <Select
+                    placeholder={t('debug.selectChatConfig')}
+                    value={matchingLlmConfigId}
+                    onChange={setMatchingLlmConfigId}
+                    style={{ width: '100%' }}
+                    allowClear
+                  >
+                    {chatConfigs.map((config) => (
+                      <Option key={config.id} value={config.id}>
+                        <Space>
+                          <span>{config.name}</span>
+                          <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                        </Space>
+                      </Option>
+                    ))}
+                  </Select>
+                </div>
+              )}
+
+              <Divider orientation="left" plain style={{ margin: '12px 0' }}>
+                {t('debug.npcReplyConfig')}
+              </Divider>
+
+              <div>
+                <div style={{ marginBottom: 4 }}>{t('debug.npcReplyTemplate')}</div>
+                <Select
+                  placeholder={t('debug.selectNpcReplyTemplate')}
+                  value={npcReplyTemplateId}
+                  onChange={setNpcReplyTemplateId}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {npcReplyTemplates.map((tpl) => (
+                    <Option key={tpl.id} value={tpl.id}>
+                      <Space>
+                        <span>{tpl.name}</span>
+                        <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
+                          {t(`template.types.${tpl.type}`)}
+                        </Tag>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <div style={{ marginBottom: 4 }}>{t('debug.npcChatModel')}</div>
+                <Select
+                  placeholder={t('debug.selectNpcChatModel')}
+                  value={npcChatConfigId}
+                  onChange={setNpcChatConfigId}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {chatConfigs.map((config) => (
+                    <Option key={config.id} value={config.id}>
+                      <Space>
+                        <span>{config.name}</span>
+                        <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
             </Space>
           </Card>
         </Col>
 
-        <Col span={16}>
+        {/* Middle: Chat */}
+        <Col span={10}>
           <Card
             title={t('debug.simulationChat')}
             size="small"
@@ -180,7 +495,7 @@ export default function DialogueSimulation() {
           >
             <div
               style={{
-                height: 400,
+                height: 500,
                 overflowY: 'auto',
                 marginBottom: 16,
                 padding: 16,
@@ -199,17 +514,18 @@ export default function DialogueSimulation() {
                       textAlign: msg.role === 'player' ? 'right' : 'left',
                     }}
                   >
-                    <Tag color={msg.role === 'player' ? 'blue' : 'green'}>
-                      {msg.role === 'player' ? t('debug.player') : t('debug.system')}
+                    <Tag color={msg.role === 'player' ? 'blue' : msg.role === 'npc' ? 'purple' : 'green'}>
+                      {msg.role === 'player' ? t('debug.player') : msg.role === 'npc' ? t('common.npc') : t('debug.system')}
                     </Tag>
                     <div
                       style={{
                         display: 'inline-block',
-                        maxWidth: '70%',
+                        maxWidth: '80%',
                         padding: '8px 12px',
                         borderRadius: 8,
-                        background: msg.role === 'player' ? '#e6f7ff' : '#f6ffed',
+                        background: msg.role === 'player' ? '#e6f7ff' : msg.role === 'npc' ? '#f9f0ff' : '#f6ffed',
                         marginTop: 4,
+                        textAlign: 'left',
                       }}
                     >
                       {msg.content}
@@ -226,13 +542,15 @@ export default function DialogueSimulation() {
                                   {msg.result.matched_clues.map((mc: MatchedClue, j: number) => (
                                     <Descriptions key={j} size="small" column={1}>
                                       <Descriptions.Item label={t('debug.clue')}>
-                                        {mc.clue_id}
+                                        {mc.name || mc.clue_id}
                                       </Descriptions.Item>
                                       <Descriptions.Item label={t('debug.score')}>
                                         {(mc.score * 100).toFixed(0)}%
                                       </Descriptions.Item>
                                       <Descriptions.Item label={t('debug.matchType')}>
-                                        <Tag>{mc.match_type}</Tag>
+                                        {mc.match_reasons.map((reason, k) => (
+                                          <Tag key={k}>{reason}</Tag>
+                                        ))}
                                       </Descriptions.Item>
                                     </Descriptions>
                                   ))}
@@ -272,6 +590,148 @@ export default function DialogueSimulation() {
                 {t('debug.send')}
               </Button>
             </Space.Compact>
+          </Card>
+        </Col>
+
+        {/* Right: Template Content + Locked Clues */}
+        <Col span={8}>
+          {/* Template Content Preview */}
+          {selectedMatchingTemplate && (
+            <Card
+              title={t('debug.templateContent')}
+              size="small"
+              style={{ marginBottom: 16 }}
+            >
+              <div
+                style={{
+                  background: '#f5f5f5',
+                  padding: 12,
+                  borderRadius: 6,
+                  maxHeight: 200,
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  whiteSpace: 'pre-wrap',
+                  border: '1px solid #d9d9d9',
+                }}
+              >
+                {selectedMatchingTemplate.content}
+              </div>
+              {selectedMatchingTemplate.variables && selectedMatchingTemplate.variables.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {selectedMatchingTemplate.variables.map((v, i) => (
+                      <Tag key={i} color="blue" style={{ marginBottom: 4 }}>{v}</Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Locked Clues */}
+          <Card
+            title={
+              <Space>
+                <LockOutlined />
+                {t('debug.lockedClues')}
+                <Tag>{lockedClues.length}</Tag>
+              </Space>
+            }
+            size="small"
+          >
+            {lockedClues.length === 0 ? (
+              <Empty description={t('debug.noLockedClues')} />
+            ) : (
+              <Collapse
+                size="small"
+                items={lockedClues.map((clue) => ({
+                  key: clue.id,
+                  label: (
+                    <Space>
+                      <ClueTypeTag type={clue.type} />
+                      <span>{clue.name}</span>
+                      {renderedPreviews[clue.id] && (
+                        <Tag color="green" style={{ marginLeft: 8 }}>{t('debug.rendered')}</Tag>
+                      )}
+                    </Space>
+                  ),
+                  extra: matchingTemplateId && (
+                    <Tooltip title={t('debug.renderPreview')}>
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={renderingClueId === clue.id ? <Spin size="small" /> : <EyeOutlined />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRenderClue(clue);
+                        }}
+                        disabled={renderingClueId !== null}
+                      />
+                    </Tooltip>
+                  ),
+                  children: (
+                    <div>
+                      {/* Clue Details */}
+                      <div style={{ marginBottom: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.detail')}:</Text>
+                        <Paragraph
+                          style={{ margin: '4px 0', fontSize: 13 }}
+                          ellipsis={{ rows: 2, expandable: true }}
+                        >
+                          {clue.detail}
+                        </Paragraph>
+                      </div>
+
+                      {clue.trigger_keywords && clue.trigger_keywords.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.triggerKeywords')}:</Text>
+                          <div style={{ marginTop: 4 }}>
+                            {clue.trigger_keywords.map((kw, i) => (
+                              <Tag key={i} style={{ marginBottom: 4 }}>{kw}</Tag>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rendered Preview */}
+                      {renderedPreviews[clue.id] && (
+                        <div style={{ marginTop: 12 }}>
+                          <Divider style={{ margin: '8px 0' }} />
+                          <Text strong style={{ color: '#1890ff', fontSize: 12 }}>
+                            {t('debug.renderedResult')}:
+                          </Text>
+                          <div
+                            style={{
+                              background: '#e6f7ff',
+                              padding: 12,
+                              borderRadius: 6,
+                              marginTop: 8,
+                              border: '1px solid #91d5ff',
+                              whiteSpace: 'pre-wrap',
+                              fontSize: 13,
+                              maxHeight: 150,
+                              overflow: 'auto',
+                            }}
+                          >
+                            {renderedPreviews[clue.id].rendered_content || t('template.emptyResult')}
+                          </div>
+                          {renderedPreviews[clue.id].warnings.length > 0 && (
+                            <Alert
+                              type="warning"
+                              message={t('template.renderWarnings')}
+                              description={renderedPreviews[clue.id].warnings.join(', ')}
+                              style={{ marginTop: 8, fontSize: 12 }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ),
+                }))}
+              />
+            )}
           </Card>
         </Col>
       </Row>

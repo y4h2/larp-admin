@@ -11,7 +11,7 @@ export interface BreadcrumbItem {
 
 interface PageHeaderProps {
   title: ReactNode;
-  subtitle?: string;
+  subtitle?: ReactNode;
   breadcrumbs?: BreadcrumbItem[];
   extra?: ReactNode;
 }

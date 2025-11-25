@@ -250,9 +250,11 @@ export default function DialogueLogs() {
                     label: (
                       <Space>
                         <span>{mc.clue_id}</span>
-                        <Tag color={mc.match_type === 'keyword' ? 'blue' : 'green'}>
-                          {mc.match_type}
-                        </Tag>
+                        {mc.match_reasons.map((reason, j) => (
+                          <Tag key={j} color={reason.includes('keyword') ? 'blue' : 'green'}>
+                            {reason}
+                          </Tag>
+                        ))}
                         <Tag>{t('debug.score')}: {(mc.score * 100).toFixed(0)}%</Tag>
                       </Space>
                     ),
