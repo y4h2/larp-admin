@@ -15,6 +15,7 @@
     "updatedAt": "Updated At",
     "copy": "Copy",
     "copied": "Copied",
+    "copyFailed": "Copy failed",
     "viewTree": "View Tree",
     "npc": "NPC",
     "basicInfo": "Basic Info",
@@ -285,7 +286,10 @@
     "presencePenalty": "Presence Penalty",
     "configDetails": "Config Details",
     "maxTokens": "Max Tokens",
-    "maxTokensHint": "Override max tokens for this session"
+    "maxTokensHint": "Override max tokens for this session",
+    "selectScriptAndNpcFirst": "Please select a script and NPC first",
+    "toSend": "to send",
+    "newLine": "new line"
   },
   "logs": {
     "title": "Dialogue Logs",

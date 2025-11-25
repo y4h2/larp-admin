@@ -1,1 +1,1 @@
-export { default as DialogueSimulation } from './DialogueSimulation';
+export { default as DialogueSimulation } from './DialogueSimulation/index';

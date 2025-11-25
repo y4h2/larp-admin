@@ -15,6 +15,7 @@
     "updatedAt": "更新时间",
     "copy": "复制",
     "copied": "已复制",
+    "copyFailed": "复制失败",
     "viewTree": "查看树形",
     "npc": "NPC",
     "basicInfo": "基本信息",
@@ -285,7 +286,10 @@
     "presencePenalty": "存在惩罚",
     "configDetails": "配置详情",
     "maxTokens": "最大令牌数",
-    "maxTokensHint": "临时覆盖本次会话的最大令牌数"
+    "maxTokensHint": "临时覆盖本次会话的最大令牌数",
+    "selectScriptAndNpcFirst": "请先选择剧本和NPC",
+    "toSend": "发送",
+    "newLine": "换行"
   },
   "logs": {
     "title": "对话日志",
