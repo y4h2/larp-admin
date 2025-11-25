@@ -6,6 +6,34 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class EmbeddingOptionsOverride(BaseModel):
+    """Override options for embedding models."""
+
+    similarity_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Override similarity threshold (0.0-1.0)",
+    )
+
+
+class ChatOptionsOverride(BaseModel):
+    """Override options for chat models."""
+
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Override temperature (0.0-2.0)",
+    )
+    max_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        le=32000,
+        description="Override max tokens",
+    )
+
+
 class MatchingStrategy(str, Enum):
     """Matching strategy for clue detection."""
 
@@ -57,6 +85,15 @@ class SimulateRequest(BaseModel):
     save_log: bool = Field(
         default=True,
         description="Whether to save this dialogue to logs",
+    )
+    # Runtime options override (for debugging/testing)
+    embedding_options_override: EmbeddingOptionsOverride | None = Field(
+        default=None,
+        description="Override embedding options (e.g., similarity_threshold)",
+    )
+    chat_options_override: ChatOptionsOverride | None = Field(
+        default=None,
+        description="Override chat options (e.g., temperature, max_tokens)",
     )
 
 

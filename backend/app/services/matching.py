@@ -15,6 +15,8 @@ from app.models.npc import NPC
 from app.models.prompt_template import PromptTemplate
 from app.models.script import Script
 from app.schemas.simulate import (
+    ChatOptionsOverride,
+    EmbeddingOptionsOverride,
     MatchedClue,
     MatchingStrategy,
     SimulateRequest,
@@ -42,6 +44,9 @@ class MatchContext:
     npc_no_clue_template_id: str | None = None  # Template when no clues triggered
     npc_chat_config_id: str | None = None
     session_id: str | None = None
+    # Runtime options override
+    embedding_options_override: EmbeddingOptionsOverride | None = None
+    chat_options_override: ChatOptionsOverride | None = None
 
 
 @dataclass
@@ -93,6 +98,8 @@ class MatchingService:
             npc_no_clue_template_id=request.npc_no_clue_template_id,
             npc_chat_config_id=request.npc_chat_config_id,
             session_id=request.session_id,
+            embedding_options_override=request.embedding_options_override,
+            chat_options_override=request.chat_options_override,
         )
 
         # Get candidate clues for this NPC
@@ -117,8 +124,26 @@ class MatchingService:
         # Sort by score
         results.sort(key=lambda r: r.score, reverse=True)
 
-        # Determine triggered clues (score > threshold)
-        threshold = 0.5
+        # Determine threshold - use override > config > default
+        threshold = 0.5  # Default
+        if request.matching_strategy == MatchingStrategy.EMBEDDING:
+            # Try override first
+            if (
+                context.embedding_options_override
+                and context.embedding_options_override.similarity_threshold is not None
+            ):
+                threshold = context.embedding_options_override.similarity_threshold
+                logger.info(f"Using override similarity_threshold: {threshold}")
+            else:
+                # Try to get from config
+                embedding_config = await self._get_llm_config_for_embedding(context.llm_config_id)
+                if embedding_config and embedding_config.options:
+                    config_threshold = embedding_config.options.get("similarity_threshold")
+                    if config_threshold is not None:
+                        threshold = config_threshold
+                        logger.info(f"Using config similarity_threshold: {threshold}")
+
+        # Determine triggered clues (score >= threshold)
         triggered = [r for r in results if r.score >= threshold]
         for r in triggered:
             r.is_triggered = True
@@ -676,7 +701,9 @@ Only return the JSON object, no other text."""
 
             # Call LLM
             logger.info(f"Calling LLM with {len(messages)} messages")
-            response = await self._call_llm_with_messages(chat_config, messages)
+            response = await self._call_llm_with_messages(
+                chat_config, messages, context.chat_options_override
+            )
             logger.info(f"NPC response generated: {len(response)} chars")
             return response
 
@@ -724,24 +751,50 @@ Only return the JSON object, no other text."""
         return list(result.scalars().all())
 
     async def _call_llm_with_messages(
-        self, config: LLMConfig, messages: list[dict]
+        self,
+        config: LLMConfig,
+        messages: list[dict],
+        chat_override: ChatOptionsOverride | None = None,
     ) -> str:
         """Call LLM with a full messages array."""
         # Normalize base_url to avoid double slashes
         base_url = config.base_url.rstrip("/")
         url = f"{base_url}/chat/completions"
 
-        logger.debug(f"LLM API URL: {url}, model: {config.model}")
+        # Determine temperature: override > config > default
+        temperature = 0.7  # Default
+        max_tokens = None
+
+        if chat_override:
+            if chat_override.temperature is not None:
+                temperature = chat_override.temperature
+                logger.info(f"Using override temperature: {temperature}")
+            if chat_override.max_tokens is not None:
+                max_tokens = chat_override.max_tokens
+                logger.info(f"Using override max_tokens: {max_tokens}")
+        elif config.options:
+            config_temp = config.options.get("temperature")
+            if config_temp is not None:
+                temperature = config_temp
+            config_max_tokens = config.options.get("max_tokens")
+            if config_max_tokens is not None:
+                max_tokens = config_max_tokens
+
+        logger.debug(f"LLM API URL: {url}, model: {config.model}, temp: {temperature}")
+
+        request_body = {
+            "model": config.model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            request_body["max_tokens"] = max_tokens
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {config.api_key}"},
-                json={
-                    "model": config.model,
-                    "messages": messages,
-                    "temperature": 0.7,
-                },
+                json=request_body,
             )
             response.raise_for_status()
             data = response.json()

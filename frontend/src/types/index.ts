@@ -74,6 +74,15 @@ export interface ClueTreeResponse {
 // Simulation types
 export type MatchingStrategy = 'keyword' | 'embedding' | 'llm';
 
+export interface EmbeddingOptionsOverride {
+  similarity_threshold?: number;
+}
+
+export interface ChatOptionsOverride {
+  temperature?: number;
+  max_tokens?: number;
+}
+
 export interface MatchedClue {
   clue_id: string;
   name: string;
@@ -100,6 +109,9 @@ export interface SimulationRequest {
   // Session tracking
   session_id?: string;
   save_log?: boolean;
+  // Runtime options override (for debugging/testing)
+  embedding_options_override?: EmbeddingOptionsOverride;
+  chat_options_override?: ChatOptionsOverride;
 }
 
 export interface SimulationResult {

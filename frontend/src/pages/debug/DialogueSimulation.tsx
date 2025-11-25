@@ -21,6 +21,10 @@ import {
   Switch,
   Table,
   Progress,
+  Tabs,
+  Modal,
+  Dropdown,
+  Slider,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -31,13 +35,22 @@ import {
   RobotOutlined,
   LockOutlined,
   EyeOutlined,
-  MessageOutlined,
+  BulbOutlined,
+  BulbFilled,
+  SettingOutlined,
+  AimOutlined,
+  HistoryOutlined,
+  StarOutlined,
+  StarFilled,
+  DeleteOutlined,
+  DownOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag } from '@/components/common';
 import { simulationApi, clueApi } from '@/api';
 import { templateApi, type PromptTemplate, type TemplateRenderResponse } from '@/api/templates';
 import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
-import { useScripts, useNpcs } from '@/hooks';
+import { useScripts, useNpcs, usePresets, type PresetConfig } from '@/hooks';
 import type { Clue, SimulationResult, MatchedClue, MatchingStrategy } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -58,6 +71,9 @@ interface StoredConfig {
   npcClueTemplateId: string | undefined;
   npcNoClueTemplateId: string | undefined;
   npcChatConfigId: string | undefined;
+  // Runtime override options
+  overrideSimilarityThreshold: number | undefined;
+  overrideTemperature: number | undefined;
 }
 
 const loadStoredConfig = (): Partial<StoredConfig> => {
@@ -90,12 +106,25 @@ interface ChatMessage {
   role: 'player' | 'system' | 'npc';
   content: string;
   result?: SimulationResult;
+  // For NPC messages: indicates if clues were triggered
+  hasTriggeredClues?: boolean;
+  triggeredClueCount?: number;
 }
 
 export default function DialogueSimulation() {
   const { t } = useTranslation();
   const { scripts, fetchScripts } = useScripts();
   const { npcs, fetchNpcs } = useNpcs();
+  const {
+    history: presetHistory,
+    favorites: presetFavorites,
+    addToHistory,
+    addToFavorites,
+    updateFavorite,
+    removeFromFavorites,
+    clearHistory,
+    getPresetById,
+  } = usePresets();
   const [clues, setClues] = useState<Clue[]>([]);
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [embeddingConfigs, setEmbeddingConfigs] = useState<LLMConfig[]>([]);
@@ -140,9 +169,23 @@ export default function DialogueSimulation() {
     storedConfig.npcChatConfigId
   );
 
+  // Runtime override options
+  const [overrideSimilarityThreshold, setOverrideSimilarityThreshold] = useState<number | undefined>(
+    storedConfig.overrideSimilarityThreshold
+  );
+  const [overrideTemperature, setOverrideTemperature] = useState<number | undefined>(
+    storedConfig.overrideTemperature
+  );
+
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Favorite modal state
+  const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
+  const [favoriteName, setFavoriteName] = useState('');
+  const [favoriteNote, setFavoriteNote] = useState('');
+  const [editingFavoriteId, setEditingFavoriteId] = useState<string | null>(null);
 
   // Match results for table display
   const [lastMatchResults, setLastMatchResults] = useState<MatchedClue[] | null>(null);
@@ -195,6 +238,94 @@ export default function DialogueSimulation() {
     return clues.filter((c) => !unlockedSet.has(c.id));
   }, [clues, unlockedClueIds]);
 
+  // Get current config as PresetConfig
+  const getCurrentConfig = (): PresetConfig => ({
+    selectedScriptId,
+    selectedNpcId,
+    matchingStrategy,
+    matchingTemplateId,
+    matchingLlmConfigId,
+    enableNpcReply,
+    npcClueTemplateId,
+    npcNoClueTemplateId,
+    npcChatConfigId,
+    overrideSimilarityThreshold,
+    overrideTemperature,
+  });
+
+  // Generate display name for preset
+  const getPresetDisplayName = (): string => {
+    const strategyLabels: Record<MatchingStrategy, string> = {
+      keyword: t('debug.keywordMatching'),
+      embedding: t('debug.embeddingMatching'),
+      llm: t('debug.llmMatching'),
+    };
+    const parts = [
+      selectedScript?.title || t('debug.notConfigured'),
+      selectedNpc?.name || t('debug.notConfigured'),
+      strategyLabels[matchingStrategy],
+    ];
+    return parts.join(' · ');
+  };
+
+  // Load preset config
+  const loadPreset = (config: PresetConfig) => {
+    setSelectedScriptId(config.selectedScriptId);
+    setSelectedNpcId(config.selectedNpcId);
+    setMatchingStrategy(config.matchingStrategy);
+    setMatchingTemplateId(config.matchingTemplateId);
+    setMatchingLlmConfigId(config.matchingLlmConfigId);
+    setEnableNpcReply(config.enableNpcReply);
+    setNpcClueTemplateId(config.npcClueTemplateId);
+    setNpcNoClueTemplateId(config.npcNoClueTemplateId);
+    setNpcChatConfigId(config.npcChatConfigId);
+    setOverrideSimilarityThreshold(config.overrideSimilarityThreshold);
+    setOverrideTemperature(config.overrideTemperature);
+    message.success(t('debug.presetLoaded'));
+  };
+
+  // Handle preset selection from dropdown
+  const handlePresetSelect = (presetId: string) => {
+    const config = getPresetById(presetId);
+    if (config) {
+      loadPreset(config);
+    }
+  };
+
+  // Save current config to favorites (or update existing)
+  const handleSaveToFavorites = () => {
+    if (!favoriteName.trim()) {
+      message.warning(t('debug.enterPresetName'));
+      return;
+    }
+
+    if (editingFavoriteId) {
+      // Editing existing favorite
+      updateFavorite(editingFavoriteId, {
+        name: favoriteName.trim(),
+        note: favoriteNote.trim() || undefined,
+      });
+      message.success(t('debug.presetUpdated'));
+    } else {
+      // Creating new favorite
+      addToFavorites(getCurrentConfig(), favoriteName.trim(), favoriteNote.trim() || undefined);
+      message.success(t('debug.presetSaved'));
+    }
+
+    setFavoriteModalOpen(false);
+    setFavoriteName('');
+    setFavoriteNote('');
+    setEditingFavoriteId(null);
+  };
+
+  // Open edit modal for existing favorite
+  const handleEditFavorite = (favorite: typeof presetFavorites[0]) => {
+    setEditingFavoriteId(favorite.id);
+    setFavoriteName(favorite.name);
+    setFavoriteNote(favorite.note || '');
+    setFavoriteModalOpen(true);
+  };
+
   useEffect(() => {
     fetchScripts();
     // Fetch all templates
@@ -222,6 +353,8 @@ export default function DialogueSimulation() {
       npcClueTemplateId,
       npcNoClueTemplateId,
       npcChatConfigId,
+      overrideSimilarityThreshold,
+      overrideTemperature,
     });
   }, [
     selectedScriptId,
@@ -233,6 +366,8 @@ export default function DialogueSimulation() {
     npcClueTemplateId,
     npcNoClueTemplateId,
     npcChatConfigId,
+    overrideSimilarityThreshold,
+    overrideTemperature,
   ]);
 
   useEffect(() => {
@@ -291,6 +426,9 @@ export default function DialogueSimulation() {
       return;
     }
 
+    // Auto-save to history on send
+    addToHistory(getCurrentConfig(), getPresetDisplayName());
+
     const newPlayerMessage: ChatMessage = {
       role: 'player',
       content: playerMessage,
@@ -316,6 +454,13 @@ export default function DialogueSimulation() {
         npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
         session_id: sessionIdRef.current,
         save_log: true,
+        // Runtime override options
+        embedding_options_override: overrideSimilarityThreshold !== undefined
+          ? { similarity_threshold: overrideSimilarityThreshold }
+          : undefined,
+        chat_options_override: overrideTemperature !== undefined
+          ? { temperature: overrideTemperature }
+          : undefined,
       });
 
       // Store match results for table display
@@ -332,9 +477,12 @@ export default function DialogueSimulation() {
 
       // Add NPC response if available and enabled
       if (enableNpcReply && result.npc_response) {
+        const triggeredCount = result.triggered_clues.length;
         const npcMessage: ChatMessage = {
           role: 'npc',
           content: result.npc_response,
+          hasTriggeredClues: triggeredCount > 0,
+          triggeredClueCount: triggeredCount,
         };
         setChatHistory((prev) => [...prev, npcMessage]);
       }
@@ -511,6 +659,164 @@ export default function DialogueSimulation() {
     }
   };
 
+  // Format relative time for presets
+  const formatRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return t('debug.justNow');
+    if (minutes < 60) return t('debug.minutesAgo', { count: minutes });
+    if (hours < 24) return t('debug.hoursAgo', { count: hours });
+    return t('debug.daysAgo', { count: days });
+  };
+
+  // Preset dropdown menu items
+  const presetDropdownItems = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items: any[] = [];
+
+    // Favorites section
+    if (presetFavorites.length > 0) {
+      items.push({
+        key: 'favorites-group',
+        type: 'group',
+        label: (
+          <Space>
+            <StarFilled style={{ color: '#faad14' }} />
+            <span>{t('debug.favorites')}</span>
+          </Space>
+        ),
+        children: presetFavorites.map((f) => ({
+          key: f.id,
+          label: (
+            <div style={{ minWidth: 200 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{f.name}</span>
+                <Space size={0}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditFavorite(f);
+                    }}
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromFavorites(f.id);
+                    }}
+                  />
+                </Space>
+              </div>
+              {f.note && (
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+                  {f.note}
+                </Text>
+              )}
+            </div>
+          ),
+        })),
+      });
+    }
+
+    // History section
+    if (presetHistory.length > 0) {
+      if (presetFavorites.length > 0) {
+        items.push({ key: 'divider-1', type: 'divider' });
+      }
+      items.push({
+        key: 'history-group',
+        type: 'group',
+        label: (
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space>
+              <HistoryOutlined />
+              <span>{t('debug.recentHistory')}</span>
+            </Space>
+            {presetHistory.length > 0 && (
+              <Button
+                type="link"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearHistory();
+                }}
+                style={{ padding: 0, height: 'auto' }}
+              >
+                {t('debug.clear')}
+              </Button>
+            )}
+          </Space>
+        ),
+        children: presetHistory.map((h) => ({
+          key: h.id,
+          label: (
+            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+              <Text ellipsis style={{ maxWidth: 200 }}>{h.name}</Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {formatRelativeTime(h.createdAt)}
+              </Text>
+            </Space>
+          ),
+        })),
+      });
+    }
+
+    return items;
+  }, [presetFavorites, presetHistory, t, removeFromFavorites, clearHistory, handleEditFavorite]);
+
+  // Configuration status for status bar
+  const configStatus = useMemo(() => {
+    const items: { icon: React.ReactNode; label: string; value: string | null; color?: string }[] = [];
+
+    // Script
+    items.push({
+      icon: '📜',
+      label: t('debug.selectScript'),
+      value: selectedScript?.title || null,
+    });
+
+    // NPC
+    items.push({
+      icon: '👤',
+      label: t('debug.selectNpc'),
+      value: selectedNpc?.name || null,
+    });
+
+    // Matching strategy
+    const strategyLabels: Record<MatchingStrategy, string> = {
+      keyword: t('debug.keywordMatching'),
+      embedding: t('debug.embeddingMatching'),
+      llm: t('debug.llmMatching'),
+    };
+    items.push({
+      icon: '🎯',
+      label: t('debug.matchingStrategy'),
+      value: strategyLabels[matchingStrategy],
+    });
+
+    // NPC Reply status
+    if (enableNpcReply) {
+      const hasConfig = (npcClueTemplateId || npcNoClueTemplateId) && npcChatConfigId;
+      items.push({
+        icon: '🤖',
+        label: t('debug.npcReplyConfig'),
+        value: hasConfig ? t('debug.npcReplyEnabled') : t('debug.npcReplyIncomplete'),
+        color: hasConfig ? 'green' : 'orange',
+      });
+    }
+
+    return items;
+  }, [selectedScript, selectedNpc, matchingStrategy, enableNpcReply, npcClueTemplateId, npcNoClueTemplateId, npcChatConfigId, t]);
+
   return (
     <div>
       <PageHeader
@@ -518,270 +824,468 @@ export default function DialogueSimulation() {
         subtitle={t('debug.simulationSubtitle')}
       />
 
-      <Row gutter={16}>
+      {/* Configuration Status Bar */}
+      <Card
+        size="small"
+        style={{ marginBottom: 16 }}
+        bodyStyle={{ padding: '8px 16px' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <Space split={<Divider type="vertical" />} wrap>
+            {configStatus.map((item, index) => (
+              <Space key={index} size={4}>
+                <span>{item.icon}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>{item.label}:</Text>
+                {item.value ? (
+                  <Tag color={item.color || 'blue'} style={{ margin: 0 }}>
+                    {item.value}
+                  </Tag>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+                    {t('debug.notConfigured')}
+                  </Text>
+                )}
+              </Space>
+            ))}
+          </Space>
+
+          {/* Preset controls */}
+          <Space>
+            <Dropdown
+              menu={{
+                items: presetDropdownItems.length > 0 ? presetDropdownItems : [
+                  { key: 'empty', label: t('debug.noPresets'), disabled: true }
+                ],
+                onClick: ({ key }) => {
+                  if (key !== 'empty' && !key.startsWith('divider') && !key.endsWith('-group')) {
+                    handlePresetSelect(key);
+                  }
+                },
+              }}
+              trigger={['click']}
+              disabled={presetDropdownItems.length === 0}
+            >
+              <Button size="small" icon={<HistoryOutlined />}>
+                {t('debug.presets')}
+                <DownOutlined style={{ fontSize: 10, marginLeft: 4 }} />
+              </Button>
+            </Dropdown>
+            <Tooltip title={t('debug.saveToFavorites')}>
+              <Button
+                size="small"
+                icon={<StarOutlined />}
+                onClick={() => {
+                  setFavoriteName(getPresetDisplayName());
+                  setFavoriteModalOpen(true);
+                }}
+                disabled={!selectedScriptId || !selectedNpcId}
+              />
+            </Tooltip>
+          </Space>
+        </div>
+      </Card>
+
+      <Row gutter={[16, 16]}>
         {/* Left: Configuration */}
-        <Col span={6}>
-          <Card title={t('debug.configuration')} size="small">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.selectScript')}</div>
-                <Select
-                  placeholder={t('debug.selectScript')}
-                  value={selectedScriptId}
-                  onChange={(value) => {
-                    setSelectedScriptId(value);
-                    setSelectedNpcId(null);
-                    setUnlockedClueIds([]);
-                    setClues([]);
-                  }}
-                  style={{ width: '100%' }}
-                  allowClear
-                >
-                  {scripts.map((s) => (
-                    <Option key={s.id} value={s.id}>
-                      {s.title}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
+        <Col xs={24} sm={24} md={8} lg={6} xl={6}>
+          <Card
+            title={t('debug.configuration')}
+            size="small"
+            bodyStyle={{ padding: '0 12px 12px' }}
+          >
+            <Tabs
+              size="small"
+              items={[
+                {
+                  key: 'basic',
+                  label: (
+                    <span>
+                      <SettingOutlined />
+                      <span style={{ marginLeft: 4 }}>{t('debug.basicConfig')}</span>
+                    </span>
+                  ),
+                  children: (
+                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.selectScript')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectScript')}
+                          value={selectedScriptId}
+                          onChange={(value) => {
+                            setSelectedScriptId(value);
+                            setSelectedNpcId(null);
+                            setUnlockedClueIds([]);
+                            setClues([]);
+                          }}
+                          style={{ width: '100%' }}
+                          allowClear
+                        >
+                          {scripts.map((s) => (
+                            <Option key={s.id} value={s.id}>
+                              {s.title}
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.selectNpc')}</div>
-                <Select
-                  placeholder={t('debug.selectNpc')}
-                  value={selectedNpcId}
-                  onChange={setSelectedNpcId}
-                  style={{ width: '100%' }}
-                  disabled={!selectedScriptId}
-                  allowClear
-                >
-                  {npcs.map((n) => (
-                    <Option key={n.id} value={n.id}>
-                      {n.name}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.selectNpc')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectNpc')}
+                          value={selectedNpcId}
+                          onChange={setSelectedNpcId}
+                          style={{ width: '100%' }}
+                          disabled={!selectedScriptId}
+                          allowClear
+                        >
+                          {npcs.map((n) => (
+                            <Option key={n.id} value={n.id}>
+                              {n.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.unlockedClues')}</div>
-                <Select
-                  mode="multiple"
-                  placeholder={t('debug.unlockedCluesExtra')}
-                  value={unlockedClueIds}
-                  onChange={setUnlockedClueIds}
-                  style={{ width: '100%' }}
-                  disabled={!selectedScriptId}
-                  maxTagCount={2}
-                >
-                  {clues.map((c) => (
-                    <Option key={c.id} value={c.id}>
-                      {c.name}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.unlockedClues')}
+                        </div>
+                        <Select
+                          mode="multiple"
+                          placeholder={t('debug.unlockedCluesExtra')}
+                          value={unlockedClueIds}
+                          onChange={setUnlockedClueIds}
+                          style={{ width: '100%' }}
+                          disabled={!selectedScriptId}
+                          maxTagCount={2}
+                        >
+                          {clues.map((c) => (
+                            <Option key={c.id} value={c.id}>
+                              {c.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
+                    </Space>
+                  ),
+                },
+                {
+                  key: 'matching',
+                  label: (
+                    <span>
+                      <AimOutlined />
+                      <span style={{ marginLeft: 4 }}>{t('debug.matchingConfig')}</span>
+                    </span>
+                  ),
+                  children: (
+                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.matchingStrategy')}
+                        </div>
+                        <Select
+                          value={matchingStrategy}
+                          onChange={setMatchingStrategy}
+                          style={{ width: '100%' }}
+                        >
+                          {MATCHING_STRATEGIES.map((s) => (
+                            <Option key={s.value} value={s.value}>
+                              <Space>
+                                {s.icon}
+                                {t(s.label)}
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
 
-              <Divider orientation="left" plain style={{ margin: '12px 0' }}>
-                {t('debug.matchingConfig')}
-              </Divider>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.matchingTemplate')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectMatchingTemplate')}
+                          value={matchingTemplateId}
+                          onChange={setMatchingTemplateId}
+                          style={{ width: '100%' }}
+                          allowClear
+                        >
+                          {matchingTemplates.map((tpl) => (
+                            <Option key={tpl.id} value={tpl.id}>
+                              <Space>
+                                <span>{tpl.name}</span>
+                                <Tag color={tpl.type === 'clue_embedding' ? 'blue' : 'default'}>
+                                  {t(`template.types.${tpl.type}`)}
+                                </Tag>
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.matchingStrategy')}</div>
-                <Select
-                  value={matchingStrategy}
-                  onChange={setMatchingStrategy}
-                  style={{ width: '100%' }}
-                >
-                  {MATCHING_STRATEGIES.map((s) => (
-                    <Option key={s.value} value={s.value}>
-                      <Space>
-                        {s.icon}
-                        {t(s.label)}
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-              </div>
+                      {matchingStrategy === 'embedding' && (
+                        <>
+                          <div>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              {t('debug.selectEmbeddingConfig')}
+                            </div>
+                            <Select
+                              placeholder={t('debug.selectEmbeddingConfig')}
+                              value={matchingLlmConfigId}
+                              onChange={setMatchingLlmConfigId}
+                              style={{ width: '100%' }}
+                              allowClear
+                            >
+                              {embeddingConfigs.map((config) => (
+                                <Option key={config.id} value={config.id}>
+                                  <Space>
+                                    <span>{config.name}</span>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                                  </Space>
+                                </Option>
+                              ))}
+                            </Select>
+                          </div>
+                          <div>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              <Space>
+                                {t('debug.similarityThreshold')}
+                                {overrideSimilarityThreshold !== undefined && (
+                                  <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                                )}
+                              </Space>
+                            </div>
+                            <Slider
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={overrideSimilarityThreshold ?? 0.5}
+                              onChange={(val) => setOverrideSimilarityThreshold(val)}
+                              marks={{ 0: '0', 0.5: '0.5', 1: '1' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                {t('debug.similarityThresholdHint')}
+                              </Text>
+                              {overrideSimilarityThreshold !== undefined && (
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  onClick={() => setOverrideSimilarityThreshold(undefined)}
+                                  style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                                >
+                                  {t('debug.resetToDefault')}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.matchingTemplate')}</div>
-                <Select
-                  placeholder={t('debug.selectMatchingTemplate')}
-                  value={matchingTemplateId}
-                  onChange={setMatchingTemplateId}
-                  style={{ width: '100%' }}
-                  allowClear
-                >
-                  {matchingTemplates.map((tpl) => (
-                    <Option key={tpl.id} value={tpl.id}>
-                      <Space>
-                        <span>{tpl.name}</span>
-                        <Tag color={tpl.type === 'clue_embedding' ? 'blue' : 'default'}>
-                          {t(`template.types.${tpl.type}`)}
-                        </Tag>
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-
-              {matchingStrategy === 'embedding' && (
-                <div>
-                  <div style={{ marginBottom: 4 }}>{t('debug.selectEmbeddingConfig')}</div>
-                  <Select
-                    placeholder={t('debug.selectEmbeddingConfig')}
-                    value={matchingLlmConfigId}
-                    onChange={setMatchingLlmConfigId}
-                    style={{ width: '100%' }}
-                    allowClear
-                  >
-                    {embeddingConfigs.map((config) => (
-                      <Option key={config.id} value={config.id}>
+                      {matchingStrategy === 'llm' && (
+                        <div>
+                          <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                            {t('debug.selectChatConfig')}
+                          </div>
+                          <Select
+                            placeholder={t('debug.selectChatConfig')}
+                            value={matchingLlmConfigId}
+                            onChange={setMatchingLlmConfigId}
+                            style={{ width: '100%' }}
+                            allowClear
+                          >
+                            {chatConfigs.map((config) => (
+                              <Option key={config.id} value={config.id}>
+                                <Space>
+                                  <span>{config.name}</span>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                                </Space>
+                              </Option>
+                            ))}
+                          </Select>
+                        </div>
+                      )}
+                    </Space>
+                  ),
+                },
+                {
+                  key: 'npc',
+                  label: (
+                    <span>
+                      <RobotOutlined />
+                      <span style={{ marginLeft: 4 }}>{t('debug.npcReply')}</span>
+                      {enableNpcReply && (
+                        <Tag color="green" style={{ marginLeft: 4, fontSize: 10 }}>ON</Tag>
+                      )}
+                    </span>
+                  ),
+                  children: (
+                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                      <div
+                        style={{
+                          padding: '8px 12px',
+                          background: enableNpcReply ? '#f6ffed' : '#fafafa',
+                          borderRadius: 6,
+                          border: enableNpcReply ? '1px solid #b7eb8f' : '1px solid #d9d9d9',
+                        }}
+                      >
                         <Space>
-                          <span>{config.name}</span>
-                          <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                          <Switch
+                            checked={enableNpcReply}
+                            onChange={setEnableNpcReply}
+                            size="small"
+                          />
+                          <Text type={enableNpcReply ? undefined : 'secondary'}>
+                            {t('debug.enableNpcReply')}
+                          </Text>
                         </Space>
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-              )}
+                        <div style={{ marginTop: 4 }}>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {t('debug.enableNpcReplyHint')}
+                          </Text>
+                        </div>
+                      </div>
 
-              {matchingStrategy === 'llm' && (
-                <div>
-                  <div style={{ marginBottom: 4 }}>{t('debug.selectChatConfig')}</div>
-                  <Select
-                    placeholder={t('debug.selectChatConfig')}
-                    value={matchingLlmConfigId}
-                    onChange={setMatchingLlmConfigId}
-                    style={{ width: '100%' }}
-                    allowClear
-                  >
-                    {chatConfigs.map((config) => (
-                      <Option key={config.id} value={config.id}>
-                        <Space>
-                          <span>{config.name}</span>
-                          <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
-                        </Space>
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-              )}
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          <BulbFilled style={{ color: '#52c41a', marginRight: 4 }} />
+                          {t('debug.npcClueTemplate')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectNpcClueTemplate')}
+                          value={npcClueTemplateId}
+                          onChange={setNpcClueTemplateId}
+                          style={{ width: '100%' }}
+                          allowClear
+                          disabled={!enableNpcReply}
+                        >
+                          {npcSystemTemplates.map((tpl) => (
+                            <Option key={tpl.id} value={tpl.id}>
+                              <Space>
+                                <span>{tpl.name}</span>
+                                <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
+                                  {t(`template.types.${tpl.type}`)}
+                                </Tag>
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {t('debug.npcClueTemplateHint')}
+                        </Text>
+                      </div>
 
-              <Divider orientation="left" plain style={{ margin: '12px 0' }}>
-                <Space>
-                  <MessageOutlined />
-                  {t('debug.npcReplyConfig')}
-                </Space>
-              </Divider>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          <BulbOutlined style={{ color: '#faad14', marginRight: 4 }} />
+                          {t('debug.npcNoClueTemplate')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectNpcNoClueTemplate')}
+                          value={npcNoClueTemplateId}
+                          onChange={setNpcNoClueTemplateId}
+                          style={{ width: '100%' }}
+                          allowClear
+                          disabled={!enableNpcReply}
+                        >
+                          {npcSystemTemplates.map((tpl) => (
+                            <Option key={tpl.id} value={tpl.id}>
+                              <Space>
+                                <span>{tpl.name}</span>
+                                <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
+                                  {t(`template.types.${tpl.type}`)}
+                                </Tag>
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {t('debug.npcNoClueTemplateHint')}
+                        </Text>
+                      </div>
 
-              <div style={{ marginBottom: 12 }}>
-                <Space>
-                  <Switch
-                    checked={enableNpcReply}
-                    onChange={setEnableNpcReply}
-                    size="small"
-                  />
-                  <Text type={enableNpcReply ? undefined : 'secondary'}>
-                    {t('debug.enableNpcReply')}
-                  </Text>
-                </Space>
-                <div style={{ marginTop: 4 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('debug.enableNpcReplyHint')}
-                  </Text>
-                </div>
-              </div>
+                      <div>
+                        <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                          {t('debug.npcChatModel')}
+                        </div>
+                        <Select
+                          placeholder={t('debug.selectNpcChatModel')}
+                          value={npcChatConfigId}
+                          onChange={setNpcChatConfigId}
+                          style={{ width: '100%' }}
+                          allowClear
+                          disabled={!enableNpcReply}
+                        >
+                          {chatConfigs.map((config) => (
+                            <Option key={config.id} value={config.id}>
+                              <Space>
+                                <span>{config.name}</span>
+                                <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                      </div>
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.npcClueTemplate')}</div>
-                <Select
-                  placeholder={t('debug.selectNpcClueTemplate')}
-                  value={npcClueTemplateId}
-                  onChange={setNpcClueTemplateId}
-                  style={{ width: '100%' }}
-                  allowClear
-                  disabled={!enableNpcReply}
-                >
-                  {npcSystemTemplates.map((tpl) => (
-                    <Option key={tpl.id} value={tpl.id}>
-                      <Space>
-                        <span>{tpl.name}</span>
-                        <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
-                          {t(`template.types.${tpl.type}`)}
-                        </Tag>
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('debug.npcClueTemplateHint')}
-                </Text>
-              </div>
+                      {enableNpcReply && npcChatConfigId && (
+                        <div>
+                          <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                            <Space>
+                              {t('debug.temperature')}
+                              {overrideTemperature !== undefined && (
+                                <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                              )}
+                            </Space>
+                          </div>
+                          <Slider
+                            min={0}
+                            max={2}
+                            step={0.1}
+                            value={overrideTemperature ?? 0.7}
+                            onChange={(val) => setOverrideTemperature(val)}
+                            marks={{ 0: '0', 0.7: '0.7', 1: '1', 2: '2' }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {t('debug.temperatureHint')}
+                            </Text>
+                            {overrideTemperature !== undefined && (
+                              <Button
+                                type="link"
+                                size="small"
+                                onClick={() => setOverrideTemperature(undefined)}
+                                style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                              >
+                                {t('debug.resetToDefault')}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.npcNoClueTemplate')}</div>
-                <Select
-                  placeholder={t('debug.selectNpcNoClueTemplate')}
-                  value={npcNoClueTemplateId}
-                  onChange={setNpcNoClueTemplateId}
-                  style={{ width: '100%' }}
-                  allowClear
-                  disabled={!enableNpcReply}
-                >
-                  {npcSystemTemplates.map((tpl) => (
-                    <Option key={tpl.id} value={tpl.id}>
-                      <Space>
-                        <span>{tpl.name}</span>
-                        <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
-                          {t(`template.types.${tpl.type}`)}
-                        </Tag>
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {t('debug.npcNoClueTemplateHint')}
-                </Text>
-              </div>
-
-              <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.npcChatModel')}</div>
-                <Select
-                  placeholder={t('debug.selectNpcChatModel')}
-                  value={npcChatConfigId}
-                  onChange={setNpcChatConfigId}
-                  style={{ width: '100%' }}
-                  allowClear
-                  disabled={!enableNpcReply}
-                >
-                  {chatConfigs.map((config) => (
-                    <Option key={config.id} value={config.id}>
-                      <Space>
-                        <span>{config.name}</span>
-                        <Text type="secondary" style={{ fontSize: 12 }}>({config.model})</Text>
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Warning if NPC reply enabled but configs missing */}
-              {enableNpcReply && ((!npcClueTemplateId && !npcNoClueTemplateId) || !npcChatConfigId) && (
-                <Alert
-                  type="warning"
-                  message={t('debug.npcReplyConfigWarning')}
-                  style={{ marginTop: 8 }}
-                />
-              )}
-            </Space>
+                      {/* Warning if NPC reply enabled but configs missing */}
+                      {enableNpcReply && ((!npcClueTemplateId && !npcNoClueTemplateId) || !npcChatConfigId) && (
+                        <Alert
+                          type="warning"
+                          message={t('debug.npcReplyConfigWarning')}
+                          showIcon
+                          style={{ fontSize: 12 }}
+                        />
+                      )}
+                    </Space>
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
 
         {/* Middle: Match Results + Template Content + Locked Clues */}
-        <Col span={10}>
+        <Col xs={24} sm={24} md={16} lg={10} xl={10}>
           {/* Match Results */}
           {lastMatchResults && lastMatchResults.length > 0 && (
             <Card
@@ -1122,7 +1626,7 @@ export default function DialogueSimulation() {
         </Col>
 
         {/* Right: Chat */}
-        <Col span={8}>
+        <Col xs={24} sm={24} md={24} lg={8} xl={8}>
           <Card
             title={t('debug.simulationChat')}
             size="small"
@@ -1131,15 +1635,15 @@ export default function DialogueSimulation() {
                 {t('debug.clear')}
               </Button>
             }
+            bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: 580 }}
           >
+            {/* Chat messages area - scrollable */}
             <div
               style={{
-                height: 500,
+                flex: 1,
                 overflowY: 'auto',
-                marginBottom: 16,
                 padding: 16,
                 background: '#fafafa',
-                borderRadius: 8,
               }}
             >
               {chatHistory.length === 0 ? (
@@ -1153,18 +1657,39 @@ export default function DialogueSimulation() {
                       textAlign: msg.role === 'player' ? 'right' : 'left',
                     }}
                   >
-                    <Tag color={msg.role === 'player' ? 'blue' : msg.role === 'npc' ? 'purple' : 'green'}>
-                      {msg.role === 'player' ? t('debug.player') : msg.role === 'npc' ? t('common.npc') : t('debug.system')}
-                    </Tag>
+                    <Space size={4}>
+                      <Tag color={msg.role === 'player' ? 'blue' : msg.role === 'npc' ? 'purple' : 'green'}>
+                        {msg.role === 'player' ? t('debug.player') : msg.role === 'npc' ? t('common.npc') : t('debug.system')}
+                      </Tag>
+                      {/* NPC clue trigger indicator */}
+                      {msg.role === 'npc' && (
+                        <Tag
+                          icon={msg.hasTriggeredClues ? <BulbFilled /> : <BulbOutlined />}
+                          color={msg.hasTriggeredClues ? 'success' : 'default'}
+                        >
+                          {msg.hasTriggeredClues
+                            ? t('debug.clueTriggeredReply', { count: msg.triggeredClueCount })
+                            : t('debug.noClueReply')
+                          }
+                        </Tag>
+                      )}
+                    </Space>
                     <div
                       style={{
                         display: 'inline-block',
                         maxWidth: '80%',
                         padding: '8px 12px',
                         borderRadius: 8,
-                        background: msg.role === 'player' ? '#e6f7ff' : msg.role === 'npc' ? '#f9f0ff' : '#f6ffed',
+                        background: msg.role === 'player'
+                          ? '#e6f7ff'
+                          : msg.role === 'npc'
+                            ? (msg.hasTriggeredClues ? '#f6ffed' : '#fff7e6')
+                            : '#f6ffed',
                         marginTop: 4,
                         textAlign: 'left',
+                        border: msg.role === 'npc'
+                          ? (msg.hasTriggeredClues ? '1px solid #b7eb8f' : '1px solid #ffd591')
+                          : 'none',
                       }}
                     >
                       {msg.content}
@@ -1205,33 +1730,95 @@ export default function DialogueSimulation() {
               )}
             </div>
 
-            <Space.Compact style={{ width: '100%' }}>
-              <TextArea
-                placeholder={t('debug.enterPlayerMessage')}
-                value={playerMessage}
-                onChange={(e) => setPlayerMessage(e.target.value)}
-                onPressEnter={(e) => {
-                  if (!e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                style={{ resize: 'none' }}
-                rows={2}
-              />
-              <Button
-                type="primary"
-                icon={<SendOutlined />}
-                onClick={handleSend}
-                loading={loading}
-                disabled={!selectedScriptId || !selectedNpcId}
-              >
-                {t('debug.send')}
-              </Button>
-            </Space.Compact>
+            {/* Send area - fixed at bottom */}
+            <div
+              style={{
+                padding: '12px 16px',
+                borderTop: '1px solid #f0f0f0',
+                background: '#fff',
+              }}
+            >
+              <Space.Compact style={{ width: '100%' }}>
+                <TextArea
+                  placeholder={t('debug.enterPlayerMessage')}
+                  value={playerMessage}
+                  onChange={(e) => setPlayerMessage(e.target.value)}
+                  onPressEnter={(e) => {
+                    if (!e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  style={{ resize: 'none' }}
+                  rows={2}
+                />
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  onClick={handleSend}
+                  loading={loading}
+                  disabled={!selectedScriptId || !selectedNpcId}
+                  style={{ height: 'auto' }}
+                >
+                  {t('debug.send')}
+                </Button>
+              </Space.Compact>
+            </div>
           </Card>
         </Col>
       </Row>
+
+      {/* Favorite Modal */}
+      <Modal
+        title={
+          <Space>
+            <StarFilled style={{ color: '#faad14' }} />
+            {editingFavoriteId ? t('debug.editFavorite') : t('debug.saveToFavorites')}
+          </Space>
+        }
+        open={favoriteModalOpen}
+        onOk={handleSaveToFavorites}
+        onCancel={() => {
+          setFavoriteModalOpen(false);
+          setFavoriteName('');
+          setFavoriteNote('');
+          setEditingFavoriteId(null);
+        }}
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
+      >
+        <div style={{ marginTop: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <Text>{t('debug.presetName')}</Text>
+          </div>
+          <Input
+            placeholder={t('debug.enterPresetName')}
+            value={favoriteName}
+            onChange={(e) => setFavoriteName(e.target.value)}
+          />
+
+          <div style={{ marginTop: 16, marginBottom: 8 }}>
+            <Text>{t('debug.presetNote')}</Text>
+            <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+              ({t('debug.optional')})
+            </Text>
+          </div>
+          <TextArea
+            placeholder={t('debug.enterPresetNote')}
+            value={favoriteNote}
+            onChange={(e) => setFavoriteNote(e.target.value)}
+            rows={3}
+            maxLength={200}
+            showCount
+          />
+
+          <div style={{ marginTop: 12 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t('debug.presetSaveHint')}
+            </Text>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
