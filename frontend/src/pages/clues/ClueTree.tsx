@@ -41,6 +41,7 @@ import {
   SyncOutlined,
   DeleteOutlined,
   SettingOutlined,
+  SaveOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, ImportanceTag, StatusTag } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
@@ -288,13 +289,18 @@ export default function ClueTree() {
   const { scenes, fetchScenes } = useScenes();
 
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [treeData, setTreeData] = useState<ClueTreeData | null>(null);
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [visibleFields, setVisibleFields] = useState<ClueNodeField[]>(DEFAULT_VISIBLE_FIELDS);
+  // Track pending changes: Map of clueId -> new prereq_clue_ids
+  const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  const hasUnsavedChanges = pendingChanges.size > 0;
 
   const scriptId = searchParams.get('script_id');
   const sceneId = searchParams.get('scene_id');
@@ -444,9 +450,21 @@ export default function ClueTree() {
     setEdges(flowEdges);
   }, [treeData, setNodes, setEdges, visibleFields, scenes]);
 
-  // Cycle detection and edge creation
+  // Get current prerequisites for a node (considering pending changes)
+  const getCurrentPrerequisites = useCallback(
+    (nodeId: string): string[] => {
+      if (pendingChanges.has(nodeId)) {
+        return pendingChanges.get(nodeId)!;
+      }
+      const node = treeData?.nodes.find((n) => n.id === nodeId);
+      return node?.prerequisite_clue_ids || [];
+    },
+    [treeData, pendingChanges]
+  );
+
+  // Cycle detection and edge creation (now tracks locally instead of saving immediately)
   const onConnect = useCallback(
-    async (params: Connection) => {
+    (params: Connection) => {
       if (!params.source || !params.target) return;
 
       // Prevent self-loop
@@ -455,54 +473,120 @@ export default function ClueTree() {
         return;
       }
 
+      // Get current edges including pending changes
+      const currentEdges = treeData?.edges.filter((e) => {
+        // Check if this edge was removed in pending changes
+        const targetPrereqs = pendingChanges.get(e.target);
+        if (targetPrereqs !== undefined) {
+          return targetPrereqs.includes(e.source);
+        }
+        return true;
+      }) || [];
+
+      // Add edges from pending additions
+      pendingChanges.forEach((prereqs, targetId) => {
+        const originalNode = treeData?.nodes.find((n) => n.id === targetId);
+        const originalPrereqs = originalNode?.prerequisite_clue_ids || [];
+        prereqs.forEach((prereqId) => {
+          if (!originalPrereqs.includes(prereqId)) {
+            currentEdges.push({ source: prereqId, target: targetId });
+          }
+        });
+      });
+
       // Check for cycle
-      if (treeData && detectCycle(treeData.edges, params.source, params.target)) {
+      if (detectCycle(currentEdges, params.source, params.target)) {
         message.error(t('clue.cycleDetected'));
         return;
       }
 
       // Check if edge already exists
-      const targetNode = treeData?.nodes.find((n) => n.id === params.target);
-      if (!targetNode) return;
-
-      if (targetNode.prerequisite_clue_ids?.includes(params.source)) {
+      const currentPrereqs = getCurrentPrerequisites(params.target);
+      if (currentPrereqs.includes(params.source)) {
         message.warning(t('clue.dependencyExists'));
         return;
       }
 
-      const newPrerequisites = [...(targetNode.prerequisite_clue_ids || []), params.source];
+      // Add to pending changes
+      const newPrerequisites = [...currentPrereqs, params.source];
+      setPendingChanges((prev) => {
+        const next = new Map(prev);
+        next.set(params.target, newPrerequisites);
+        return next;
+      });
 
-      try {
-        await clueApi.updateDependencies(params.target, newPrerequisites);
-        message.success(t('clue.dependencyAdded'));
-        fetchTree();
-      } catch {
-        message.error(t('common.saveFailed'));
-      }
+      // Update local edges display
+      const newEdge: Edge = {
+        id: `edge-new-${Date.now()}`,
+        source: params.source,
+        target: params.target,
+        type: 'smoothstep',
+        animated: true, // Animate to indicate unsaved
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: '#1890ff', strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
+      };
+      setEdges((eds) => [...eds, newEdge]);
+      message.info(t('clue.dependencyAddedUnsaved'));
     },
-    [treeData, fetchTree, t]
+    [treeData, pendingChanges, getCurrentPrerequisites, setEdges, t]
   );
 
-  // Handle edge deletion
+  // Handle edge deletion (now tracks locally instead of saving immediately)
   const handleEdgeDelete = useCallback(
-    async (source: string, target: string) => {
-      const targetNode = treeData?.nodes.find((n) => n.id === target);
-      if (!targetNode) return;
+    (source: string, target: string) => {
+      const currentPrereqs = getCurrentPrerequisites(target);
+      const newPrerequisites = currentPrereqs.filter((id) => id !== source);
 
-      const newPrerequisites = (targetNode.prerequisite_clue_ids || []).filter(
-        (id) => id !== source
-      );
+      // Add to pending changes
+      setPendingChanges((prev) => {
+        const next = new Map(prev);
+        next.set(target, newPrerequisites);
+        return next;
+      });
 
-      try {
-        await clueApi.updateDependencies(target, newPrerequisites);
-        message.success(t('clue.dependencyRemoved'));
-        fetchTree();
-      } catch {
-        message.error(t('common.saveFailed'));
-      }
+      // Update local edges display
+      setEdges((eds) => eds.filter((e) => !(e.source === source && e.target === target)));
+      message.info(t('clue.dependencyRemovedUnsaved'));
     },
-    [treeData, fetchTree, t]
+    [getCurrentPrerequisites, setEdges, t]
   );
+
+  // Save all pending changes to backend
+  const handleSaveChanges = useCallback(async () => {
+    if (pendingChanges.size === 0) return;
+
+    setSaving(true);
+    try {
+      // Save all pending changes
+      const savePromises = Array.from(pendingChanges.entries()).map(([clueId, prereqs]) =>
+        clueApi.updateDependencies(clueId, prereqs)
+      );
+      await Promise.all(savePromises);
+
+      message.success(t('common.saveSuccess'));
+      setPendingChanges(new Map());
+      fetchTree(); // Refresh to get latest data
+    } catch {
+      message.error(t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }, [pendingChanges, fetchTree, t]);
+
+  // Discard all pending changes
+  const handleDiscardChanges = useCallback(() => {
+    Modal.confirm({
+      title: t('common.discardChanges'),
+      content: t('common.discardChangesConfirm'),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setPendingChanges(new Map());
+        fetchTree(); // Refresh to restore original state
+      },
+    });
+  }, [fetchTree, t]);
 
   // Handle edge changes (including deletion via backspace/delete key)
   const handleEdgesChange = useCallback(
@@ -513,21 +597,15 @@ export default function ClueTree() {
           if (change.type === 'remove') {
             const edge = edges.find((e) => e.id === change.id);
             if (edge) {
-              Modal.confirm({
-                title: t('clue.confirmDeleteDependency'),
-                content: t('clue.deleteDependencyWarning'),
-                okText: t('common.confirm'),
-                cancelText: t('common.cancel'),
-                onOk: () => handleEdgeDelete(edge.source, edge.target),
-              });
+              handleEdgeDelete(edge.source, edge.target);
             }
           }
         });
-        return; // Don't apply delete changes directly - let the confirmation handle it
+        return; // Don't apply delete changes directly - handleEdgeDelete updates edges
       }
       onEdgesChange(changes);
     },
-    [edges, onEdgesChange, handleEdgeDelete, t]
+    [edges, onEdgesChange, handleEdgeDelete]
   );
 
   // Handle edge click for deletion
@@ -566,7 +644,22 @@ export default function ClueTree() {
         ]}
         extra={
           <Space>
-            <Button icon={<SyncOutlined />} onClick={fetchTree} disabled={!scriptId}>
+            {hasUnsavedChanges && (
+              <>
+                <Button onClick={handleDiscardChanges} disabled={saving}>
+                  {t('common.discard')}
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleSaveChanges}
+                  loading={saving}
+                >
+                  {t('common.save')} ({pendingChanges.size})
+                </Button>
+              </>
+            )}
+            <Button icon={<SyncOutlined />} onClick={fetchTree} disabled={!scriptId || saving}>
               {t('clue.refresh')}
             </Button>
           </Space>

@@ -36,7 +36,10 @@
     "image": "Image",
     "structured": "Structured",
     "scene": "Scene",
-    "optional": "Optional"
+    "optional": "Optional",
+    "discard": "Discard",
+    "discardChanges": "Discard Changes",
+    "discardChangesConfirm": "Are you sure you want to discard all unsaved changes?"
   },
   "app": {
     "title": "Murder Mystery Admin",
@@ -253,7 +256,9 @@
     "treeHint": "Drag from a node's bottom handle to another node's top to add dependency. Click an edge to delete it.",
     "dependencies": "dependencies",
     "displayFields": "Display Fields",
-    "fieldTitle": "Title"
+    "fieldTitle": "Title",
+    "dependencyAddedUnsaved": "Dependency added (click Save to apply)",
+    "dependencyRemovedUnsaved": "Dependency removed (click Save to apply)"
   },
   "algorithm": {
     "title": "Algorithms",

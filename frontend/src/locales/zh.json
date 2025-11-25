@@ -36,7 +36,10 @@
     "image": "图片",
     "structured": "结构化",
     "scene": "场景",
-    "optional": "可选"
+    "optional": "可选",
+    "discard": "放弃",
+    "discardChanges": "放弃更改",
+    "discardChangesConfirm": "确定要放弃所有未保存的更改吗？"
   },
   "app": {
     "title": "剧本杀管理后台",
@@ -253,7 +256,9 @@
     "treeHint": "拖拽节点底部的连接点到另一个节点顶部可添加依赖，点击连线可删除依赖",
     "dependencies": "个依赖",
     "displayFields": "显示字段",
-    "fieldTitle": "标题"
+    "fieldTitle": "标题",
+    "dependencyAddedUnsaved": "依赖已添加（点击保存以生效）",
+    "dependencyRemovedUnsaved": "依赖已移除（点击保存以生效）"
   },
   "algorithm": {
     "title": "算法",
