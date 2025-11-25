@@ -7,7 +7,6 @@ from sqlalchemy import select
 
 from app.database import DBSession
 from app.models.npc import NPC
-from app.models.scene import Scene
 from app.models.script import Script
 from app.schemas.simulate import SimulateRequest, SimulateResponse
 from app.services.matching import MatchingService
@@ -35,7 +34,7 @@ async def simulate_dialogue(
         SimulateResponse with matched and triggered clues.
 
     Raises:
-        HTTPException: If script, scene, or NPC not found.
+        HTTPException: If script or NPC not found.
     """
     # Verify script exists
     script_result = await db.execute(
@@ -47,16 +46,6 @@ async def simulate_dialogue(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Script with id {request.script_id} not found",
-        )
-
-    # Verify scene exists
-    scene_result = await db.execute(
-        select(Scene).where(Scene.id == request.scene_id)
-    )
-    if not scene_result.scalars().first():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Scene with id {request.scene_id} not found",
         )
 
     # Verify NPC exists

@@ -32,12 +32,6 @@ class DialogueLog(Base):
         nullable=False,
         index=True,
     )
-    scene_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
-        ForeignKey("scenes.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
     npc_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("npcs.id", ondelete="CASCADE"),
@@ -50,12 +44,6 @@ class DialogueLog(Base):
         default=dict,
         nullable=False,
         comment="Current state and unlocked clues",
-    )
-    strategy_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
-        ForeignKey("algorithm_strategies.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
     )
     matched_clues: Mapped[dict[str, Any]] = mapped_column(
         JSONB,

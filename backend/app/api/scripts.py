@@ -43,7 +43,6 @@ async def list_scripts(
     # Get paginated results
     query = (
         query.options(
-            selectinload(Script.scenes),
             selectinload(Script.npcs),
             selectinload(Script.clues),
         )
@@ -68,7 +67,6 @@ async def list_scripts(
             created_at=script.created_at,
             updated_at=script.updated_at,
             deleted_at=script.deleted_at,
-            scene_count=len(script.scenes),
             npc_count=len(script.npcs),
             clue_count=len(script.clues),
         )
@@ -202,7 +200,6 @@ async def copy_script(
         .where(Script.id == script_id)
         .where(Script.deleted_at.is_(None))
         .options(
-            selectinload(Script.scenes),
             selectinload(Script.npcs),
             selectinload(Script.clues),
         )

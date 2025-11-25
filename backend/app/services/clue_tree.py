@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clue import Clue
 from app.schemas.clue import (
+    ClueTreeEdge,
     ClueTreeNode,
     ClueTreeResponse,
     ClueTreeValidation,
@@ -73,27 +74,17 @@ class ClueTreeService:
 
         nodes = []
         for clue_id, clue in graph.nodes.items():
-            prerequisites = graph.reverse_adjacency.get(clue_id, [])
-            dependents = graph.adjacency.get(clue_id, [])
-
             node = ClueTreeNode(
                 id=clue.id,
-                title=clue.title_internal,  # Frontend compatibility
-                title_internal=clue.title_internal,
-                title_player=clue.title_player,
-                clue_type=clue.clue_type.value,
-                importance=clue.importance.value,
-                stage=clue.stage,
-                status=clue.status.value,
-                prerequisite_count=len(prerequisites),
-                dependent_count=len(dependents),
-                prerequisites=prerequisites,
-                dependents=dependents,
+                name=clue.name,
+                type=clue.type.value,
+                npc_id=clue.npc_id,
+                prereq_clue_ids=clue.prereq_clue_ids or [],
             )
             nodes.append(node)
 
         edges = [
-            {"source": edge.source, "target": edge.target}
+            ClueTreeEdge(source=edge.source, target=edge.target)
             for edge in graph.edges
             if edge.source in graph.nodes  # Only include edges where both nodes exist
         ]

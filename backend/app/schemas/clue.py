@@ -80,3 +80,17 @@ class ClueTreeResponse(BaseModel):
 
     nodes: list[ClueTreeNode]
     edges: list[ClueTreeEdge]
+
+
+class ClueTreeValidation(BaseModel):
+    """Schema for clue tree validation results."""
+
+    is_valid: bool = Field(description="Whether the tree is valid (no cycles, no dead clues)")
+    cycles: list[list[str]] = Field(default_factory=list, description="List of detected cycles")
+    dead_clues: list[str] = Field(
+        default_factory=list, description="Clue IDs that are unreachable"
+    )
+    orphan_clues: list[str] = Field(
+        default_factory=list, description="Clue IDs with no relations"
+    )
+    warnings: list[str] = Field(default_factory=list, description="Warning messages")

@@ -21,9 +21,7 @@ async def list_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     script_id: str | None = Query(default=None, description="Filter by script ID"),
-    scene_id: str | None = Query(default=None, description="Filter by scene ID"),
     npc_id: str | None = Query(default=None, description="Filter by NPC ID"),
-    strategy_id: str | None = Query(default=None, description="Filter by strategy ID"),
     start_date: datetime | None = Query(default=None, description="Filter from date"),
     end_date: datetime | None = Query(default=None, description="Filter to date"),
 ) -> PaginatedResponse[DialogueLogResponse]:
@@ -45,14 +43,8 @@ async def list_logs(
     if script_id:
         query = query.where(DialogueLog.script_id == script_id)
 
-    if scene_id:
-        query = query.where(DialogueLog.scene_id == scene_id)
-
     if npc_id:
         query = query.where(DialogueLog.npc_id == npc_id)
-
-    if strategy_id:
-        query = query.where(DialogueLog.strategy_id == strategy_id)
 
     if start_date:
         query = query.where(DialogueLog.created_at >= start_date)

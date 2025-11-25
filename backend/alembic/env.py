@@ -13,14 +13,11 @@ from app.database import Base
 
 # Import all models to ensure they are registered with Base
 from app.models import (  # noqa: F401
-    AlgorithmImplementation,
-    AlgorithmStrategy,
     Clue,
     DebugAuditLog,
     DialogueLog,
     NPC,
     PromptTemplate,
-    Scene,
     Script,
 )
 

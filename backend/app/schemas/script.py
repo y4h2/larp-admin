@@ -76,6 +76,5 @@ class ScriptResponse(ScriptBase):
 class ScriptListResponse(ScriptResponse):
     """Schema for Script in list response with additional counts."""
 
-    scene_count: int = Field(default=0, description="Number of scenes")
     npc_count: int = Field(default=0, description="Number of NPCs")
     clue_count: int = Field(default=0, description="Number of clues")

@@ -12,11 +12,8 @@ import {
   MenuUnfoldOutlined,
   TeamOutlined,
   NodeIndexOutlined,
-  RobotOutlined,
   HistoryOutlined,
   FileTextOutlined,
-  FunctionOutlined,
-  ControlOutlined,
   CommentOutlined,
   MessageOutlined,
   AimOutlined,
@@ -67,17 +64,13 @@ const getMenuItems = (t: (key: string) => string): MenuItem[] => [
     getItem(t('menu.clueList'), '/clues', <FileTextOutlined />),
     getItem(t('menu.clueTree'), '/clues/tree', <NodeIndexOutlined />),
   ]),
-  getItem(t('menu.algorithm'), 'algorithms', <RobotOutlined />, [
-    getItem(t('menu.implementations'), '/algorithms/implementations', <FunctionOutlined />),
-    getItem(t('menu.strategies'), '/algorithms/strategies', <ControlOutlined />),
-  ]),
   getItem(t('menu.debugTools'), 'debug', <BugOutlined />, [
     getItem(t('menu.dialogueSimulation'), '/debug/simulation', <MessageOutlined />),
     getItem(t('menu.singleClueDebug'), '/debug/clue', <AimOutlined />),
     getItem(t('menu.dialogueLogs'), '/debug/logs', <CommentOutlined />),
   ]),
   getItem(t('menu.settings'), 'settings', <SettingOutlined />, [
-    getItem(t('menu.globalStrategy'), '/settings/global', <GlobalOutlined />),
+    getItem(t('menu.globalSettings'), '/settings/global', <GlobalOutlined />),
   ]),
 ];
 

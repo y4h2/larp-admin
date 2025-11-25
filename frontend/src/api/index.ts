@@ -1,8 +1,7 @@
 export { default as client } from './client';
-export { scriptApi, sceneApi } from './scripts';
+export { scriptApi } from './scripts';
 export { npcApi } from './npcs';
 export { clueApi } from './clues';
-export { algorithmApi, strategyApi } from './algorithms';
-export { simulationApi, logApi, abTestApi } from './simulation';
-export { settingsApi, userApi, auditLogApi } from './settings';
+export { simulationApi, logApi } from './simulation';
+export { settingsApi } from './settings';
 export { templateApi } from './templates';

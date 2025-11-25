@@ -1,13 +1,19 @@
 """NPC schemas for request/response validation based on data/sample/clue.py."""
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class KnowledgeScopeSchema(BaseModel):
-    """Schema for NPC knowledge scope."""
+    """
+    Schema for NPC knowledge scope.
+
+    Based on NPCKnowledgeScope in data/sample/clue.py:
+    - knows: list[str]
+    - does_not_know: list[str]
+    - world_model_limits: list[str]
+    """
 
     knows: list[str] = Field(default_factory=list, description="Things the NPC knows")
     does_not_know: list[str] = Field(default_factory=list, description="Things the NPC does not know")
@@ -30,8 +36,8 @@ class NPCBase(BaseModel):
     age: int | None = Field(None, ge=0, le=200, description="NPC age")
     background: str | None = Field(None, description="NPC background story")
     personality: str | None = Field(None, description="NPC personality traits")
-    knowledge_scope: dict[str, Any] = Field(
-        default_factory=dict, description="NPC knowledge scope: knows, does_not_know, world_model_limits"
+    knowledge_scope: KnowledgeScopeSchema = Field(
+        default_factory=KnowledgeScopeSchema, description="NPC knowledge scope"
     )
 
 
@@ -48,7 +54,7 @@ class NPCUpdate(BaseModel):
     age: int | None = Field(None, ge=0, le=200)
     background: str | None = None
     personality: str | None = None
-    knowledge_scope: dict[str, Any] | None = None
+    knowledge_scope: KnowledgeScopeSchema | None = None
 
 
 class NPCResponse(NPCBase):

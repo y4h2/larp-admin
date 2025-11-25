@@ -18,17 +18,6 @@ export interface Script {
   deleted_at?: string | null;
 }
 
-export interface Scene {
-  id: string;
-  script_id: string;
-  name: string;
-  description: string;
-  sort_order: number;
-  status: 'active' | 'archived';
-  created_at: string;
-  updated_at: string;
-}
-
 // NPC types based on data/sample/clue.py
 export interface KnowledgeScope {
   knows: string[];
@@ -82,29 +71,6 @@ export interface ClueTreeResponse {
   edges: ClueTreeEdge[];
 }
 
-// Algorithm types
-export interface AlgorithmImplementation {
-  id: string;
-  name: string;
-  description: string;
-  param_schema: Record<string, unknown>;
-  status: 'active' | 'deprecated';
-}
-
-export interface AlgorithmStrategy {
-  id: string;
-  name: string;
-  description: string;
-  impl_id: string;
-  scope_type: 'global' | 'script' | 'scene' | 'npc';
-  scope_target_id: string | null;
-  params: Record<string, unknown>;
-  status: 'draft' | 'published' | 'deprecated';
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 // Simulation types
 export interface MatchedClue {
   clue_id: string;
@@ -116,9 +82,7 @@ export interface MatchedClue {
 
 export interface SimulationRequest {
   script_id: string;
-  scene_id: string;
   npc_id: string;
-  strategy_id: string;
   unlocked_clue_ids: string[];
   player_message: string;
 }
@@ -138,12 +102,10 @@ export interface DialogueLog {
   id: string;
   session_id: string;
   script_id: string;
-  scene_id: string;
   npc_id: string;
   player_message: string;
   npc_response: string;
   matched_clues: MatchedClue[];
-  strategy_id: string;
   created_at: string;
 }
 
@@ -170,7 +132,6 @@ export interface User {
 }
 
 export interface GlobalSettings {
-  default_strategy_id: string | null;
   default_embedding_model: string;
   default_similarity_threshold: number;
 }

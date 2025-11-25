@@ -12,18 +12,16 @@ import {
   Row,
   Col,
   message,
-  Typography,
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, StatusTag, ClueTypeTag, ImportanceTag, ResizableTable, type ResizableColumn } from '@/components/common';
+import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { npcApi, clueApi } from '@/api';
-import { useScripts, useScenes } from '@/hooks';
+import { useScripts } from '@/hooks';
 import type { NPC, Clue } from '@/types';
 
 const { Option } = Select;
 const { TextArea } = Input;
-const { Text } = Typography;
 
 export default function NpcDetail() {
   const { t } = useTranslation();
@@ -32,13 +30,11 @@ export default function NpcDetail() {
   const [form] = Form.useForm();
 
   const { scripts, fetchScripts } = useScripts();
-  const { scenes, fetchScenes } = useScenes();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [npc, setNpc] = useState<NPC | null>(null);
   const [relatedClues, setRelatedClues] = useState<Clue[]>([]);
-  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -50,7 +46,6 @@ export default function NpcDetail() {
       ]);
       setNpc(npcData);
       setRelatedClues(cluesData.items);
-      setSelectedScriptId(npcData.script_id);
       form.setFieldsValue(npcData);
     } catch {
       message.error(t('common.loadFailed'));
@@ -63,12 +58,6 @@ export default function NpcDetail() {
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
-
-  useEffect(() => {
-    if (selectedScriptId) {
-      fetchScenes({ script_id: selectedScriptId });
-    }
-  }, [selectedScriptId, fetchScenes]);
 
   useEffect(() => {
     fetchData();
@@ -90,39 +79,24 @@ export default function NpcDetail() {
 
   const clueColumns: ResizableColumn<Clue>[] = [
     {
-      title: t('clue.internalTitle'),
-      dataIndex: 'title_internal',
-      key: 'title_internal',
+      title: t('clue.name'),
+      dataIndex: 'name',
+      key: 'name',
       render: (text, record) => (
         <a onClick={() => navigate(`/clues/${record.id}`)}>{text}</a>
       ),
     },
     {
       title: t('clue.type'),
-      dataIndex: 'clue_type',
-      key: 'clue_type',
+      dataIndex: 'type',
+      key: 'type',
       width: 100,
-      render: (type) => <ClueTypeTag type={type} />,
     },
     {
-      title: t('clue.importance'),
-      dataIndex: 'importance',
-      key: 'importance',
-      width: 100,
-      render: (importance) => <ImportanceTag importance={importance} />,
-    },
-    {
-      title: t('clue.stage'),
-      dataIndex: 'stage',
-      key: 'stage',
-      width: 80,
-    },
-    {
-      title: t('common.status'),
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (status) => <StatusTag status={status} />,
+      title: t('clue.detail'),
+      dataIndex: 'detail',
+      key: 'detail',
+      ellipsis: true,
     },
   ];
 
@@ -138,11 +112,13 @@ export default function NpcDetail() {
     return <Empty description={t('npc.notFound')} />;
   }
 
+  const scriptTitle = scripts.find(s => s.id === npc.script_id)?.title || '';
+
   return (
     <div>
       <PageHeader
         title={npc.name}
-        subtitle={`${npc.job || t('npc.noJob')} - ${t(`npc.${npc.role_type}`)}`}
+        subtitle={scriptTitle}
         breadcrumbs={[
           { title: t('npc.title'), path: '/npcs' },
           { title: npc.name },
@@ -179,105 +155,42 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item name="name_en" label={t('npc.englishName')}>
-                        <Input placeholder={t('npc.enterEnglishName')} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
                       <Form.Item name="age" label={t('npc.age')}>
                         <Input type="number" placeholder={t('npc.enterAge')} />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
-                      <Form.Item name="job" label={t('npc.job')}>
-                        <Input placeholder={t('npc.enterJob')} />
-                      </Form.Item>
-                    </Col>
-                    <Col span={8}>
-                      <Form.Item
-                        name="role_type"
-                        label={t('npc.roleType')}
-                        rules={[{ required: true }]}
-                      >
-                        <Select>
-                          <Option value="suspect">{t('npc.suspect')}</Option>
-                          <Option value="witness">{t('npc.witness')}</Option>
-                          <Option value="other">{t('npc.other')}</Option>
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={12}>
+                    <Col span={24}>
                       <Form.Item
                         name="script_id"
                         label={t('script.title')}
                         rules={[{ required: true }]}
                       >
-                        <Select
-                          onChange={(value) => {
-                            setSelectedScriptId(value);
-                            form.setFieldValue('scene_id', null);
-                          }}
-                        >
+                        <Select>
                           {scripts.map((s) => (
                             <Option key={s.id} value={s.id}>
-                              {s.name}
+                              {s.title}
                             </Option>
                           ))}
                         </Select>
                       </Form.Item>
                     </Col>
-                    <Col span={12}>
-                      <Form.Item name="scene_id" label={t('common.scene')}>
-                        <Select allowClear placeholder={`${t('npc.selectScene')} (${t('common.optional')})`}>
-                          {scenes.map((s) => (
-                            <Option key={s.id} value={s.id}>
-                              {s.name}
-                            </Option>
-                          ))}
-                        </Select>
+                    <Col span={24}>
+                      <Form.Item name="background" label={t('npc.background')}>
+                        <TextArea
+                          placeholder={t('npc.enterBackground')}
+                          rows={4}
+                        />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
-                      <Form.Item name="status" label={t('common.status')}>
-                        <Select>
-                          <Option value="active">{t('npc.active')}</Option>
-                          <Option value="archived">{t('npc.archived')}</Option>
-                        </Select>
+                    <Col span={24}>
+                      <Form.Item name="personality" label={t('npc.personality')}>
+                        <TextArea
+                          placeholder={t('npc.enterPersonality')}
+                          rows={4}
+                        />
                       </Form.Item>
                     </Col>
                   </Row>
-                </Form>
-              </Card>
-            ),
-          },
-          {
-            key: 'personality',
-            label: t('common.character'),
-            children: (
-              <Card>
-                <Form form={form} layout="vertical" onFinish={handleSave}>
-                  <Form.Item name="personality" label={t('npc.personality')}>
-                    <TextArea
-                      placeholder={t('npc.personalityPlaceholder')}
-                      rows={4}
-                    />
-                  </Form.Item>
-                  <Form.Item name="speech_style" label={t('npc.speechStyle')}>
-                    <TextArea
-                      placeholder={t('npc.speechStylePlaceholder')}
-                      rows={4}
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="background_story"
-                    label={t('npc.backgroundStory')}
-                    extra={<Text type="secondary">{t('npc.supportsMarkdown')}</Text>}
-                  >
-                    <TextArea
-                      placeholder={t('npc.backgroundPlaceholder')}
-                      rows={10}
-                    />
-                  </Form.Item>
                 </Form>
               </Card>
             ),
@@ -316,44 +229,6 @@ export default function NpcDetail() {
                       mode="tags"
                       placeholder={t('npc.worldModelLimitsPlaceholder')}
                       style={{ width: '100%' }}
-                    />
-                  </Form.Item>
-                </Form>
-              </Card>
-            ),
-          },
-          {
-            key: 'prompt',
-            label: t('common.systemPrompt'),
-            children: (
-              <Card>
-                <Form form={form} layout="vertical" onFinish={handleSave}>
-                  <Form.Item
-                    name="system_prompt_template"
-                    label={t('npc.systemPromptTemplate')}
-                    extra={
-                      <Text type="secondary">
-                        {t('npc.availableVariables')}: {'{name}'}, {'{personality}'}, {'{speech_style}'},{' '}
-                        {'{background_story}'}, {'{current_scene}'}, {'{unlocked_clues}'}
-                      </Text>
-                    }
-                  >
-                    <TextArea
-                      placeholder={`You are {name}, a {job} in a murder mystery game.
-
-Personality: {personality}
-
-Speaking Style: {speech_style}
-
-Background: {background_story}
-
-Current Scene: {current_scene}
-
-You know about these clues: {unlocked_clues}
-
-Stay in character and respond naturally to the player's questions.`}
-                      rows={15}
-                      style={{ fontFamily: 'monospace' }}
                     />
                   </Form.Item>
                 </Form>

@@ -10,9 +10,6 @@ import { NpcList, NpcDetail } from '@/pages/npcs';
 // Clues
 import { ClueList, ClueDetail, ClueTree } from '@/pages/clues';
 
-// Algorithms
-import { ImplementationList, StrategyList, StrategyDetail } from '@/pages/algorithms';
-
 // Logs
 import { DialogueLogs } from '@/pages/experiments';
 
@@ -61,19 +58,6 @@ const router = createBrowserRouter([
       {
         path: 'clues/:id',
         element: <ClueDetail />,
-      },
-      // Algorithms
-      {
-        path: 'algorithms/implementations',
-        element: <ImplementationList />,
-      },
-      {
-        path: 'algorithms/strategies',
-        element: <StrategyList />,
-      },
-      {
-        path: 'algorithms/strategies/:id',
-        element: <StrategyDetail />,
       },
       // Debug
       {

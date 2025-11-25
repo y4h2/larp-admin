@@ -137,9 +137,9 @@ class TemplateRenderer:
             lines = []
             for i, item in enumerate(items, 1):
                 if isinstance(item, dict):
-                    title = item.get("title_player") or item.get("title_internal") or item.get("title", "")
-                    content = item.get("content_text", "")[:100]
-                    lines.append(f"[{i}] {title} - {content}...")
+                    name = item.get("name", "")
+                    detail = item.get("detail", "")[:100]
+                    lines.append(f"[{i}] {name} - {detail}...")
                 else:
                     lines.append(f"[{i}] {item}")
             return "\n".join(lines)
@@ -158,11 +158,14 @@ class TemplateRenderer:
         Returns:
             Formatted string.
         """
-        # For relations, format as key-value pairs
-        if "relations" in var_path:
+        # For knowledge_scope, format as key-value pairs
+        if "knowledge_scope" in var_path:
             lines = []
             for key, value in obj.items():
-                lines.append(f"- {key}: {value}")
+                if isinstance(value, list):
+                    lines.append(f"- {key}: {', '.join(value)}")
+                else:
+                    lines.append(f"- {key}: {value}")
             return "\n".join(lines) if lines else "(none)"
 
         # Default dict formatting
@@ -233,34 +236,16 @@ class TemplateRenderer:
                         example="abc-123",
                     ),
                     VariableInfo(
-                        name="script.name",
-                        description="Script name",
+                        name="script.title",
+                        description="Script title",
                         type="string",
                         example="Murder Mystery",
                     ),
                     VariableInfo(
-                        name="script.description",
-                        description="Script description",
+                        name="script.summary",
+                        description="Script summary",
                         type="string",
                         example="A thrilling murder mystery...",
-                    ),
-                    VariableInfo(
-                        name="scene.id",
-                        description="Current scene ID",
-                        type="string",
-                        example="scene-123",
-                    ),
-                    VariableInfo(
-                        name="scene.name",
-                        description="Current scene name",
-                        type="string",
-                        example="The Library",
-                    ),
-                    VariableInfo(
-                        name="scene.description",
-                        description="Current scene description",
-                        type="string",
-                        example="A dimly lit room...",
                     ),
                     VariableInfo(
                         name="now",
@@ -287,10 +272,16 @@ class TemplateRenderer:
                         example="John Smith",
                     ),
                     VariableInfo(
-                        name="npc.role_type",
-                        description="NPC role type",
+                        name="npc.age",
+                        description="NPC age",
+                        type="number",
+                        example="45",
+                    ),
+                    VariableInfo(
+                        name="npc.background",
+                        description="NPC background story",
                         type="string",
-                        example="suspect",
+                        example="A former butler who...",
                     ),
                     VariableInfo(
                         name="npc.personality",
@@ -299,34 +290,10 @@ class TemplateRenderer:
                         example="Nervous and secretive...",
                     ),
                     VariableInfo(
-                        name="npc.speech_style",
-                        description="NPC speech style",
-                        type="string",
-                        example="Formal, uses complex words...",
-                    ),
-                    VariableInfo(
-                        name="npc.background_story",
-                        description="NPC background story",
-                        type="string",
-                        example="A former butler who...",
-                    ),
-                    VariableInfo(
-                        name="npc.relations",
-                        description="NPC relationships with others",
+                        name="npc.knowledge_scope",
+                        description="NPC knowledge scope",
                         type="object",
-                        example='{"victim": "former employer"}',
-                    ),
-                    VariableInfo(
-                        name="npc.age",
-                        description="NPC age",
-                        type="number",
-                        example="45",
-                    ),
-                    VariableInfo(
-                        name="npc.job",
-                        description="NPC job/occupation",
-                        type="string",
-                        example="Butler",
+                        example='{"knows": [...], "does_not_know": [...]}',
                     ),
                 ],
             ),
@@ -341,40 +308,28 @@ class TemplateRenderer:
                         example="clue-123",
                     ),
                     VariableInfo(
-                        name="clue.title_internal",
-                        description="Internal clue title",
+                        name="clue.name",
+                        description="Clue name",
                         type="string",
                         example="Murder Weapon",
                     ),
                     VariableInfo(
-                        name="clue.title_player",
-                        description="Player-visible clue title",
+                        name="clue.type",
+                        description="Clue type",
                         type="string",
-                        example="A Strange Object",
+                        example="text",
                     ),
                     VariableInfo(
-                        name="clue.content_text",
-                        description="Clue content text",
+                        name="clue.detail",
+                        description="Clue detail content",
                         type="string",
                         example="A bloody knife was found...",
                     ),
                     VariableInfo(
-                        name="clue.clue_type",
-                        description="Clue type",
+                        name="clue.detail_for_npc",
+                        description="Guidance for NPC on how to reveal this clue",
                         type="string",
-                        example="evidence",
-                    ),
-                    VariableInfo(
-                        name="clue.importance",
-                        description="Clue importance level",
-                        type="string",
-                        example="critical",
-                    ),
-                    VariableInfo(
-                        name="clue.stage",
-                        description="Clue stage number",
-                        type="number",
-                        example="1",
+                        example="The NPC should nervously describe...",
                     ),
                 ],
             ),
@@ -389,34 +344,10 @@ class TemplateRenderer:
                         example="[1] Clue A - content...\n[2] Clue B - content...",
                     ),
                     VariableInfo(
-                        name="unlocked_clues_titles",
-                        description="Only titles of unlocked clues",
-                        type="list",
-                        example="- Clue A\n- Clue B",
-                    ),
-                    VariableInfo(
                         name="candidate_clues",
                         description="Candidate clues matched this turn",
                         type="list",
                         example="[1] Matched Clue - content...",
-                    ),
-                ],
-            ),
-            VariableCategory(
-                name="strategy",
-                description="Algorithm strategy variables",
-                variables=[
-                    VariableInfo(
-                        name="strategy.id",
-                        description="Strategy ID",
-                        type="string",
-                        example="strategy-123",
-                    ),
-                    VariableInfo(
-                        name="strategy.name",
-                        description="Strategy name",
-                        type="string",
-                        example="Hybrid Matching v2",
                     ),
                 ],
             ),

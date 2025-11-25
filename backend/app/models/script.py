@@ -14,7 +14,6 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.clue import Clue
     from app.models.npc import NPC
-    from app.models.scene import Scene
 
 
 class ScriptDifficulty(str, enum.Enum):
@@ -90,12 +89,6 @@ class Script(Base):
     )
 
     # Relationships
-    scenes: Mapped[list["Scene"]] = relationship(
-        "Scene",
-        back_populates="script",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
     npcs: Mapped[list["NPC"]] = relationship(
         "NPC",
         back_populates="script",
