@@ -46,7 +46,16 @@ export default function NpcDetail() {
       ]);
       setNpc(npcData);
       setRelatedClues(cluesData.items);
-      form.setFieldsValue(npcData);
+      // Ensure knowledge_scope has default values
+      const formData = {
+        ...npcData,
+        knowledge_scope: {
+          knows: npcData.knowledge_scope?.knows || [],
+          does_not_know: npcData.knowledge_scope?.does_not_know || [],
+          world_model_limits: npcData.knowledge_scope?.world_model_limits || [],
+        },
+      };
+      form.setFieldsValue(formData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/npcs');
@@ -135,15 +144,15 @@ export default function NpcDetail() {
         }
       />
 
-      <Tabs
-        defaultActiveKey="basic"
-        items={[
-          {
-            key: 'basic',
-            label: t('common.basicInfo'),
-            children: (
-              <Card>
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+      <Form form={form} layout="vertical" onFinish={handleSave}>
+        <Tabs
+          defaultActiveKey="basic"
+          items={[
+            {
+              key: 'basic',
+              label: t('common.basicInfo'),
+              children: (
+                <Card>
                   <Row gutter={24}>
                     <Col span={12}>
                       <Form.Item
@@ -191,16 +200,14 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                   </Row>
-                </Form>
-              </Card>
-            ),
-          },
-          {
-            key: 'knowledge',
-            label: t('npc.knowledgeScope'),
-            children: (
-              <Card>
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+                </Card>
+              ),
+            },
+            {
+              key: 'knowledge',
+              label: t('npc.knowledgeScope'),
+              children: (
+                <Card>
                   <Form.Item
                     name={['knowledge_scope', 'knows']}
                     label={t('npc.knows')}
@@ -231,26 +238,26 @@ export default function NpcDetail() {
                       style={{ width: '100%' }}
                     />
                   </Form.Item>
-                </Form>
-              </Card>
-            ),
-          },
-          {
-            key: 'clues',
-            label: `${t('npc.relatedClues')} (${relatedClues.length})`,
-            children: (
-              <Card>
-                <ResizableTable
-                  columns={clueColumns}
-                  dataSource={relatedClues}
-                  rowKey="id"
-                  pagination={false}
-                />
-              </Card>
-            ),
-          },
-        ]}
-      />
+                </Card>
+              ),
+            },
+            {
+              key: 'clues',
+              label: `${t('npc.relatedClues')} (${relatedClues.length})`,
+              children: (
+                <Card>
+                  <ResizableTable
+                    columns={clueColumns}
+                    dataSource={relatedClues}
+                    rowKey="id"
+                    pagination={false}
+                  />
+                </Card>
+              ),
+            },
+          ]}
+        />
+      </Form>
     </div>
   );
 }

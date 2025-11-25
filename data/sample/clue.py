@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, asdict
 from typing import NewType
 
 ClueId = NewType('ClueId', str)
@@ -65,14 +66,72 @@ class Progress:
     clue_ids: list[ClueId]
 
 @dataclass
-class EmbeddingConfig:
+class LLMConfig:
     model: str
     base_url: str
     api_key: str
 
 @dataclass
+class EmbeddingConfig:
+    model: str
+    base_url: str
+    api_key: str
+
+
+
+def _resolve_jsonpath(obj, path: str):
+    """
+    解析类似 jsonpath 的路径，支持嵌套访问
+    例如: 'name', 'trigger_keywords', 'nested.field'
+    """
+    parts = path.split('.')
+    current = obj
+    for part in parts:
+        if current is None:
+            return None
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif hasattr(current, part):
+            current = getattr(current, part)
+        else:
+            # 尝试将 dataclass 转换为 dict 再访问
+            if hasattr(current, '__dataclass_fields__'):
+                current = asdict(current).get(part)
+            else:
+                return None
+    return current
+
+
+def render_clue_template(template: str, clue: Clue) -> str:
+    """
+    将模板中的 {clue.xxx} 占位符替换为实际值
+
+    支持的格式:
+    - {clue.name} - 简单字段
+    - {clue.trigger_keywords} - 列表字段 (会用逗号连接)
+    - {clue.nested.field} - 嵌套字段 (jsonpath 风格)
+
+    示例:
+        template = '{clue.name}:{clue.detail}'
+        render_clue_template(template, clue)
+    """
+    pattern = r'\{clue\.([^}]+)\}'
+
+    def replace_match(match):
+        path = match.group(1)
+        value = _resolve_jsonpath(clue, path)
+        if value is None:
+            return match.group(0)  # 保留原始占位符
+        if isinstance(value, list):
+            return ', '.join(str(v) for v in value)
+        return str(value)
+
+    return re.sub(pattern, replace_match, template)
+
+
+@dataclass
 class ClueRetrievalStrategy:
-    
+
     def retrieve_clues(self, message: str, clues: list[Clue]) -> Clue | None:
         pass
 
@@ -92,14 +151,24 @@ class VectorClueRetrievalStrategy(ClueRetrievalStrategy):
             embedding_function=self.embeddings,
         )
 
-    def build_embedding_db(self, 
-        prompt_template:str,
+    def build_embedding_db(self,
+        prompt_template: str,
         clues: list[Clue],
     ):
+        """
+        构建嵌入数据库
+
+        Args:
+            prompt_template: 模板字符串，支持 {clue.xxx} 格式的占位符
+                例如: '{clue.name}:{clue.detail}'
+                嵌套字段使用 jsonpath 格式: '{clue.nested.field}'
+            clues: 线索列表
+        """
         for clue in clues:
+            rendered_content = render_clue_template(prompt_template, clue)
             self.vector_store.add_documents(documents=[
                 Document(
-                    page_content=prompt_template, 
+                    page_content=rendered_content,
                     metadata={
                         "clue_id": clue.id,
                         "npc_id": clue.npc_id,

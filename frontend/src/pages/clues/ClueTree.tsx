@@ -45,7 +45,7 @@ import {
 } from '@ant-design/icons';
 import { PageHeader } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
-import { useScripts } from '@/hooks';
+import { useScripts, useNpcs } from '@/hooks';
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -79,6 +79,7 @@ interface ClueNodeData {
   clue: ClueTreeNode;
   onClick: (clueId: string) => void;
   visibleFields: ClueNodeField[];
+  npcMap: Map<string, string>; // npc_id -> npc name
 }
 
 // Helper to format date for display
@@ -90,7 +91,7 @@ function formatShortDate(dateStr?: string): string {
 
 // Custom node component for clues
 function ClueNode({ data }: { data: ClueNodeData }) {
-  const { clue, onClick, visibleFields } = data;
+  const { clue, onClick, visibleFields, npcMap } = data;
 
   const typeColor = clue.type === 'image' ? '#722ed1' : '#1890ff';
 
@@ -148,7 +149,7 @@ function ClueNode({ data }: { data: ClueNodeData }) {
       {showNpcId && clue.npc_id && (
         <div style={{ marginBottom: 4 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            👤 NPC
+            👤 {npcMap.get(clue.npc_id) || clue.npc_id}
           </Text>
         </div>
       )}
@@ -235,6 +236,7 @@ export default function ClueTree() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { scripts, fetchScripts } = useScripts();
+  const { npcs, fetchNpcs } = useNpcs();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -255,6 +257,22 @@ export default function ClueTree() {
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
+
+  // Fetch NPCs when script changes
+  useEffect(() => {
+    if (scriptId) {
+      fetchNpcs({ script_id: scriptId });
+    }
+  }, [scriptId, fetchNpcs]);
+
+  // Create a map from npc_id to npc name
+  const npcMap = useMemo(() => {
+    const map = new Map<string, string>();
+    npcs.forEach((npc) => {
+      map.set(npc.id, npc.name);
+    });
+    return map;
+  }, [npcs]);
 
   const fetchTree = useCallback(async () => {
     if (!scriptId) return;
@@ -366,6 +384,7 @@ export default function ClueTree() {
             clue: clueNode,
             onClick: handleClueClick,
             visibleFields,
+            npcMap,
           },
         });
       });
@@ -386,7 +405,7 @@ export default function ClueTree() {
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [treeData, setNodes, setEdges, visibleFields]);
+  }, [treeData, setNodes, setEdges, visibleFields, npcMap]);
 
   // Get current prerequisites for a node (considering pending changes)
   const getCurrentPrerequisites = useCallback(
