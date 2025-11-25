@@ -45,6 +45,41 @@ const { Option } = Select;
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
 
+// LocalStorage key for persisting configuration
+const STORAGE_KEY = 'dialogue-simulation-config';
+
+interface StoredConfig {
+  selectedScriptId: string | null;
+  selectedNpcId: string | null;
+  matchingStrategy: MatchingStrategy;
+  matchingTemplateId: string | undefined;
+  matchingLlmConfigId: string | undefined;
+  enableNpcReply: boolean;
+  npcClueTemplateId: string | undefined;
+  npcNoClueTemplateId: string | undefined;
+  npcChatConfigId: string | undefined;
+}
+
+const loadStoredConfig = (): Partial<StoredConfig> => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return {};
+};
+
+const saveConfig = (config: StoredConfig) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React.ReactNode }[] = [
   { value: 'keyword', label: 'debug.keywordMatching', icon: <SearchOutlined /> },
   { value: 'embedding', label: 'debug.embeddingMatching', icon: <ThunderboltOutlined /> },
@@ -66,22 +101,44 @@ export default function DialogueSimulation() {
   const [embeddingConfigs, setEmbeddingConfigs] = useState<LLMConfig[]>([]);
   const [chatConfigs, setChatConfigs] = useState<LLMConfig[]>([]);
 
-  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
-  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
+  // Load stored config on initial render
+  const storedConfig = useMemo(() => loadStoredConfig(), []);
+
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(
+    storedConfig.selectedScriptId ?? null
+  );
+  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(
+    storedConfig.selectedNpcId ?? null
+  );
   const [unlockedClueIds, setUnlockedClueIds] = useState<string[]>([]);
 
   // Session tracking - generate new session ID on mount and when cleared
   const sessionIdRef = useRef<string>(uuidv4());
 
   // Matching configuration
-  const [matchingStrategy, setMatchingStrategy] = useState<MatchingStrategy>('keyword');
-  const [matchingTemplateId, setMatchingTemplateId] = useState<string | undefined>();
-  const [matchingLlmConfigId, setMatchingLlmConfigId] = useState<string | undefined>();
+  const [matchingStrategy, setMatchingStrategy] = useState<MatchingStrategy>(
+    storedConfig.matchingStrategy ?? 'keyword'
+  );
+  const [matchingTemplateId, setMatchingTemplateId] = useState<string | undefined>(
+    storedConfig.matchingTemplateId
+  );
+  const [matchingLlmConfigId, setMatchingLlmConfigId] = useState<string | undefined>(
+    storedConfig.matchingLlmConfigId
+  );
 
   // NPC reply configuration
-  const [enableNpcReply, setEnableNpcReply] = useState(false);
-  const [npcSystemTemplateId, setNpcSystemTemplateId] = useState<string | undefined>();
-  const [npcChatConfigId, setNpcChatConfigId] = useState<string | undefined>();
+  const [enableNpcReply, setEnableNpcReply] = useState(
+    storedConfig.enableNpcReply ?? false
+  );
+  const [npcClueTemplateId, setNpcClueTemplateId] = useState<string | undefined>(
+    storedConfig.npcClueTemplateId
+  );
+  const [npcNoClueTemplateId, setNpcNoClueTemplateId] = useState<string | undefined>(
+    storedConfig.npcNoClueTemplateId
+  );
+  const [npcChatConfigId, setNpcChatConfigId] = useState<string | undefined>(
+    storedConfig.npcChatConfigId
+  );
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
@@ -95,6 +152,12 @@ export default function DialogueSimulation() {
   const [renderedPreviews, setRenderedPreviews] = useState<Record<string, TemplateRenderResponse>>({});
   const [renderingClueId, setRenderingClueId] = useState<string | null>(null);
 
+  // NPC template previews (for both clue and no-clue templates)
+  const [npcClueTemplatePreview, setNpcClueTemplatePreview] = useState<TemplateRenderResponse | null>(null);
+  const [npcNoClueTemplatePreview, setNpcNoClueTemplatePreview] = useState<TemplateRenderResponse | null>(null);
+  const [renderingNpcClueTemplate, setRenderingNpcClueTemplate] = useState(false);
+  const [renderingNpcNoClueTemplate, setRenderingNpcNoClueTemplate] = useState(false);
+
   // Filter templates by type
   const matchingTemplates = templates.filter((t) =>
     ['clue_embedding', 'clue_reveal', 'custom'].includes(t.type)
@@ -103,15 +166,28 @@ export default function DialogueSimulation() {
     ['npc_system_prompt', 'custom'].includes(t.type)
   );
 
-  // Get selected template object
+  // Get selected template objects
   const selectedMatchingTemplate = useMemo(() => {
     return templates.find((t) => t.id === matchingTemplateId) || null;
   }, [templates, matchingTemplateId]);
+
+  const selectedNpcClueTemplate = useMemo(() => {
+    return templates.find((t) => t.id === npcClueTemplateId) || null;
+  }, [templates, npcClueTemplateId]);
+
+  const selectedNpcNoClueTemplate = useMemo(() => {
+    return templates.find((t) => t.id === npcNoClueTemplateId) || null;
+  }, [templates, npcNoClueTemplateId]);
 
   // Get selected NPC object
   const selectedNpc = useMemo(() => {
     return npcs.find((n) => n.id === selectedNpcId) || null;
   }, [npcs, selectedNpcId]);
+
+  // Get selected Script object
+  const selectedScript = useMemo(() => {
+    return scripts.find((s) => s.id === selectedScriptId) || null;
+  }, [scripts, selectedScriptId]);
 
   // Compute locked clues (clues not in unlocked list)
   const lockedClues = useMemo(() => {
@@ -133,6 +209,31 @@ export default function DialogueSimulation() {
       setChatConfigs(res.items);
     });
   }, [fetchScripts]);
+
+  // Save configuration to localStorage whenever it changes
+  useEffect(() => {
+    saveConfig({
+      selectedScriptId,
+      selectedNpcId,
+      matchingStrategy,
+      matchingTemplateId,
+      matchingLlmConfigId,
+      enableNpcReply,
+      npcClueTemplateId,
+      npcNoClueTemplateId,
+      npcChatConfigId,
+    });
+  }, [
+    selectedScriptId,
+    selectedNpcId,
+    matchingStrategy,
+    matchingTemplateId,
+    matchingLlmConfigId,
+    enableNpcReply,
+    npcClueTemplateId,
+    npcNoClueTemplateId,
+    npcChatConfigId,
+  ]);
 
   useEffect(() => {
     if (selectedScriptId) {
@@ -210,7 +311,8 @@ export default function DialogueSimulation() {
         template_id: matchingTemplateId,
         llm_config_id: matchingLlmConfigId,
         // Only include NPC reply options if enabled
-        npc_system_template_id: enableNpcReply ? npcSystemTemplateId : undefined,
+        npc_clue_template_id: enableNpcReply ? npcClueTemplateId : undefined,
+        npc_no_clue_template_id: enableNpcReply ? npcNoClueTemplateId : undefined,
         npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
         session_id: sessionIdRef.current,
         save_log: true,
@@ -332,6 +434,80 @@ export default function DialogueSimulation() {
       message.error(t('debug.renderFailed'));
     } finally {
       setRenderingClueId(null);
+    }
+  };
+
+  // Render NPC clue template preview
+  const handleRenderNpcClueTemplate = async () => {
+    if (!npcClueTemplateId) {
+      message.warning(t('debug.selectTemplateFirst'));
+      return;
+    }
+
+    setRenderingNpcClueTemplate(true);
+    try {
+      const result = await templateApi.render({
+        template_id: npcClueTemplateId,
+        context: {
+          npc: selectedNpc ? {
+            id: selectedNpc.id,
+            name: selectedNpc.name,
+            age: selectedNpc.age,
+            personality: selectedNpc.personality,
+            background: selectedNpc.background,
+            knowledge_scope: selectedNpc.knowledge_scope || {},
+          } : {},
+          script: selectedScript ? {
+            id: selectedScript.id,
+            title: selectedScript.title,
+            background: selectedScript.background,
+          } : {},
+          clue_guides: ['示例线索指引1', '示例线索指引2'],
+          has_clue: true,
+        },
+      });
+      setNpcClueTemplatePreview(result);
+    } catch {
+      message.error(t('debug.renderFailed'));
+    } finally {
+      setRenderingNpcClueTemplate(false);
+    }
+  };
+
+  // Render NPC no-clue template preview
+  const handleRenderNpcNoClueTemplate = async () => {
+    if (!npcNoClueTemplateId) {
+      message.warning(t('debug.selectTemplateFirst'));
+      return;
+    }
+
+    setRenderingNpcNoClueTemplate(true);
+    try {
+      const result = await templateApi.render({
+        template_id: npcNoClueTemplateId,
+        context: {
+          npc: selectedNpc ? {
+            id: selectedNpc.id,
+            name: selectedNpc.name,
+            age: selectedNpc.age,
+            personality: selectedNpc.personality,
+            background: selectedNpc.background,
+            knowledge_scope: selectedNpc.knowledge_scope || {},
+          } : {},
+          script: selectedScript ? {
+            id: selectedScript.id,
+            title: selectedScript.title,
+            background: selectedScript.background,
+          } : {},
+          clue_guides: [],
+          has_clue: false,
+        },
+      });
+      setNpcNoClueTemplatePreview(result);
+    } catch {
+      message.error(t('debug.renderFailed'));
+    } finally {
+      setRenderingNpcNoClueTemplate(false);
     }
   };
 
@@ -520,11 +696,11 @@ export default function DialogueSimulation() {
               </div>
 
               <div>
-                <div style={{ marginBottom: 4 }}>{t('debug.npcSystemTemplate')}</div>
+                <div style={{ marginBottom: 4 }}>{t('debug.npcClueTemplate')}</div>
                 <Select
-                  placeholder={t('debug.selectNpcSystemTemplate')}
-                  value={npcSystemTemplateId}
-                  onChange={setNpcSystemTemplateId}
+                  placeholder={t('debug.selectNpcClueTemplate')}
+                  value={npcClueTemplateId}
+                  onChange={setNpcClueTemplateId}
                   style={{ width: '100%' }}
                   allowClear
                   disabled={!enableNpcReply}
@@ -540,6 +716,35 @@ export default function DialogueSimulation() {
                     </Option>
                   ))}
                 </Select>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('debug.npcClueTemplateHint')}
+                </Text>
+              </div>
+
+              <div>
+                <div style={{ marginBottom: 4 }}>{t('debug.npcNoClueTemplate')}</div>
+                <Select
+                  placeholder={t('debug.selectNpcNoClueTemplate')}
+                  value={npcNoClueTemplateId}
+                  onChange={setNpcNoClueTemplateId}
+                  style={{ width: '100%' }}
+                  allowClear
+                  disabled={!enableNpcReply}
+                >
+                  {npcSystemTemplates.map((tpl) => (
+                    <Option key={tpl.id} value={tpl.id}>
+                      <Space>
+                        <span>{tpl.name}</span>
+                        <Tag color={tpl.type === 'npc_system_prompt' ? 'purple' : 'default'}>
+                          {t(`template.types.${tpl.type}`)}
+                        </Tag>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {t('debug.npcNoClueTemplateHint')}
+                </Text>
               </div>
 
               <div>
@@ -562,6 +767,15 @@ export default function DialogueSimulation() {
                   ))}
                 </Select>
               </div>
+
+              {/* Warning if NPC reply enabled but configs missing */}
+              {enableNpcReply && ((!npcClueTemplateId && !npcNoClueTemplateId) || !npcChatConfigId) && (
+                <Alert
+                  type="warning"
+                  message={t('debug.npcReplyConfigWarning')}
+                  style={{ marginTop: 8 }}
+                />
+              )}
             </Space>
           </Card>
         </Col>
@@ -739,6 +953,172 @@ export default function DialogueSimulation() {
               />
             )}
           </Card>
+
+          {/* NPC Clue Template Preview */}
+          {selectedNpcClueTemplate && enableNpcReply && (
+            <Card
+              title={
+                <Space>
+                  <RobotOutlined />
+                  {t('debug.npcClueTemplatePreview')}
+                </Space>
+              }
+              size="small"
+              style={{ marginTop: 16 }}
+              extra={
+                <Button
+                  size="small"
+                  icon={renderingNpcClueTemplate ? <Spin size="small" /> : <EyeOutlined />}
+                  onClick={handleRenderNpcClueTemplate}
+                  disabled={renderingNpcClueTemplate || !selectedNpc}
+                >
+                  {t('template.render')}
+                </Button>
+              }
+            >
+              <div
+                style={{
+                  background: '#f5f5f5',
+                  padding: 12,
+                  borderRadius: 6,
+                  maxHeight: 150,
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  whiteSpace: 'pre-wrap',
+                  border: '1px solid #d9d9d9',
+                }}
+              >
+                {selectedNpcClueTemplate.content}
+              </div>
+              {selectedNpcClueTemplate.variables && selectedNpcClueTemplate.variables.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {selectedNpcClueTemplate.variables.map((v, i) => (
+                      <Tag key={i} color="purple" style={{ marginBottom: 4 }}>{v}</Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rendered Preview */}
+              {npcClueTemplatePreview && (
+                <div style={{ marginTop: 12 }}>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Text strong style={{ color: '#722ed1', fontSize: 12 }}>
+                    {t('debug.renderedResult')}:
+                  </Text>
+                  <div
+                    style={{
+                      background: '#f9f0ff',
+                      padding: 12,
+                      borderRadius: 6,
+                      marginTop: 8,
+                      border: '1px solid #d3adf7',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: 13,
+                      maxHeight: 200,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {npcClueTemplatePreview.rendered_content || t('template.emptyResult')}
+                  </div>
+                  {npcClueTemplatePreview.warnings.length > 0 && (
+                    <Alert
+                      type="warning"
+                      message={t('template.renderWarnings')}
+                      description={npcClueTemplatePreview.warnings.join(', ')}
+                      style={{ marginTop: 8, fontSize: 12 }}
+                    />
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* NPC No-Clue Template Preview */}
+          {selectedNpcNoClueTemplate && enableNpcReply && (
+            <Card
+              title={
+                <Space>
+                  <RobotOutlined />
+                  {t('debug.npcNoClueTemplatePreview')}
+                </Space>
+              }
+              size="small"
+              style={{ marginTop: 16 }}
+              extra={
+                <Button
+                  size="small"
+                  icon={renderingNpcNoClueTemplate ? <Spin size="small" /> : <EyeOutlined />}
+                  onClick={handleRenderNpcNoClueTemplate}
+                  disabled={renderingNpcNoClueTemplate || !selectedNpc}
+                >
+                  {t('template.render')}
+                </Button>
+              }
+            >
+              <div
+                style={{
+                  background: '#f5f5f5',
+                  padding: 12,
+                  borderRadius: 6,
+                  maxHeight: 150,
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  whiteSpace: 'pre-wrap',
+                  border: '1px solid #d9d9d9',
+                }}
+              >
+                {selectedNpcNoClueTemplate.content}
+              </div>
+              {selectedNpcNoClueTemplate.variables && selectedNpcNoClueTemplate.variables.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {selectedNpcNoClueTemplate.variables.map((v, i) => (
+                      <Tag key={i} color="orange" style={{ marginBottom: 4 }}>{v}</Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rendered Preview */}
+              {npcNoClueTemplatePreview && (
+                <div style={{ marginTop: 12 }}>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Text strong style={{ color: '#fa8c16', fontSize: 12 }}>
+                    {t('debug.renderedResult')}:
+                  </Text>
+                  <div
+                    style={{
+                      background: '#fff7e6',
+                      padding: 12,
+                      borderRadius: 6,
+                      marginTop: 8,
+                      border: '1px solid #ffd591',
+                      whiteSpace: 'pre-wrap',
+                      fontSize: 13,
+                      maxHeight: 200,
+                      overflow: 'auto',
+                    }}
+                  >
+                    {npcNoClueTemplatePreview.rendered_content || t('template.emptyResult')}
+                  </div>
+                  {npcNoClueTemplatePreview.warnings.length > 0 && (
+                    <Alert
+                      type="warning"
+                      message={t('template.renderWarnings')}
+                      description={npcNoClueTemplatePreview.warnings.join(', ')}
+                      style={{ marginTop: 8, fontSize: 12 }}
+                    />
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
         </Col>
 
         {/* Right: Chat */}

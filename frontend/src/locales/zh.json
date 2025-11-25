@@ -239,7 +239,17 @@
     "npcSystemTemplate": "NPC系统提示词",
     "selectNpcSystemTemplate": "选择系统提示词模板",
     "npcChatModel": "NPC对话模型",
-    "selectNpcChatModel": "选择NPC对话模型"
+    "selectNpcChatModel": "选择NPC对话模型",
+    "npcReplyConfigWarning": "必须选择至少一个模板和对话模型才能启用NPC回复",
+    "npcSystemTemplatePreview": "NPC系统提示词",
+    "npcClueTemplate": "命中线索模板",
+    "selectNpcClueTemplate": "选择命中线索时使用的模板",
+    "npcClueTemplateHint": "当玩家触发线索时使用",
+    "npcNoClueTemplate": "未命中线索模板",
+    "selectNpcNoClueTemplate": "选择未命中线索时使用的模板",
+    "npcNoClueTemplateHint": "当玩家未触发任何线索时使用",
+    "npcClueTemplatePreview": "命中线索模板预览",
+    "npcNoClueTemplatePreview": "未命中线索模板预览"
   },
   "settings": {
     "globalSettings": "全局设置",

@@ -263,11 +263,19 @@ export default function LLMConfigList() {
       title: t('llmConfig.apiKey'),
       dataIndex: 'api_key_masked',
       key: 'api_key_masked',
-      width: 150,
+      width: 180,
+      ellipsis: true,
       render: (masked: string) => (
-        <Space>
-          <EyeInvisibleOutlined />
-          <span style={{ fontFamily: 'monospace' }}>{masked}</span>
+        <Space style={{ maxWidth: '100%' }}>
+          <EyeInvisibleOutlined style={{ flexShrink: 0 }} />
+          <span style={{
+            fontFamily: 'monospace',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {masked}
+          </span>
         </Space>
       ),
     },

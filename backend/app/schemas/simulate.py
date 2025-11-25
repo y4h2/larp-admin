@@ -37,9 +37,13 @@ class SimulateRequest(BaseModel):
         description="LLM config ID for matching (embedding or chat)",
     )
     # NPC reply configuration
-    npc_system_template_id: str | None = Field(
+    npc_clue_template_id: str | None = Field(
         default=None,
-        description="System prompt template ID for NPC (role, personality)",
+        description="System prompt template ID for NPC when clues are triggered",
+    )
+    npc_no_clue_template_id: str | None = Field(
+        default=None,
+        description="System prompt template ID for NPC when no clues are triggered",
     )
     npc_chat_config_id: str | None = Field(
         default=None,

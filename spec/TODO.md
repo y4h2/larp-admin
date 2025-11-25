@@ -20,3 +20,12 @@ NPC 对话模板应该分成三种提示词，system prompt, user prompt, AI pro
 
 # 匹配策略
 embedding 的匹配策略，参考VectorClueRetrievalStrategy的实现
+
+
+
+# 命令行工具
+快速加载数据
+
+
+# 数据结构处理
+id除了 uuid 之外考虑一些更加方便人类阅读的id

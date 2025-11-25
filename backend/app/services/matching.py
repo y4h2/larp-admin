@@ -38,7 +38,8 @@ class MatchContext:
     template_id: str | None = None
     llm_config_id: str | None = None
     # NPC reply configuration
-    npc_system_template_id: str | None = None
+    npc_clue_template_id: str | None = None  # Template when clues triggered
+    npc_no_clue_template_id: str | None = None  # Template when no clues triggered
     npc_chat_config_id: str | None = None
     session_id: str | None = None
 
@@ -88,7 +89,8 @@ class MatchingService:
             matching_strategy=request.matching_strategy,
             template_id=request.template_id,
             llm_config_id=request.llm_config_id,
-            npc_system_template_id=request.npc_system_template_id,
+            npc_clue_template_id=request.npc_clue_template_id,
+            npc_no_clue_template_id=request.npc_no_clue_template_id,
             npc_chat_config_id=request.npc_chat_config_id,
             session_id=request.session_id,
         )
@@ -127,12 +129,28 @@ class MatchingService:
 
         # Generate NPC response if templates are provided
         npc_response = None
-        if context.npc_system_template_id and context.npc_chat_config_id:
-            npc_response = await self._generate_npc_response(
-                context=context,
-                triggered_clues=triggered,
-                player_message=request.player_message,
+        has_clue_template = context.npc_clue_template_id is not None
+        has_no_clue_template = context.npc_no_clue_template_id is not None
+        has_chat_config = context.npc_chat_config_id is not None
+
+        if has_clue_template or has_no_clue_template or has_chat_config:
+            # Log which params are provided
+            logger.info(
+                f"NPC reply params: clue_template_id={context.npc_clue_template_id}, "
+                f"no_clue_template_id={context.npc_no_clue_template_id}, "
+                f"chat_config_id={context.npc_chat_config_id}"
             )
+            # Need at least one template and chat config
+            if (has_clue_template or has_no_clue_template) and has_chat_config:
+                npc_response = await self._generate_npc_response(
+                    context=context,
+                    triggered_clues=triggered,
+                    player_message=request.player_message,
+                )
+            else:
+                logger.warning(
+                    "NPC reply skipped: at least one template and chat_config_id are required"
+                )
 
         return SimulateResponse(
             matched_clues=matched_clues,
@@ -554,11 +572,15 @@ Only return the JSON object, no other text."""
             NPC response string or None if generation fails
         """
         try:
+            logger.info(f"Generating NPC response for NPC={context.npc_id}")
+
             # Get chat config
             chat_config = await self._get_llm_config_by_id(context.npc_chat_config_id)
             if not chat_config:
-                logger.warning("NPC chat config not found")
+                logger.warning(f"NPC chat config not found: {context.npc_chat_config_id}")
                 return None
+
+            logger.info(f"Using chat config: {chat_config.name} ({chat_config.model})")
 
             # Load NPC and Script data
             npc = await self._get_npc(context.npc_id)
@@ -567,10 +589,32 @@ Only return the JSON object, no other text."""
                 logger.warning(f"NPC not found: {context.npc_id}")
                 return None
 
+            # Determine if we have triggered clues with actual guidance
+            has_clue_guidance = False
+            clue_guides = []
+            if triggered_clues:
+                for r in triggered_clues:
+                    if r.clue.detail_for_npc:
+                        clue_guides.append(r.clue.detail_for_npc)
+                has_clue_guidance = len(clue_guides) > 0
+
+            # Select appropriate template based on whether clues were triggered
+            if has_clue_guidance and context.npc_clue_template_id:
+                template_id = context.npc_clue_template_id
+                logger.info(f"Using clue template: {template_id}")
+            elif context.npc_no_clue_template_id:
+                template_id = context.npc_no_clue_template_id
+                logger.info(f"Using no-clue template: {template_id}")
+            elif context.npc_clue_template_id:
+                # Fallback to clue template if no-clue template not set
+                template_id = context.npc_clue_template_id
+                logger.info(f"Fallback to clue template: {template_id}")
+            else:
+                template_id = None
+                logger.info("No template configured, using default prompt")
+
             # Load system template
-            system_template = await self._load_template_content(
-                context.npc_system_template_id
-            )
+            system_template = await self._load_template_content(template_id)
 
             # Build template context for system prompt
             template_context = {
@@ -587,6 +631,9 @@ Only return the JSON object, no other text."""
                     "title": script.title if script else "",
                     "background": script.background if script else "",
                 } if script else {},
+                # Add clue guides to template context for clue template
+                "clue_guides": clue_guides,
+                "has_clue": has_clue_guidance,
             }
 
             # Render system prompt
@@ -611,25 +658,13 @@ Only return the JSON object, no other text."""
                     messages.append({"role": "assistant", "content": log.npc_response})
 
             # Build user message with guide instruction (like npc_reply_with_clue)
-            if triggered_clues:
-                # Collect clue guidance from detail_for_npc
-                clue_guides = []
-                for r in triggered_clues:
-                    if r.clue.detail_for_npc:
-                        clue_guides.append(r.clue.detail_for_npc)
-
-                if clue_guides:
-                    guide = (
-                        f"【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
-                        f"用{npc.name}的语气说出来，不要一次性讲完所有细节，"
-                        f"不要提到'线索'、'卡牌'、'ID'等元信息：\n"
-                        + "\n".join(clue_guides)
-                    )
-                else:
-                    guide = (
-                        f"【指引】这一次你不需要提供新的关键情报，"
-                        f"只需根据对话和人设，自然回应对方。"
-                    )
+            if has_clue_guidance:
+                guide = (
+                    f"【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
+                    f"用{npc.name}的语气说出来，不要一次性讲完所有细节，"
+                    f"不要提到'线索'、'卡牌'、'ID'等元信息：\n"
+                    + "\n".join(clue_guides)
+                )
             else:
                 guide = (
                     f"【指引】这一次你不需要提供新的关键情报，"
@@ -640,7 +675,9 @@ Only return the JSON object, no other text."""
             messages.append({"role": "user", "content": user_content})
 
             # Call LLM
+            logger.info(f"Calling LLM with {len(messages)} messages")
             response = await self._call_llm_with_messages(chat_config, messages)
+            logger.info(f"NPC response generated: {len(response)} chars")
             return response
 
         except Exception as e:
@@ -690,9 +727,15 @@ Only return the JSON object, no other text."""
         self, config: LLMConfig, messages: list[dict]
     ) -> str:
         """Call LLM with a full messages array."""
+        # Normalize base_url to avoid double slashes
+        base_url = config.base_url.rstrip("/")
+        url = f"{base_url}/chat/completions"
+
+        logger.debug(f"LLM API URL: {url}, model: {config.model}")
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                f"{config.base_url}/chat/completions",
+                url,
                 headers={"Authorization": f"Bearer {config.api_key}"},
                 json={
                     "model": config.model,

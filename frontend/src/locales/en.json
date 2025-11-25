@@ -239,7 +239,17 @@
     "npcSystemTemplate": "NPC System Prompt",
     "selectNpcSystemTemplate": "Select system prompt template",
     "npcChatModel": "NPC Chat Model",
-    "selectNpcChatModel": "Select NPC chat model"
+    "selectNpcChatModel": "Select NPC chat model",
+    "npcReplyConfigWarning": "At least one template and chat model must be selected for NPC reply to work",
+    "npcSystemTemplatePreview": "NPC System Template",
+    "npcClueTemplate": "Clue Triggered Template",
+    "selectNpcClueTemplate": "Select template for when clues are triggered",
+    "npcClueTemplateHint": "Used when player triggers clues",
+    "npcNoClueTemplate": "No Clue Template",
+    "selectNpcNoClueTemplate": "Select template for when no clues are triggered",
+    "npcNoClueTemplateHint": "Used when player doesn't trigger any clues",
+    "npcClueTemplatePreview": "Clue Template Preview",
+    "npcNoClueTemplatePreview": "No-Clue Template Preview"
   },
   "settings": {
     "globalSettings": "Global Settings",

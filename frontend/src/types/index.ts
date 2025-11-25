@@ -94,7 +94,8 @@ export interface SimulationRequest {
   template_id?: string;
   llm_config_id?: string;
   // NPC reply configuration
-  npc_system_template_id?: string;
+  npc_clue_template_id?: string;  // Template when clues triggered
+  npc_no_clue_template_id?: string;  // Template when no clues triggered
   npc_chat_config_id?: string;
   // Session tracking
   session_id?: string;
