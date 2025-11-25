@@ -538,9 +538,12 @@ Only return the JSON object, no other text."""
         """
         Generate NPC response using LLM with dialogue history.
 
-        Uses system prompt template for NPC role, personality, background.
-        The player message is used directly as user input.
-        Dialogue history is automatically included from previous logs.
+        Based on npc_reply_with_clue pattern from data/sample/clue.py:
+        1. Uses system prompt template for NPC role, personality, background
+        2. Adds conversation history (last N messages)
+        3. Creates user message with guide instruction and player message:
+           - If clues triggered: instructs NPC to naturally reveal clue info
+           - If no clues: instructs NPC to respond naturally without new info
 
         Args:
             context: Match context with template and config IDs
@@ -569,16 +572,7 @@ Only return the JSON object, no other text."""
                 context.npc_system_template_id
             )
 
-            # Build template context
-            triggered_clue_info = [
-                {
-                    "name": r.clue.name,
-                    "detail": r.clue.detail,
-                    "detail_for_npc": r.clue.detail_for_npc,
-                }
-                for r in triggered_clues
-            ]
-
+            # Build template context for system prompt
             template_context = {
                 "npc": {
                     "id": npc.id,
@@ -593,8 +587,6 @@ Only return the JSON object, no other text."""
                     "title": script.title if script else "",
                     "background": script.background if script else "",
                 } if script else {},
-                "triggered_clues": triggered_clue_info,
-                "player_message": player_message,
             }
 
             # Render system prompt
@@ -603,10 +595,11 @@ Only return the JSON object, no other text."""
                 render_result = template_renderer.render(system_template, template_context)
                 system_prompt = render_result.rendered_content
             else:
-                system_prompt = f"You are {npc.name}. Personality: {npc.personality or 'friendly'}."
+                # Default system prompt
+                system_prompt = f"你是{npc.name}。性格：{npc.personality or '友善'}。背景：{npc.background or '无'}。"
 
-            # Get dialogue history
-            history_messages = await self._get_dialogue_history(context.session_id)
+            # Get dialogue history (last 4 rounds like in sample)
+            history_messages = await self._get_dialogue_history(context.session_id, limit=4)
 
             # Build messages array
             messages = [{"role": "system", "content": system_prompt}]
@@ -617,8 +610,34 @@ Only return the JSON object, no other text."""
                 if log.npc_response:
                     messages.append({"role": "assistant", "content": log.npc_response})
 
-            # Add current player message
-            messages.append({"role": "user", "content": player_message})
+            # Build user message with guide instruction (like npc_reply_with_clue)
+            if triggered_clues:
+                # Collect clue guidance from detail_for_npc
+                clue_guides = []
+                for r in triggered_clues:
+                    if r.clue.detail_for_npc:
+                        clue_guides.append(r.clue.detail_for_npc)
+
+                if clue_guides:
+                    guide = (
+                        f"【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
+                        f"用{npc.name}的语气说出来，不要一次性讲完所有细节，"
+                        f"不要提到'线索'、'卡牌'、'ID'等元信息：\n"
+                        + "\n".join(clue_guides)
+                    )
+                else:
+                    guide = (
+                        f"【指引】这一次你不需要提供新的关键情报，"
+                        f"只需根据对话和人设，自然回应对方。"
+                    )
+            else:
+                guide = (
+                    f"【指引】这一次你不需要提供新的关键情报，"
+                    f"只需根据对话和人设，自然回应对方。"
+                )
+
+            user_content = f"{guide}\n玩家刚才的话是：{player_message}"
+            messages.append({"role": "user", "content": user_content})
 
             # Call LLM
             response = await self._call_llm_with_messages(chat_config, messages)
