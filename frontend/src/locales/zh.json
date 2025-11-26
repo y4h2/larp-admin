@@ -87,7 +87,13 @@
     "motivePlaceholder": "犯罪动机",
     "crimeMethod": "作案手法",
     "crimeMethodPlaceholder": "案件的作案手法",
-    "totalScripts": "共 {{total}} 个剧本"
+    "totalScripts": "共 {{total}} 个剧本",
+    "exportScript": "导出",
+    "importScript": "导入",
+    "exportSuccess": "剧本导出成功",
+    "exportFailed": "剧本导出失败",
+    "importSuccess": "剧本导入成功",
+    "importFailed": "剧本导入失败"
   },
   "npc": {
     "title": "NPC管理",

@@ -37,18 +37,24 @@ export default function ScriptDetail() {
     try {
       const scriptData = await scriptApi.get(id);
       setScript(scriptData);
-      form.setFieldsValue(scriptData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/scripts');
     } finally {
       setLoading(false);
     }
-  }, [id, form, navigate, t]);
+  }, [id, navigate, t]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Set form values after loading completes and Form is mounted
+  useEffect(() => {
+    if (!loading && script) {
+      form.setFieldsValue(script);
+    }
+  }, [loading, script, form]);
 
   const handleSave = async (values: Partial<Script>) => {
     if (!id) return;

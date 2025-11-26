@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   Form,
   Dropdown,
   Tag,
+  message,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -18,10 +19,13 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
+  DownloadOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useScripts } from '@/hooks';
+import { scriptApi, type ScriptExportData } from '@/api/scripts';
 import { formatDate } from '@/utils';
 import type { Script } from '@/types';
 
@@ -51,10 +55,52 @@ export default function ScriptList() {
     page: 1,
     page_size: 10,
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     fetchScripts(filters);
   }, [filters, fetchScripts]);
+
+  const handleExport = async (id: string, title: string) => {
+    try {
+      const data = await scriptApi.export(id);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}_export.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      message.success(t('script.exportSuccess'));
+    } catch {
+      message.error(t('script.exportFailed'));
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data: ScriptExportData = JSON.parse(text);
+
+      // Validate basic structure
+      if (!data.title || !data.version) {
+        throw new Error('Invalid export file format');
+      }
+
+      await scriptApi.import(data);
+      message.success(t('script.importSuccess'));
+      fetchScripts(filters);
+    } catch (error) {
+      console.error('Import error:', error);
+      message.error(t('script.importFailed'));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleCreate = async (values: Partial<Script>) => {
     try {
@@ -111,6 +157,12 @@ export default function ScriptList() {
       icon: <CopyOutlined />,
       label: t('common.copy'),
       onClick: () => handleCopy(record.id),
+    },
+    {
+      key: 'export',
+      icon: <DownloadOutlined />,
+      label: t('script.exportScript'),
+      onClick: () => handleExport(record.id, record.title),
     },
     { type: 'divider' },
     {
@@ -180,10 +232,34 @@ export default function ScriptList() {
         title={t('script.title')}
         subtitle={t('script.subtitle')}
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-            {t('script.createScript')}
-          </Button>
+          <Space>
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => fileInputRef.current?.click()}
+              loading={importing}
+            >
+              {t('script.importScript')}
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+              {t('script.createScript')}
+            </Button>
+          </Space>
         }
+      />
+
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            handleImport(file);
+            e.target.value = '';
+          }
+        }}
       />
 
       <Space style={{ marginBottom: 16 }}>

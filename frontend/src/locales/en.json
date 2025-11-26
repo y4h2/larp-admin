@@ -87,7 +87,13 @@
     "motivePlaceholder": "The motive for the crime",
     "crimeMethod": "Crime Method",
     "crimeMethodPlaceholder": "How the crime was committed",
-    "totalScripts": "Total {{total}} scripts"
+    "totalScripts": "Total {{total}} scripts",
+    "exportScript": "Export",
+    "importScript": "Import",
+    "exportSuccess": "Script exported successfully",
+    "exportFailed": "Failed to export script",
+    "importSuccess": "Script imported successfully",
+    "importFailed": "Failed to import script"
   },
   "npc": {
     "title": "NPC Management",
