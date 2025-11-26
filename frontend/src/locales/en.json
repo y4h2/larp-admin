@@ -163,7 +163,14 @@
     "dependencies": "dependencies",
     "displayFields": "Display Fields",
     "dependencyAddedUnsaved": "Dependency added (click Save to apply)",
-    "dependencyRemovedUnsaved": "Dependency removed (click Save to apply)"
+    "dependencyRemovedUnsaved": "Dependency removed (click Save to apply)",
+    "expandAll": "Expand All",
+    "collapseAll": "Collapse All",
+    "clearPositions": "Reset Layout",
+    "clearPositionsConfirm": "Reset all node positions to automatic layout?",
+    "positionsCleared": "Layout reset to automatic",
+    "calculating": "Calculating layout...",
+    "dragToReposition": "Drag nodes to reposition"
   },
   "debug": {
     "simulation": "Dialogue Simulation",

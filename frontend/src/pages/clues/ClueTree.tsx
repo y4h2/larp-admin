@@ -16,6 +16,7 @@ import {
   Dropdown,
   Checkbox,
   App,
+  Tooltip,
 } from 'antd';
 import {
   ReactFlow,
@@ -33,6 +34,7 @@ import {
   type NodeTypes,
   type EdgeTypes,
   type EdgeChange,
+  type NodeChange,
   Handle,
   Position,
   MarkerType,
@@ -45,14 +47,20 @@ import {
   DeleteOutlined,
   SettingOutlined,
   SaveOutlined,
+  MinusSquareOutlined,
+  PlusSquareOutlined,
+  AimOutlined,
 } from '@ant-design/icons';
-import dagre from 'dagre';
+import ELK from 'elkjs/lib/elk.bundled.js';
 import { PageHeader } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
 import { useScripts, useNpcs } from '@/hooks';
 
 const { Option } = Select;
 const { Text } = Typography;
+
+// ELK instance
+const elk = new ELK();
 
 // Available fields that can be shown on clue nodes
 type ClueNodeField =
@@ -79,11 +87,43 @@ const ALL_CLUE_FIELDS: { field: ClueNodeField; labelKey: string }[] = [
   { field: 'updated_at', labelKey: 'common.updatedAt' },
 ];
 
+// Local storage key for saved positions
+const POSITIONS_STORAGE_KEY = 'clue-tree-positions';
+
+interface SavedPositions {
+  [scriptId: string]: {
+    [nodeId: string]: { x: number; y: number };
+  };
+}
+
+// Load saved positions from localStorage
+function loadSavedPositions(): SavedPositions {
+  try {
+    const saved = localStorage.getItem(POSITIONS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Save positions to localStorage
+function savePositionsToStorage(positions: SavedPositions): void {
+  try {
+    localStorage.setItem(POSITIONS_STORAGE_KEY, JSON.stringify(positions));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 interface ClueNodeData {
   clue: ClueTreeNode;
   onClick: (clueId: string) => void;
+  onToggleCollapse: (clueId: string) => void;
   visibleFields: ClueNodeField[];
-  npcMap: Map<string, string>; // npc_id -> npc name
+  npcMap: Map<string, string>;
+  isCollapsed: boolean;
+  hasChildren: boolean;
+  hiddenChildCount: number;
 }
 
 // Helper to format date for display
@@ -95,7 +135,7 @@ function formatShortDate(dateStr?: string): string {
 
 // Custom node component for clues
 function ClueNode({ data }: { data: ClueNodeData }) {
-  const { clue, onClick, visibleFields, npcMap } = data;
+  const { clue, onClick, onToggleCollapse, visibleFields, npcMap, isCollapsed, hasChildren, hiddenChildCount } = data;
 
   const typeColor = clue.type === 'image' ? '#722ed1' : '#1890ff';
 
@@ -109,21 +149,55 @@ function ClueNode({ data }: { data: ClueNodeData }) {
   const showCreatedAt = visibleFields.includes('created_at');
   const showUpdatedAt = visibleFields.includes('updated_at');
 
+  const handleCollapseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleCollapse(clue.id);
+  };
+
   return (
     <div
       style={{
         padding: '10px 14px',
         border: `2px solid ${typeColor}`,
         borderRadius: 8,
-        background: '#fff',
+        background: isCollapsed ? '#f5f5f5' : '#fff',
         minWidth: 120,
         maxWidth: 240,
         cursor: 'pointer',
         boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        position: 'relative',
       }}
       onClick={() => onClick(clue.id)}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
+
+      {/* Collapse/Expand button */}
+      {hasChildren && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -10,
+            right: -10,
+            background: '#fff',
+            borderRadius: '50%',
+            width: 20,
+            height: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid #d9d9d9',
+            cursor: 'pointer',
+            zIndex: 10,
+          }}
+          onClick={handleCollapseClick}
+        >
+          {isCollapsed ? (
+            <PlusSquareOutlined style={{ fontSize: 12, color: '#1890ff' }} />
+          ) : (
+            <MinusSquareOutlined style={{ fontSize: 12, color: '#666' }} />
+          )}
+        </div>
+      )}
 
       {showName && (
         <div style={{ marginBottom: 4 }}>
@@ -184,6 +258,15 @@ function ClueNode({ data }: { data: ClueNodeData }) {
         </div>
       )}
 
+      {/* Hidden children indicator */}
+      {isCollapsed && hiddenChildCount > 0 && (
+        <div style={{ marginTop: 4 }}>
+          <Tag color="orange" style={{ margin: 0, fontSize: 10 }}>
+            +{hiddenChildCount} hidden
+          </Tag>
+        </div>
+      )}
+
       <Handle type="source" position={Position.Bottom} style={{ background: '#555' }} />
     </div>
   );
@@ -196,8 +279,8 @@ const nodeTypes: NodeTypes = {
 // Custom edge component with click handler
 interface ClickableEdgeData extends Record<string, unknown> {
   onDelete?: (source: string, target: string) => void;
-  edgeIndex?: number; // Index among edges with same target
-  totalEdgesToTarget?: number; // Total edges pointing to same target
+  edgeIndex?: number;
+  totalEdgesToTarget?: number;
 }
 
 function ClickableEdge(props: EdgeProps) {
@@ -220,10 +303,8 @@ function ClickableEdge(props: EdgeProps) {
 
   const edgeData = data as ClickableEdgeData | undefined;
 
-  // Calculate offset to separate overlapping edges
   const edgeIndex = edgeData?.edgeIndex ?? 0;
   const totalEdges = edgeData?.totalEdgesToTarget ?? 1;
-  // Spread edges horizontally: offset ranges from negative to positive
   const offsetX = totalEdges > 1
     ? (edgeIndex - (totalEdges - 1) / 2) * 25
     : 0;
@@ -247,7 +328,6 @@ function ClickableEdge(props: EdgeProps) {
 
   return (
     <>
-      {/* Highlight glow effect on hover */}
       {isHovered && (
         <path
           d={edgePath}
@@ -269,7 +349,6 @@ function ClickableEdge(props: EdgeProps) {
           transition: 'stroke 0.2s, stroke-width 0.2s',
         }}
       />
-      {/* Invisible wider path for easier clicking and hover detection */}
       <path
         d={edgePath}
         fill="none"
@@ -288,35 +367,30 @@ const edgeTypes: EdgeTypes = {
   clickable: ClickableEdge,
 };
 
-// Helper function to detect cycles in the dependency graph
+// Helper function to detect cycles
 function detectCycle(
   edges: Array<{ source: string; target: string }>,
   newSource: string,
   newTarget: string
 ): boolean {
-  // Build adjacency list including the new edge
   const adjacency = new Map<string, string[]>();
 
-  // Add existing edges
   edges.forEach((edge) => {
     const children = adjacency.get(edge.source) || [];
     children.push(edge.target);
     adjacency.set(edge.source, children);
   });
 
-  // Add the new edge
   const children = adjacency.get(newSource) || [];
   children.push(newTarget);
   adjacency.set(newSource, children);
 
-  // DFS to detect cycle: check if we can reach newSource from newTarget
   const visited = new Set<string>();
   const stack = [newTarget];
 
   while (stack.length > 0) {
     const current = stack.pop()!;
     if (current === newSource) {
-      // Found a path from newTarget back to newSource - this would create a cycle
       return true;
     }
     if (visited.has(current)) continue;
@@ -329,6 +403,35 @@ function detectCycle(
   return false;
 }
 
+// Get all descendants of a node
+function getDescendants(
+  nodeId: string,
+  edges: Array<{ source: string; target: string }>
+): Set<string> {
+  const descendants = new Set<string>();
+  const adjacency = new Map<string, string[]>();
+
+  // Build adjacency list (parent -> children)
+  edges.forEach((edge) => {
+    const children = adjacency.get(edge.source) || [];
+    children.push(edge.target);
+    adjacency.set(edge.source, children);
+  });
+
+  // BFS to find all descendants
+  const queue = adjacency.get(nodeId) || [];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (!descendants.has(current)) {
+      descendants.add(current);
+      const children = adjacency.get(current) || [];
+      queue.push(...children);
+    }
+  }
+
+  return descendants;
+}
+
 export default function ClueTree() {
   const { t } = useTranslation();
   const { modal, message } = App.useApp();
@@ -338,36 +441,44 @@ export default function ClueTree() {
   const { npcs, fetchNpcs } = useNpcs();
 
   const [loading, setLoading] = useState(false);
+  const [layouting, setLayouting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [treeData, setTreeData] = useState<ClueTreeData | null>(null);
   const [selectedClueId, setSelectedClueId] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [visibleFields, setVisibleFields] = useState<ClueNodeField[]>(DEFAULT_VISIBLE_FIELDS);
-  // Track pending changes: Map of clueId -> new prereq_clue_ids
   const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
+
+  // Collapsed nodes state
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
+  // Custom positions state (for manual dragging)
+  const [customPositions, setCustomPositions] = useState<{ [nodeId: string]: { x: number; y: number } }>({});
+  const [hasCustomPositions, setHasCustomPositions] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Ref to store the edge delete handler for use in edge components
   const edgeDeleteHandlerRef = useRef<((source: string, target: string) => void) | undefined>(undefined);
 
   const hasUnsavedChanges = pendingChanges.size > 0;
-
   const scriptId = searchParams.get('script_id');
 
   useEffect(() => {
     fetchScripts();
   }, [fetchScripts]);
 
-  // Fetch NPCs when script changes
   useEffect(() => {
     if (scriptId) {
       fetchNpcs({ script_id: scriptId });
+      // Load saved positions for this script
+      const allPositions = loadSavedPositions();
+      const scriptPositions = allPositions[scriptId] || {};
+      setCustomPositions(scriptPositions);
+      setHasCustomPositions(Object.keys(scriptPositions).length > 0);
     }
   }, [scriptId, fetchNpcs]);
 
-  // Create a map from npc_id to npc name
   const npcMap = useMemo(() => {
     const map = new Map<string, string>();
     npcs.forEach((npc) => {
@@ -381,7 +492,6 @@ export default function ClueTree() {
     setLoading(true);
     try {
       const data = await clueApi.getTree(scriptId);
-      // Normalize field names from backend
       const normalizedData: ClueTreeData = {
         ...data,
         nodes: data.nodes.map((node) => ({
@@ -404,6 +514,122 @@ export default function ClueTree() {
     }
   }, [scriptId, fetchTree]);
 
+  // Toggle collapse state for a node
+  const handleToggleCollapse = useCallback((nodeId: string) => {
+    setCollapsedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Calculate hidden nodes based on collapsed state
+  const { visibleNodeIds, hiddenNodeIds, childCountMap } = useMemo(() => {
+    if (!treeData) return { visibleNodeIds: new Set<string>(), hiddenNodeIds: new Set<string>(), childCountMap: new Map<string, number>() };
+
+    const allNodeIds = new Set(treeData.nodes.map((n) => n.id));
+    const hiddenIds = new Set<string>();
+    const childCounts = new Map<string, number>();
+
+    // For each collapsed node, hide all its descendants
+    collapsedNodes.forEach((collapsedId) => {
+      const descendants = getDescendants(collapsedId, treeData.edges);
+      descendants.forEach((id) => hiddenIds.add(id));
+      childCounts.set(collapsedId, descendants.size);
+    });
+
+    // But if a hidden node is also collapsed, its count shouldn't be shown
+    // since it's already hidden by a parent
+    const visibleIds = new Set<string>();
+    allNodeIds.forEach((id) => {
+      if (!hiddenIds.has(id)) {
+        visibleIds.add(id);
+      }
+    });
+
+    return { visibleNodeIds: visibleIds, hiddenNodeIds: hiddenIds, childCountMap: childCounts };
+  }, [treeData, collapsedNodes]);
+
+  // Check if a node has children
+  const hasChildrenMap = useMemo(() => {
+    if (!treeData) return new Map<string, boolean>();
+    const map = new Map<string, boolean>();
+    treeData.nodes.forEach((n) => map.set(n.id, false));
+    treeData.edges.forEach((e) => map.set(e.source, true));
+    return map;
+  }, [treeData]);
+
+  // Run ELK layout
+  const runElkLayout = useCallback(async (
+    nodesList: ClueTreeNode[],
+    edgesList: Array<{ source: string; target: string }>,
+    savedPositions: { [nodeId: string]: { x: number; y: number } }
+  ) => {
+    const nodeWidth = 180;
+    const nodeHeight = 60 + visibleFields.length * 20;
+
+    // If we have saved positions for all nodes, use them directly
+    const hasSavedPositionsForAll = nodesList.every((n) => savedPositions[n.id]);
+    if (hasSavedPositionsForAll && Object.keys(savedPositions).length > 0) {
+      return nodesList.map((node) => ({
+        id: node.id,
+        x: savedPositions[node.id].x,
+        y: savedPositions[node.id].y,
+      }));
+    }
+
+    // Otherwise, run ELK layout
+    const elkGraph = {
+      id: 'root',
+      layoutOptions: {
+        'elk.algorithm': 'layered',
+        'elk.direction': 'DOWN',
+        'elk.spacing.nodeNode': '80',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '120',
+        'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+        'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+        'elk.edgeRouting': 'ORTHOGONAL',
+      },
+      children: nodesList.map((node) => ({
+        id: node.id,
+        width: nodeWidth,
+        height: nodeHeight,
+        // Use saved position if available
+        ...(savedPositions[node.id] ? {
+          x: savedPositions[node.id].x,
+          y: savedPositions[node.id].y,
+        } : {}),
+      })),
+      edges: edgesList.map((edge, i) => ({
+        id: `e${i}`,
+        sources: [edge.source],
+        targets: [edge.target],
+      })),
+    };
+
+    try {
+      const layout = await elk.layout(elkGraph);
+      return (layout.children || []).map((node) => ({
+        id: node.id,
+        x: node.x || 0,
+        y: node.y || 0,
+      }));
+    } catch (error) {
+      console.error('ELK layout error:', error);
+      // Fallback to simple grid layout
+      return nodesList.map((node, i) => ({
+        id: node.id,
+        x: (i % 5) * 220,
+        y: Math.floor(i / 5) * 150,
+      }));
+    }
+  }, [visibleFields.length]);
+
   // Convert tree data to React Flow nodes and edges
   useEffect(() => {
     if (!treeData) return;
@@ -413,96 +639,149 @@ export default function ClueTree() {
       setDrawerVisible(true);
     };
 
-    // Build node map for quick lookup
-    const nodeMap = new Map<string, ClueTreeNode>();
-    treeData.nodes.forEach((node) => {
-      nodeMap.set(node.id, node);
-    });
+    // Filter visible nodes and edges
+    const visibleNodes = treeData.nodes.filter((n) => visibleNodeIds.has(n.id));
+    const visibleEdges = treeData.edges.filter(
+      (e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)
+    );
 
-    // Use dagre for automatic graph layout
-    const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    g.setGraph({
-      rankdir: 'TB', // Top to bottom
-      nodesep: 80,   // Horizontal spacing between nodes
-      ranksep: 120,  // Vertical spacing between ranks
-      marginx: 20,
-      marginy: 20,
-    });
+    setLayouting(true);
 
-    // Add nodes to dagre graph
-    treeData.nodes.forEach((node) => {
-      // Estimate node dimensions based on visible fields
-      const nodeWidth = 180;
-      const nodeHeight = 60 + visibleFields.length * 20;
-      g.setNode(node.id, { width: nodeWidth, height: nodeHeight });
-    });
+    runElkLayout(visibleNodes, visibleEdges, customPositions).then((positions) => {
+      const positionMap = new Map(positions.map((p) => [p.id, { x: p.x, y: p.y }]));
 
-    // Add edges to dagre graph
-    treeData.edges.forEach((edge) => {
-      g.setEdge(edge.source, edge.target);
-    });
-
-    // Run dagre layout
-    dagre.layout(g);
-
-    // Create positioned nodes from dagre results
-    const flowNodes: Node[] = treeData.nodes.map((node) => {
-      const nodeWithPosition = g.node(node.id);
-      return {
-        id: node.id,
-        type: 'clueNode',
-        position: {
-          x: nodeWithPosition.x - nodeWithPosition.width / 2,
-          y: nodeWithPosition.y - nodeWithPosition.height / 2,
-        },
-        data: {
-          clue: node,
-          onClick: handleClueClick,
-          visibleFields,
-          npcMap,
-        },
-      };
-    });
-
-    // Group edges by target to calculate offsets for overlapping edges
-    const edgesByTarget = new Map<string, typeof treeData.edges>();
-    treeData.edges.forEach((edge) => {
-      const existing = edgesByTarget.get(edge.target) || [];
-      existing.push(edge);
-      edgesByTarget.set(edge.target, existing);
-    });
-
-    // Create edges with persistent IDs based on source-target
-    const flowEdges: Edge[] = treeData.edges.map((edge) => {
-      const edgesToSameTarget = edgesByTarget.get(edge.target) || [];
-      const edgeIndex = edgesToSameTarget.findIndex(
-        (e) => e.source === edge.source && e.target === edge.target
-      );
-      return {
-        id: `${edge.source}->${edge.target}`,
-        source: edge.source,
-        target: edge.target,
-        type: 'clickable',
-        animated: false,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-        },
-        style: { stroke: '#888', strokeWidth: 2 },
-        data: {
-          onDelete: (source: string, target: string) => {
-            edgeDeleteHandlerRef.current?.(source, target);
+      const flowNodes: Node[] = visibleNodes.map((node) => {
+        const pos = positionMap.get(node.id) || { x: 0, y: 0 };
+        return {
+          id: node.id,
+          type: 'clueNode',
+          position: pos,
+          data: {
+            clue: node,
+            onClick: handleClueClick,
+            onToggleCollapse: handleToggleCollapse,
+            visibleFields,
+            npcMap,
+            isCollapsed: collapsedNodes.has(node.id),
+            hasChildren: hasChildrenMap.get(node.id) || false,
+            hiddenChildCount: childCountMap.get(node.id) || 0,
           },
-          edgeIndex,
-          totalEdgesToTarget: edgesToSameTarget.length,
-        },
-      };
+        };
+      });
+
+      // Group edges by target
+      const edgesByTarget = new Map<string, typeof visibleEdges>();
+      visibleEdges.forEach((edge) => {
+        const existing = edgesByTarget.get(edge.target) || [];
+        existing.push(edge);
+        edgesByTarget.set(edge.target, existing);
+      });
+
+      const flowEdges: Edge[] = visibleEdges.map((edge) => {
+        const edgesToSameTarget = edgesByTarget.get(edge.target) || [];
+        const edgeIndex = edgesToSameTarget.findIndex(
+          (e) => e.source === edge.source && e.target === edge.target
+        );
+        return {
+          id: `${edge.source}->${edge.target}`,
+          source: edge.source,
+          target: edge.target,
+          type: 'clickable',
+          animated: false,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+          },
+          style: { stroke: '#888', strokeWidth: 2 },
+          data: {
+            onDelete: (source: string, target: string) => {
+              edgeDeleteHandlerRef.current?.(source, target);
+            },
+            edgeIndex,
+            totalEdgesToTarget: edgesToSameTarget.length,
+          },
+        };
+      });
+
+      setNodes(flowNodes);
+      setEdges(flowEdges);
+      setLayouting(false);
     });
+  }, [treeData, setNodes, setEdges, visibleFields, npcMap, visibleNodeIds, collapsedNodes, hasChildrenMap, childCountMap, customPositions, runElkLayout, handleToggleCollapse]);
 
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [treeData, setNodes, setEdges, visibleFields, npcMap]);
+  // Handle node position changes (for saving custom positions)
+  const handleNodesChange = useCallback(
+    (changes: NodeChange<Node>[]) => {
+      onNodesChange(changes);
 
-  // Get current prerequisites for a node (considering pending changes)
+      // Check for position changes from dragging
+      const positionChanges = changes.filter(
+        (c) => c.type === 'position' && 'position' in c && c.position && !c.dragging
+      );
+
+      if (positionChanges.length > 0 && scriptId) {
+        const newPositions = { ...customPositions };
+        positionChanges.forEach((change) => {
+          if (change.type === 'position' && 'position' in change && change.position) {
+            newPositions[change.id] = change.position;
+          }
+        });
+        setCustomPositions(newPositions);
+        setHasCustomPositions(true);
+
+        // Save to localStorage
+        const allPositions = loadSavedPositions();
+        allPositions[scriptId] = newPositions;
+        savePositionsToStorage(allPositions);
+      }
+    },
+    [onNodesChange, customPositions, scriptId]
+  );
+
+  // Clear custom positions and re-layout
+  const handleClearPositions = useCallback(() => {
+    if (!scriptId) return;
+
+    modal.confirm({
+      title: t('clue.clearPositions'),
+      content: t('clue.clearPositionsConfirm'),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      onOk: () => {
+        setCustomPositions({});
+        setHasCustomPositions(false);
+
+        // Remove from localStorage
+        const allPositions = loadSavedPositions();
+        delete allPositions[scriptId];
+        savePositionsToStorage(allPositions);
+
+        // Force re-layout
+        if (treeData) {
+          setTreeData({ ...treeData });
+        }
+
+        message.success(t('clue.positionsCleared'));
+      },
+    });
+  }, [scriptId, modal, t, message, treeData]);
+
+  // Expand all collapsed nodes
+  const handleExpandAll = useCallback(() => {
+    setCollapsedNodes(new Set());
+  }, []);
+
+  // Collapse all nodes with children
+  const handleCollapseAll = useCallback(() => {
+    const nodesWithChildren = new Set<string>();
+    hasChildrenMap.forEach((hasChildren, nodeId) => {
+      if (hasChildren) {
+        nodesWithChildren.add(nodeId);
+      }
+    });
+    setCollapsedNodes(nodesWithChildren);
+  }, [hasChildrenMap]);
+
+  // Get current prerequisites for a node
   const getCurrentPrerequisites = useCallback(
     (nodeId: string): string[] => {
       if (pendingChanges.has(nodeId)) {
@@ -514,20 +793,17 @@ export default function ClueTree() {
     [treeData, pendingChanges]
   );
 
-  // Cycle detection and edge creation (now tracks locally instead of saving immediately)
+  // Handle new connection
   const onConnect = useCallback(
     (params: Connection) => {
       if (!params.source || !params.target) return;
 
-      // Prevent self-loop
       if (params.source === params.target) {
         message.error(t('clue.cannotSelfReference'));
         return;
       }
 
-      // Get current edges including pending changes
       const currentEdges = treeData?.edges.filter((e) => {
-        // Check if this edge was removed in pending changes
         const targetPrereqs = pendingChanges.get(e.target);
         if (targetPrereqs !== undefined) {
           return targetPrereqs.includes(e.source);
@@ -535,7 +811,6 @@ export default function ClueTree() {
         return true;
       }) || [];
 
-      // Add edges from pending additions
       pendingChanges.forEach((prereqs, targetId) => {
         const originalNode = treeData?.nodes.find((n) => n.id === targetId);
         const originalPrereqs = originalNode?.prereq_clue_ids || [];
@@ -546,20 +821,17 @@ export default function ClueTree() {
         });
       });
 
-      // Check for cycle
       if (detectCycle(currentEdges, params.source, params.target)) {
         message.error(t('clue.cycleDetected'));
         return;
       }
 
-      // Check if edge already exists
       const currentPrereqs = getCurrentPrerequisites(params.target);
       if (currentPrereqs.includes(params.source)) {
         message.warning(t('clue.dependencyExists'));
         return;
       }
 
-      // Add to pending changes
       const newPrerequisites = [...currentPrereqs, params.source];
       setPendingChanges((prev) => {
         const next = new Map(prev);
@@ -567,14 +839,11 @@ export default function ClueTree() {
         return next;
       });
 
-      // Update local edges display
       setEdges((eds) => {
-        // Count existing edges to the same target
         const existingEdgesToTarget = eds.filter((e) => e.target === params.target);
         const edgeIndex = existingEdgesToTarget.length;
         const totalEdgesToTarget = edgeIndex + 1;
 
-        // Update totalEdgesToTarget for existing edges to same target
         const updatedEdges = eds.map((e) => {
           if (e.target === params.target) {
             return {
@@ -593,9 +862,9 @@ export default function ClueTree() {
           source: params.source,
           target: params.target,
           type: 'clickable',
-          animated: true, // Animate to indicate unsaved
+          animated: true,
           markerEnd: { type: MarkerType.ArrowClosed },
-          style: { stroke: '#1890ff', strokeWidth: 2, strokeDasharray: '5 5' }, // Dashed blue to indicate unsaved
+          style: { stroke: '#1890ff', strokeWidth: 2, strokeDasharray: '5 5' },
           data: {
             onDelete: (source: string, target: string) => {
               edgeDeleteHandlerRef.current?.(source, target);
@@ -611,27 +880,24 @@ export default function ClueTree() {
     [treeData, pendingChanges, getCurrentPrerequisites, setEdges, message, t]
   );
 
-  // Handle edge deletion (now tracks locally instead of saving immediately)
+  // Handle edge deletion
   const handleEdgeDelete = useCallback(
     (source: string, target: string) => {
       const currentPrereqs = getCurrentPrerequisites(target);
       const newPrerequisites = currentPrereqs.filter((id) => id !== source);
 
-      // Add to pending changes
       setPendingChanges((prev) => {
         const next = new Map(prev);
         next.set(target, newPrerequisites);
         return next;
       });
 
-      // Update local edges display
       setEdges((eds) => eds.filter((e) => !(e.source === source && e.target === target)));
       message.info(t('clue.dependencyRemovedUnsaved'));
     },
     [getCurrentPrerequisites, setEdges, message, t]
   );
 
-  // Show delete confirmation modal - used by edge click handler
   const showDeleteConfirmModal = useCallback(
     (source: string, target: string) => {
       modal.confirm({
@@ -646,18 +912,16 @@ export default function ClueTree() {
     [modal, handleEdgeDelete, t]
   );
 
-  // Keep the ref updated
   useEffect(() => {
     edgeDeleteHandlerRef.current = showDeleteConfirmModal;
   }, [showDeleteConfirmModal]);
 
-  // Save all pending changes to backend
+  // Save pending changes
   const handleSaveChanges = useCallback(async () => {
     if (pendingChanges.size === 0) return;
 
     setSaving(true);
     try {
-      // Save all pending changes
       const savePromises = Array.from(pendingChanges.entries()).map(([clueId, prereqs]) =>
         clueApi.updateDependencies(clueId, prereqs)
       );
@@ -665,7 +929,7 @@ export default function ClueTree() {
 
       message.success(t('common.saveSuccess'));
       setPendingChanges(new Map());
-      fetchTree(); // Refresh to get latest data
+      fetchTree();
     } catch {
       message.error(t('common.saveFailed'));
     } finally {
@@ -673,7 +937,7 @@ export default function ClueTree() {
     }
   }, [pendingChanges, fetchTree, message, t]);
 
-  // Discard all pending changes
+  // Discard pending changes
   const handleDiscardChanges = useCallback(() => {
     modal.confirm({
       title: t('common.discardChanges'),
@@ -683,12 +947,12 @@ export default function ClueTree() {
       okButtonProps: { danger: true },
       onOk: () => {
         setPendingChanges(new Map());
-        fetchTree(); // Refresh to restore original state
+        fetchTree();
       },
     });
   }, [modal, fetchTree, t]);
 
-  // Handle edge changes (including deletion via backspace/delete key)
+  // Handle edge changes
   const handleEdgesChange = useCallback(
     (changes: EdgeChange<Edge>[]) => {
       const deleteChanges = changes.filter((change) => change.type === 'remove');
@@ -701,7 +965,7 @@ export default function ClueTree() {
             }
           }
         });
-        return; // Don't apply delete changes directly - handleEdgeDelete updates edges
+        return;
       }
       onEdgesChange(changes);
     },
@@ -798,9 +1062,35 @@ export default function ClueTree() {
             </Button>
           </Dropdown>
 
+          {/* Collapse controls */}
+          <Tooltip title={t('clue.expandAll')}>
+            <Button
+              icon={<PlusSquareOutlined />}
+              onClick={handleExpandAll}
+              disabled={collapsedNodes.size === 0}
+            />
+          </Tooltip>
+          <Tooltip title={t('clue.collapseAll')}>
+            <Button
+              icon={<MinusSquareOutlined />}
+              onClick={handleCollapseAll}
+            />
+          </Tooltip>
+
+          {/* Clear positions */}
+          {hasCustomPositions && (
+            <Tooltip title={t('clue.clearPositions')}>
+              <Button
+                icon={<AimOutlined />}
+                onClick={handleClearPositions}
+              />
+            </Tooltip>
+          )}
+
           {treeData && (
             <Text type="secondary">
-              {treeData.nodes.length} clues, {treeData.edges.length} {t('clue.dependencies')}
+              {visibleNodeIds.size}/{treeData.nodes.length} clues, {edges.length} {t('clue.dependencies')}
+              {hiddenNodeIds.size > 0 && ` (${hiddenNodeIds.size} hidden)`}
             </Text>
           )}
         </Space>
@@ -842,10 +1132,11 @@ export default function ClueTree() {
         <Card>
           <Empty description={t('clue.selectScriptToView')} />
         </Card>
-      ) : loading ? (
+      ) : loading || layouting ? (
         <Card>
           <div style={{ textAlign: 'center', padding: 100 }}>
             <Spin size="large" />
+            {layouting && <div style={{ marginTop: 16 }}>{t('clue.calculating')}</div>}
           </div>
         </Card>
       ) : !treeData || treeData.nodes.length === 0 ? (
@@ -858,7 +1149,7 @@ export default function ClueTree() {
             <ReactFlow
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
+              onNodesChange={handleNodesChange}
               onEdgesChange={handleEdgesChange}
               onConnect={onConnect}
               nodeTypes={nodeTypes}
@@ -889,13 +1180,14 @@ export default function ClueTree() {
                 nodeColor={(node) => {
                   const data = node.data as unknown as ClueNodeData;
                   if (!data?.clue) return '#eee';
+                  if (data.isCollapsed) return '#faad14';
                   return data.clue.type === 'image' ? '#722ed1' : '#1890ff';
                 }}
               />
             </ReactFlow>
           </div>
           <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0', fontSize: 12, color: '#888' }}>
-            {t('clue.treeHint')}
+            {t('clue.treeHint')} | {t('clue.dragToReposition')}
           </div>
         </Card>
       )}

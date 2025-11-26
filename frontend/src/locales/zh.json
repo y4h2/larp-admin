@@ -163,7 +163,14 @@
     "dependencies": "个依赖",
     "displayFields": "显示字段",
     "dependencyAddedUnsaved": "依赖已添加（点击保存以生效）",
-    "dependencyRemovedUnsaved": "依赖已移除（点击保存以生效）"
+    "dependencyRemovedUnsaved": "依赖已移除（点击保存以生效）",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
+    "clearPositions": "重置布局",
+    "clearPositionsConfirm": "确定要重置所有节点位置为自动布局吗？",
+    "positionsCleared": "布局已重置为自动布局",
+    "calculating": "正在计算布局...",
+    "dragToReposition": "拖拽节点可调整位置"
   },
   "debug": {
     "simulation": "对话模拟",
