@@ -86,7 +86,8 @@
     "motive": "动机",
     "motivePlaceholder": "犯罪动机",
     "crimeMethod": "作案手法",
-    "crimeMethodPlaceholder": "案件的作案手法"
+    "crimeMethodPlaceholder": "案件的作案手法",
+    "totalScripts": "共 {{total}} 个剧本"
   },
   "npc": {
     "title": "NPC管理",
@@ -113,7 +114,8 @@
     "doesNotKnow": "不知道的事情",
     "doesNotKnowPlaceholder": "NPC不知道的事情",
     "worldModelLimits": "世界模型限制",
-    "worldModelLimitsPlaceholder": "NPC世界观的限制"
+    "worldModelLimitsPlaceholder": "NPC世界观的限制",
+    "totalNpcs": "共 {{total}} 个NPC"
   },
   "clue": {
     "title": "线索管理",

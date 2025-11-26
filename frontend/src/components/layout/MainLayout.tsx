@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, theme, Button, Dropdown, Avatar, Space } from 'antd';
+import { Layout, Menu, theme, Button, Dropdown, Avatar, Space, Drawer, Grid } from 'antd';
 import type { MenuProps } from 'antd';
+
+const { useBreakpoint } = Grid;
 import {
   BookOutlined,
   UserOutlined,
@@ -81,6 +83,16 @@ export default function MainLayout() {
   const { sidebarCollapsed, setSidebarCollapsed, language, setLanguage } = useUIStore();
   const menuItems = getMenuItems(t);
   const [openKeys, setOpenKeys] = useState<string[]>(getAllParentKeys(menuItems));
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
+  // Auto-close drawer when navigating on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   const handleLanguageChange = (lang: 'en' | 'zh') => {
     setLanguage(lang);
@@ -141,50 +153,74 @@ export default function MainLayout() {
     setOpenKeys(keys);
   };
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={sidebarCollapsed}
-        width={240}
+  // Sidebar content (reused for both desktop Sider and mobile Drawer)
+  const sidebarContent = (
+    <>
+      <div
         style={{
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: isMobile ? 18 : (sidebarCollapsed ? 16 : 18),
+          fontWeight: 'bold',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
         }}
       >
-        <div
+        {isMobile ? t('app.title') : (sidebarCollapsed ? t('app.shortTitle') : t('app.title'))}
+      </div>
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={[getSelectedKey()]}
+        openKeys={isMobile ? openKeys : (sidebarCollapsed ? [] : openKeys)}
+        onOpenChange={handleOpenChange}
+        items={menuItems}
+        onClick={handleMenuClick}
+      />
+    </>
+  );
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      {/* Desktop Sider */}
+      {!isMobile && (
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={sidebarCollapsed}
+          width={240}
           style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: sidebarCollapsed ? 16 : 18,
-            fontWeight: 'bold',
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            overflow: 'auto',
+            height: '100vh',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
           }}
         >
-          {sidebarCollapsed ? t('app.shortTitle') : t('app.title')}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[getSelectedKey()]}
-          openKeys={sidebarCollapsed ? [] : openKeys}
-          onOpenChange={handleOpenChange}
-          items={menuItems}
-          onClick={handleMenuClick}
-        />
-      </Sider>
-      <Layout style={{ marginLeft: sidebarCollapsed ? 80 : 240, transition: 'margin-left 0.2s' }}>
+          {sidebarContent}
+        </Sider>
+      )}
+
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          onClose={() => setMobileDrawerOpen(false)}
+          open={mobileDrawerOpen}
+          styles={{ body: { padding: 0, background: '#001529' }, wrapper: { width: 240 } }}
+          closable={false}
+        >
+          {sidebarContent}
+        </Drawer>
+      )}
+
+      <Layout style={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? 80 : 240), transition: 'margin-left 0.2s' }}>
         <Header
           style={{
-            padding: '0 24px',
+            padding: '0 16px',
             background: colorBgContainer,
             display: 'flex',
             alignItems: 'center',
@@ -197,11 +233,11 @@ export default function MainLayout() {
         >
           <Button
             type="text"
-            icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            icon={isMobile ? <MenuUnfoldOutlined /> : (sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)}
+            onClick={() => isMobile ? setMobileDrawerOpen(true) : setSidebarCollapsed(!sidebarCollapsed)}
             style={{ fontSize: 16, width: 48, height: 48 }}
           />
-          <Space size="middle">
+          <Space size={isMobile ? 'small' : 'middle'}>
             <Dropdown menu={{ items: languageMenuItems, onClick: handleLanguageMenuClick }} placement="bottomRight">
               <Button type="text" icon={<TranslationOutlined />}>
                 {language === 'zh' ? '中文' : 'EN'}
@@ -209,16 +245,16 @@ export default function MainLayout() {
             </Dropdown>
             <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }}>
-                <Avatar icon={<UserOutlined />} />
-                <span>{t('user.admin')}</span>
+                <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
+                {!isMobile && <span>{t('user.admin')}</span>}
               </Space>
             </Dropdown>
           </Space>
         </Header>
         <Content
           style={{
-            margin: 24,
-            padding: 24,
+            margin: isMobile ? 12 : 24,
+            padding: isMobile ? 12 : 24,
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,

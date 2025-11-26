@@ -86,7 +86,8 @@
     "motive": "Motive",
     "motivePlaceholder": "The motive for the crime",
     "crimeMethod": "Crime Method",
-    "crimeMethodPlaceholder": "How the crime was committed"
+    "crimeMethodPlaceholder": "How the crime was committed",
+    "totalScripts": "Total {{total}} scripts"
   },
   "npc": {
     "title": "NPC Management",
@@ -113,7 +114,8 @@
     "doesNotKnow": "Does Not Know",
     "doesNotKnowPlaceholder": "Things the NPC does not know",
     "worldModelLimits": "World Model Limits",
-    "worldModelLimitsPlaceholder": "Limits of the NPC's world model"
+    "worldModelLimitsPlaceholder": "Limits of the NPC's world model",
+    "totalNpcs": "Total {{total}} NPCs"
   },
   "clue": {
     "title": "Clue Management",

@@ -353,7 +353,7 @@ export default function TemplateDetail() {
         <Col span={8}>
           <Card
             title={t('template.availableVariables')}
-            bodyStyle={{ maxHeight: 'calc(100vh - 250px)', overflow: 'auto' }}
+            styles={{ body: { maxHeight: 'calc(100vh - 250px)', overflow: 'auto' } }}
           >
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
               {t('template.clickToInsert')}

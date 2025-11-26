@@ -136,7 +136,7 @@ export default function ChatPanel({
           </Button>
         </Space>
       }
-      bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: 580 }}
+      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: 580 } }}
     >
       {/* Chat messages area - scrollable */}
       <div

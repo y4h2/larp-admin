@@ -87,7 +87,7 @@ export default function TemplatePreview({
           <Spin />
         </div>
       ) : error ? (
-        <Alert type="error" message={error} />
+        <Alert type="error" title={error} />
       ) : !renderResult ? (
         <Empty description={t('template.clickRenderToPreview')} />
       ) : (

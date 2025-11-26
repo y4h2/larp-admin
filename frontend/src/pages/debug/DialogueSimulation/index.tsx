@@ -583,7 +583,7 @@ export default function DialogueSimulation() {
       <Row gutter={[16, 16]}>
         {/* Left: Configuration */}
         <Col xs={24} sm={24} md={8} lg={6} xl={6}>
-          <Card title={t('debug.configuration')} size="small" bodyStyle={{ padding: '0 12px 12px' }}>
+          <Card title={t('debug.configuration')} size="small" styles={{ body: { padding: '0 12px 12px' } }}>
             <Tabs
               size="small"
               items={[
@@ -830,7 +830,7 @@ export default function DialogueSimulation() {
                         </>
                       )}
                       {enableNpcReply && ((!npcClueTemplateId && !npcNoClueTemplateId) || !npcChatConfigId) && (
-                        <Alert type="warning" message={t('debug.npcReplyConfigWarning')} showIcon style={{ fontSize: 12 }} />
+                        <Alert type="warning" title={t('debug.npcReplyConfigWarning')} showIcon style={{ fontSize: 12 }} />
                       )}
                     </Space>
                   ),
@@ -928,7 +928,7 @@ export default function DialogueSimulation() {
                             {renderedPreviews[clue.id].rendered_content || t('template.emptyResult')}
                           </div>
                           {renderedPreviews[clue.id].warnings.length > 0 && (
-                            <Alert type="warning" message={t('template.renderWarnings')} description={renderedPreviews[clue.id].warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />
+                            <Alert type="warning" title={t('template.renderWarnings')} description={renderedPreviews[clue.id].warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />
                           )}
                         </div>
                       )}
@@ -963,7 +963,7 @@ export default function DialogueSimulation() {
                   <div style={{ background: '#f9f0ff', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #d3adf7', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
                     {npcClueTemplatePreview.rendered_content || t('template.emptyResult')}
                   </div>
-                  {npcClueTemplatePreview.warnings.length > 0 && <Alert type="warning" message={t('template.renderWarnings')} description={npcClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
+                  {npcClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
                 </div>
               )}
             </Card>
@@ -992,7 +992,7 @@ export default function DialogueSimulation() {
                   <div style={{ background: '#fff7e6', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #ffd591', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
                     {npcNoClueTemplatePreview.rendered_content || t('template.emptyResult')}
                   </div>
-                  {npcNoClueTemplatePreview.warnings.length > 0 && <Alert type="warning" message={t('template.renderWarnings')} description={npcNoClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
+                  {npcNoClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcNoClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
                 </div>
               )}
             </Card>

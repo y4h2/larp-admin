@@ -119,11 +119,15 @@ interface ClueNodeData {
   clue: ClueTreeNode;
   onClick: (clueId: string) => void;
   onToggleCollapse: (clueId: string) => void;
+  onNodeHover: (nodeId: string | null) => void;
   visibleFields: ClueNodeField[];
   npcMap: Map<string, string>;
   isCollapsed: boolean;
   hasChildren: boolean;
   hiddenChildCount: number;
+  incomingEdgeCount: number;
+  incomingSourceNames: string[];
+  isHovered: boolean;
 }
 
 // Helper to format date for display
@@ -135,7 +139,11 @@ function formatShortDate(dateStr?: string): string {
 
 // Custom node component for clues
 function ClueNode({ data }: { data: ClueNodeData }) {
-  const { clue, onClick, onToggleCollapse, visibleFields, npcMap, isCollapsed, hasChildren, hiddenChildCount } = data;
+  const {
+    clue, onClick, onToggleCollapse, onNodeHover, visibleFields, npcMap,
+    isCollapsed, hasChildren, hiddenChildCount,
+    incomingEdgeCount, incomingSourceNames, isHovered
+  } = data;
 
   const typeColor = clue.type === 'image' ? '#722ed1' : '#1890ff';
 
@@ -158,18 +166,58 @@ function ClueNode({ data }: { data: ClueNodeData }) {
     <div
       style={{
         padding: '10px 14px',
-        border: `2px solid ${typeColor}`,
+        border: `2px solid ${isHovered ? '#1890ff' : typeColor}`,
         borderRadius: 8,
         background: isCollapsed ? '#f5f5f5' : '#fff',
         minWidth: 120,
         maxWidth: 240,
         cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        boxShadow: isHovered ? '0 0 12px rgba(24,144,255,0.5)' : '0 2px 8px rgba(0,0,0,0.1)',
         position: 'relative',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
       }}
       onClick={() => onClick(clue.id)}
+      onMouseEnter={() => onNodeHover(clue.id)}
+      onMouseLeave={() => onNodeHover(null)}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
+
+      {/* Incoming edge count badge */}
+      {incomingEdgeCount > 0 && (
+        <Tooltip
+          title={
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>来源节点:</div>
+              {incomingSourceNames.map((name, i) => (
+                <div key={i}>• {name}</div>
+              ))}
+            </div>
+          }
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: -8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: '#52c41a',
+              color: '#fff',
+              borderRadius: 10,
+              padding: '0 6px',
+              fontSize: 10,
+              fontWeight: 'bold',
+              minWidth: 18,
+              textAlign: 'center',
+              lineHeight: '16px',
+              zIndex: 10,
+              cursor: 'help',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            ↓{incomingEdgeCount}
+          </div>
+        </Tooltip>
+      )}
 
       {/* Collapse/Expand button */}
       {hasChildren && (
@@ -281,6 +329,8 @@ interface ClickableEdgeData extends Record<string, unknown> {
   onDelete?: (source: string, target: string) => void;
   edgeIndex?: number;
   totalEdgesToTarget?: number;
+  isHighlighted?: boolean;
+  sourceName?: string;
 }
 
 function ClickableEdge(props: EdgeProps) {
@@ -302,6 +352,7 @@ function ClickableEdge(props: EdgeProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const edgeData = data as ClickableEdgeData | undefined;
+  const isHighlighted = edgeData?.isHighlighted ?? false;
 
   const edgeIndex = edgeData?.edgeIndex ?? 0;
   const totalEdges = edgeData?.totalEdgesToTarget ?? 1;
@@ -326,14 +377,28 @@ function ClickableEdge(props: EdgeProps) {
     }
   };
 
+  // Determine edge color based on state
+  const getEdgeColor = () => {
+    if (isHovered) return '#ff4d4f';
+    if (isHighlighted) return '#1890ff';
+    return (style?.stroke as string) || '#888';
+  };
+
+  const getEdgeWidth = () => {
+    if (isHovered) return 3;
+    if (isHighlighted) return 2.5;
+    return (style?.strokeWidth as number) || 2;
+  };
+
   return (
     <>
-      {isHovered && (
+      {/* Glow effect on hover or highlight */}
+      {(isHovered || isHighlighted) && (
         <path
           d={edgePath}
           fill="none"
-          strokeWidth={8}
-          stroke="#ff4d4f"
+          strokeWidth={isHovered ? 8 : 6}
+          stroke={isHovered ? '#ff4d4f' : '#1890ff'}
           strokeOpacity={0.4}
           style={{ filter: 'blur(2px)' }}
         />
@@ -344,8 +409,8 @@ function ClickableEdge(props: EdgeProps) {
         markerEnd={markerEnd as string}
         style={{
           ...style,
-          stroke: isHovered ? '#ff4d4f' : (style?.stroke as string) || '#888',
-          strokeWidth: isHovered ? 3 : (style?.strokeWidth as number) || 2,
+          stroke: getEdgeColor(),
+          strokeWidth: getEdgeWidth(),
           transition: 'stroke 0.2s, stroke-width 0.2s',
         }}
       />
@@ -455,6 +520,9 @@ export default function ClueTree() {
   // Custom positions state (for manual dragging)
   const [customPositions, setCustomPositions] = useState<{ [nodeId: string]: { x: number; y: number } }>({});
   const [hasCustomPositions, setHasCustomPositions] = useState(false);
+
+  // Hovered node state for edge highlighting
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -647,11 +715,24 @@ export default function ClueTree() {
 
     setLayouting(true);
 
+    // Build node name map for edge source names
+    const nodeNameMap = new Map<string, string>();
+    visibleNodes.forEach((n) => nodeNameMap.set(n.id, n.name));
+
+    // Group edges by target for incoming edge count
+    const edgesByTarget = new Map<string, typeof visibleEdges>();
+    visibleEdges.forEach((edge) => {
+      const existing = edgesByTarget.get(edge.target) || [];
+      existing.push(edge);
+      edgesByTarget.set(edge.target, existing);
+    });
+
     runElkLayout(visibleNodes, visibleEdges, customPositions).then((positions) => {
       const positionMap = new Map(positions.map((p) => [p.id, { x: p.x, y: p.y }]));
 
       const flowNodes: Node[] = visibleNodes.map((node) => {
         const pos = positionMap.get(node.id) || { x: 0, y: 0 };
+        const incomingEdges = edgesByTarget.get(node.id) || [];
         return {
           id: node.id,
           type: 'clueNode',
@@ -660,21 +741,17 @@ export default function ClueTree() {
             clue: node,
             onClick: handleClueClick,
             onToggleCollapse: handleToggleCollapse,
+            onNodeHover: setHoveredNodeId,
             visibleFields,
             npcMap,
             isCollapsed: collapsedNodes.has(node.id),
             hasChildren: hasChildrenMap.get(node.id) || false,
             hiddenChildCount: childCountMap.get(node.id) || 0,
+            incomingEdgeCount: incomingEdges.length,
+            incomingSourceNames: incomingEdges.map((e) => nodeNameMap.get(e.source) || e.source),
+            isHovered: false, // Will be updated by separate effect
           },
         };
-      });
-
-      // Group edges by target
-      const edgesByTarget = new Map<string, typeof visibleEdges>();
-      visibleEdges.forEach((edge) => {
-        const existing = edgesByTarget.get(edge.target) || [];
-        existing.push(edge);
-        edgesByTarget.set(edge.target, existing);
       });
 
       const flowEdges: Edge[] = visibleEdges.map((edge) => {
@@ -698,6 +775,8 @@ export default function ClueTree() {
             },
             edgeIndex,
             totalEdgesToTarget: edgesToSameTarget.length,
+            sourceName: nodeNameMap.get(edge.source) || edge.source,
+            isHighlighted: false, // Will be updated by separate effect
           },
         };
       });
@@ -707,6 +786,33 @@ export default function ClueTree() {
       setLayouting(false);
     });
   }, [treeData, setNodes, setEdges, visibleFields, npcMap, visibleNodeIds, collapsedNodes, hasChildrenMap, childCountMap, customPositions, runElkLayout, handleToggleCollapse]);
+
+  // Update node/edge highlighting when hovered node changes
+  useEffect(() => {
+    if (!treeData) return;
+
+    // Update nodes to reflect hover state
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          isHovered: node.id === hoveredNodeId,
+        },
+      }))
+    );
+
+    // Update edges to highlight those connected to hovered node
+    setEdges((eds) =>
+      eds.map((edge) => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          isHighlighted: hoveredNodeId !== null && (edge.source === hoveredNodeId || edge.target === hoveredNodeId),
+        },
+      }))
+    );
+  }, [hoveredNodeId, treeData, setNodes, setEdges]);
 
   // Handle node position changes (for saving custom positions)
   const handleNodesChange = useCallback(

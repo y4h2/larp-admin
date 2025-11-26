@@ -243,10 +243,10 @@ export default function StatusBar({
       <Card
         size="small"
         style={{ marginBottom: 16 }}
-        bodyStyle={{ padding: '8px 16px' }}
+        styles={{ body: { padding: '8px 16px' } }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <Space split={<Divider type="vertical" />} wrap>
+          <Space separator={<Divider orientation="vertical" />} wrap>
             {configStatus.map((item, index) => (
               <Space key={index} size={4}>
                 <span>{item.icon}</span>
@@ -293,7 +293,7 @@ export default function StatusBar({
                 disabled={!selectedScript || !selectedNpc}
               />
             </Tooltip>
-            <Divider type="vertical" style={{ margin: '0 4px' }} />
+            <Divider orientation="vertical" style={{ margin: '0 4px' }} />
             <Tooltip title={t('debug.exportPresets')}>
               <Button
                 size="small"
