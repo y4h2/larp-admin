@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
 
+from app.api.utils import get_or_404, get_paginated_count, soft_delete, unset_default_for_type
 from app.database import DBSession
 from app.models.prompt_template import PromptTemplate, TemplateType
 from app.schemas.common import PaginatedResponse
@@ -74,7 +75,7 @@ async def create_template(
     """Create a new prompt template."""
     # If setting as default, unset other defaults of the same type
     if template_data.is_default:
-        await _unset_default_for_type(db, template_data.type)
+        await unset_default_for_type(db, PromptTemplate, template_data.type)
 
     # Extract variables from template content
     variables = template_renderer.extract_variables(template_data.content)
@@ -136,20 +137,7 @@ async def get_template(
     template_id: str,
 ) -> PromptTemplateResponse:
     """Get a prompt template by ID."""
-    result = await db.execute(
-        select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.deleted_at.is_(None),
-        )
-    )
-    template = result.scalars().first()
-
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Template with id {template_id} not found",
-        )
-
+    template = await get_or_404(db, PromptTemplate, template_id)
     return PromptTemplateResponse.model_validate(template)
 
 
@@ -160,23 +148,11 @@ async def update_template(
     template_data: PromptTemplateUpdate,
 ) -> PromptTemplateResponse:
     """Update an existing prompt template."""
-    result = await db.execute(
-        select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.deleted_at.is_(None),
-        )
-    )
-    template = result.scalars().first()
-
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Template with id {template_id} not found",
-        )
+    template = await get_or_404(db, PromptTemplate, template_id)
 
     # If setting as default, unset other defaults of the same type
     if template_data.is_default is True and not template.is_default:
-        await _unset_default_for_type(db, template.type.value)
+        await unset_default_for_type(db, PromptTemplate, template.type.value)
 
     # Update fields
     update_data = template_data.model_dump(exclude_unset=True)
@@ -203,23 +179,8 @@ async def delete_template(
     template_id: str,
 ) -> None:
     """Soft delete a prompt template."""
-    result = await db.execute(
-        select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.deleted_at.is_(None),
-        )
-    )
-    template = result.scalars().first()
-
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Template with id {template_id} not found",
-        )
-
-    template.deleted_at = func.now()
-    await db.commit()
-
+    template = await get_or_404(db, PromptTemplate, template_id)
+    await soft_delete(db, template)
     logger.info(f"Deleted prompt template: {template_id}")
 
 
@@ -229,19 +190,7 @@ async def duplicate_template(
     template_id: str,
 ) -> PromptTemplateResponse:
     """Duplicate a prompt template."""
-    result = await db.execute(
-        select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.deleted_at.is_(None),
-        )
-    )
-    template = result.scalars().first()
-
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Template with id {template_id} not found",
-        )
+    template = await get_or_404(db, PromptTemplate, template_id)
 
     new_template = PromptTemplate(
         id=str(uuid4()),
@@ -267,22 +216,10 @@ async def set_default_template(
     template_id: str,
 ) -> PromptTemplateResponse:
     """Set a template as the default for its type."""
-    result = await db.execute(
-        select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.deleted_at.is_(None),
-        )
-    )
-    template = result.scalars().first()
-
-    if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Template with id {template_id} not found",
-        )
+    template = await get_or_404(db, PromptTemplate, template_id)
 
     # Unset other defaults of the same type
-    await _unset_default_for_type(db, template.type.value)
+    await unset_default_for_type(db, PromptTemplate, template.type.value)
 
     # Set this one as default
     template.is_default = True
@@ -342,17 +279,3 @@ async def render_template(
         )
 
     return template_renderer.render(template_content, render_request.context)
-
-
-async def _unset_default_for_type(db: DBSession, template_type: str) -> None:
-    """Unset is_default for all templates of the given type."""
-    query = select(PromptTemplate).where(
-        PromptTemplate.deleted_at.is_(None),
-        PromptTemplate.type == template_type,
-        PromptTemplate.is_default.is_(True),
-    )
-    result = await db.execute(query)
-    templates = result.scalars().all()
-
-    for template in templates:
-        template.is_default = False

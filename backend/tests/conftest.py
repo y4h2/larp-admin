@@ -6,7 +6,10 @@ from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.types import JSON, Text
 
 from app.database import Base, get_db
 from app.main import app
@@ -16,13 +19,38 @@ from app.main import app
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
+def _set_sqlite_pragma(dbapi_conn, connection_record):
+    """Enable foreign keys for SQLite."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def _make_model_sqlite_compatible():
+    """Convert PostgreSQL-specific types to SQLite-compatible types."""
+    # Walk through all mapped columns and convert types
+    for table in Base.metadata.tables.values():
+        for column in table.columns:
+            if isinstance(column.type, JSONB):
+                column.type = JSON()
+            elif isinstance(column.type, ARRAY):
+                # SQLite doesn't support arrays, store as JSON
+                column.type = JSON()
+
+
 @pytest.fixture
 async def async_engine():
     """Create an async engine for testing."""
+    # Make models SQLite-compatible before creating tables
+    _make_model_sqlite_compatible()
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
     )
+
+    # Add SQLite-specific pragmas
+    event.listen(engine.sync_engine, "connect", _set_sqlite_pragma)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

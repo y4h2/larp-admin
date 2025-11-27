@@ -1,9 +1,10 @@
 """LLM Configuration API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.utils import get_or_404, soft_delete, unset_default_for_type
 from app.database import get_db
 from app.models.llm_config import LLMConfig, LLMConfigType
 from app.schemas.common import PaginatedResponse
@@ -61,7 +62,7 @@ async def create_llm_config(
     """Create a new LLM configuration."""
     # If setting as default, unset other defaults of the same type
     if config_in.is_default:
-        await _unset_default_for_type(db, config_in.type)
+        await unset_default_for_type(db, LLMConfig, config_in.type)
 
     config = LLMConfig(
         name=config_in.name,
@@ -106,15 +107,9 @@ async def get_llm_config(
     db: AsyncSession = Depends(get_db),
 ) -> LLMConfigResponse:
     """Get a specific LLM configuration by ID."""
-    query = select(LLMConfig).where(
-        LLMConfig.id == config_id,
-        LLMConfig.deleted_at.is_(None),
+    config = await get_or_404(
+        db, LLMConfig, config_id, error_message="LLM configuration not found"
     )
-    config = (await db.execute(query)).scalar_one_or_none()
-
-    if not config:
-        raise HTTPException(status_code=404, detail="LLM configuration not found")
-
     return LLMConfigResponse.from_model(config)
 
 
@@ -125,18 +120,13 @@ async def update_llm_config(
     db: AsyncSession = Depends(get_db),
 ) -> LLMConfigResponse:
     """Update an existing LLM configuration."""
-    query = select(LLMConfig).where(
-        LLMConfig.id == config_id,
-        LLMConfig.deleted_at.is_(None),
+    config = await get_or_404(
+        db, LLMConfig, config_id, error_message="LLM configuration not found"
     )
-    config = (await db.execute(query)).scalar_one_or_none()
-
-    if not config:
-        raise HTTPException(status_code=404, detail="LLM configuration not found")
 
     # If setting as default, unset other defaults of the same type
     if config_in.is_default is True and not config.is_default:
-        await _unset_default_for_type(db, config.type.value)
+        await unset_default_for_type(db, LLMConfig, config.type.value)
 
     # Update fields
     update_data = config_in.model_dump(exclude_unset=True)
@@ -155,17 +145,10 @@ async def delete_llm_config(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Soft delete an LLM configuration."""
-    query = select(LLMConfig).where(
-        LLMConfig.id == config_id,
-        LLMConfig.deleted_at.is_(None),
+    config = await get_or_404(
+        db, LLMConfig, config_id, error_message="LLM configuration not found"
     )
-    config = (await db.execute(query)).scalar_one_or_none()
-
-    if not config:
-        raise HTTPException(status_code=404, detail="LLM configuration not found")
-
-    config.deleted_at = func.now()
-    await db.commit()
+    await soft_delete(db, config)
 
 
 @router.post("/{config_id}/set-default", response_model=LLMConfigResponse)
@@ -174,17 +157,12 @@ async def set_default_config(
     db: AsyncSession = Depends(get_db),
 ) -> LLMConfigResponse:
     """Set a configuration as the default for its type."""
-    query = select(LLMConfig).where(
-        LLMConfig.id == config_id,
-        LLMConfig.deleted_at.is_(None),
+    config = await get_or_404(
+        db, LLMConfig, config_id, error_message="LLM configuration not found"
     )
-    config = (await db.execute(query)).scalar_one_or_none()
-
-    if not config:
-        raise HTTPException(status_code=404, detail="LLM configuration not found")
 
     # Unset other defaults of the same type
-    await _unset_default_for_type(db, config.type.value)
+    await unset_default_for_type(db, LLMConfig, config.type.value)
 
     # Set this one as default
     config.is_default = True
@@ -192,17 +170,3 @@ async def set_default_config(
     await db.refresh(config)
 
     return LLMConfigResponse.from_model(config)
-
-
-async def _unset_default_for_type(db: AsyncSession, config_type: str) -> None:
-    """Unset is_default for all configs of the given type."""
-    query = select(LLMConfig).where(
-        LLMConfig.deleted_at.is_(None),
-        LLMConfig.type == config_type,
-        LLMConfig.is_default.is_(True),
-    )
-    result = await db.execute(query)
-    configs = result.scalars().all()
-
-    for config in configs:
-        config.is_default = False
