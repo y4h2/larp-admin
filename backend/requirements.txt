@@ -26,3 +26,4 @@ aiosqlite>=0.19.0
 # Linting and formatting
 ruff>=0.2.0
 mypy>=1.8.0
+nanoid==2.0.0

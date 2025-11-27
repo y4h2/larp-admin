@@ -2,13 +2,13 @@
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.utils import generate_npc_id
 
 if TYPE_CHECKING:
     from app.models.clue import Clue
@@ -31,12 +31,12 @@ class NPC(Base):
     __tablename__ = "npcs"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_npc_id,
     )
     script_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         ForeignKey("scripts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

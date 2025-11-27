@@ -1,13 +1,13 @@
 """Seed script to populate the database with test data."""
 
 import asyncio
-from uuid import uuid4
 import json
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker
+from app.utils import generate_script_id, generate_npc_id, generate_clue_id
 
 
 async def clear_data(session: AsyncSession):
@@ -26,7 +26,7 @@ async def seed_data():
         await clear_data(session)
 
         # ============ Script 1: 午夜庄园谜案 ============
-        script1_id = str(uuid4())
+        script1_id = generate_script_id()
         await session.execute(text("""
             INSERT INTO scripts (id, title, summary, background, difficulty, truth)
             VALUES (:id, :title, :summary, :background, :difficulty, :truth)
@@ -45,7 +45,7 @@ async def seed_data():
         })
 
         # Script 1 NPCs with knowledge_scope
-        npc1_1_id = str(uuid4())
+        npc1_1_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -76,7 +76,7 @@ async def seed_data():
             }),
         })
 
-        npc1_2_id = str(uuid4())
+        npc1_2_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -107,7 +107,7 @@ async def seed_data():
             }),
         })
 
-        npc1_3_id = str(uuid4())
+        npc1_3_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -139,7 +139,7 @@ async def seed_data():
         })
 
         # Script 1 Clues
-        clue1_1_id = str(uuid4())
+        clue1_1_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -156,7 +156,7 @@ async def seed_data():
             "prereq_clue_ids": [],
         })
 
-        clue1_2_id = str(uuid4())
+        clue1_2_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -173,7 +173,7 @@ async def seed_data():
             "prereq_clue_ids": [],
         })
 
-        clue1_3_id = str(uuid4())
+        clue1_3_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -190,7 +190,7 @@ async def seed_data():
             "prereq_clue_ids": [clue1_1_id],
         })
 
-        clue1_4_id = str(uuid4())
+        clue1_4_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -207,7 +207,7 @@ async def seed_data():
             "prereq_clue_ids": [clue1_1_id],
         })
 
-        clue1_5_id = str(uuid4())
+        clue1_5_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -225,7 +225,7 @@ async def seed_data():
         })
 
         # ============ Script 2: 赛博迷城2087 ============
-        script2_id = str(uuid4())
+        script2_id = generate_script_id()
         await session.execute(text("""
             INSERT INTO scripts (id, title, summary, background, difficulty, truth)
             VALUES (:id, :title, :summary, :background, :difficulty, :truth)
@@ -244,7 +244,7 @@ async def seed_data():
         })
 
         # Script 2 NPCs with knowledge_scope
-        npc2_1_id = str(uuid4())
+        npc2_1_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -276,7 +276,7 @@ async def seed_data():
             }),
         })
 
-        npc2_2_id = str(uuid4())
+        npc2_2_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -309,7 +309,7 @@ async def seed_data():
         })
 
         # Script 2 Clues
-        clue2_1_id = str(uuid4())
+        clue2_1_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -326,7 +326,7 @@ async def seed_data():
             "prereq_clue_ids": [],
         })
 
-        clue2_2_id = str(uuid4())
+        clue2_2_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -343,7 +343,7 @@ async def seed_data():
             "prereq_clue_ids": [clue2_1_id],
         })
 
-        clue2_3_id = str(uuid4())
+        clue2_3_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)
@@ -361,7 +361,7 @@ async def seed_data():
         })
 
         # ============ Script 3: 古墓谜影 ============
-        script3_id = str(uuid4())
+        script3_id = generate_script_id()
         await session.execute(text("""
             INSERT INTO scripts (id, title, summary, background, difficulty, truth)
             VALUES (:id, :title, :summary, :background, :difficulty, :truth)
@@ -380,7 +380,7 @@ async def seed_data():
         })
 
         # Script 3 NPC with knowledge_scope
-        npc3_1_id = str(uuid4())
+        npc3_1_id = generate_npc_id()
         await session.execute(text("""
             INSERT INTO npcs (id, script_id, name, age, background, personality, knowledge_scope)
             VALUES (:id, :script_id, :name, :age, :background, :personality, :knowledge_scope)
@@ -413,7 +413,7 @@ async def seed_data():
         })
 
         # Script 3 Clue
-        clue3_1_id = str(uuid4())
+        clue3_1_id = generate_clue_id()
         await session.execute(text("""
             INSERT INTO clues (id, script_id, npc_id, name, type, detail, detail_for_npc, trigger_keywords, trigger_semantic_summary, prereq_clue_ids)
             VALUES (:id, :script_id, :npc_id, :name, :type, :detail, :detail_for_npc, :trigger_keywords, :trigger_semantic_summary, :prereq_clue_ids)

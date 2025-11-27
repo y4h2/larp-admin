@@ -3,13 +3,13 @@
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from sqlalchemy import DateTime, Enum, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.utils import generate_script_id
 
 if TYPE_CHECKING:
     from app.models.clue import Clue
@@ -40,9 +40,9 @@ class Script(Base):
     __tablename__ = "scripts"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_script_id,
     )
     title: Mapped[str] = mapped_column(
         String(255),

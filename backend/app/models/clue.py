@@ -3,13 +3,13 @@
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.utils import generate_clue_id
 
 if TYPE_CHECKING:
     from app.models.npc import NPC
@@ -42,18 +42,18 @@ class Clue(Base):
     __tablename__ = "clues"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_clue_id,
     )
     script_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         ForeignKey("scripts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     npc_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         ForeignKey("npcs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -93,7 +93,7 @@ class Clue(Base):
         comment="Semantic summary for vector match",
     )
     prereq_clue_ids: Mapped[list[str]] = mapped_column(
-        ARRAY(UUID(as_uuid=False)),
+        ARRAY(String(20)),
         default=list,
         nullable=False,
         comment="Prerequisite clue IDs (前置线索)",

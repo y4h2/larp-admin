@@ -2,13 +2,13 @@
 
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.utils import generate_dialogue_log_id
 
 
 class DialogueLog(Base):
@@ -22,9 +22,9 @@ class DialogueLog(Base):
     __tablename__ = "dialogue_logs"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_dialogue_log_id,
     )
     session_id: Mapped[str] = mapped_column(
         String(64),
@@ -33,13 +33,13 @@ class DialogueLog(Base):
         comment="Session identifier for grouping related dialogue logs",
     )
     script_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         ForeignKey("scripts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     npc_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         ForeignKey("npcs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -63,7 +63,7 @@ class DialogueLog(Base):
         comment="All matched clues with scores",
     )
     triggered_clues: Mapped[list[str]] = mapped_column(
-        ARRAY(UUID(as_uuid=False)),
+        ARRAY(String(20)),
         default=list,
         nullable=False,
         comment="Final triggered clue IDs",

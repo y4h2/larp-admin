@@ -7,13 +7,13 @@ nested field access for clue, npc, and script objects.
 import enum
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, Enum, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.utils import generate_template_id
 
 
 class TemplateType(str, enum.Enum):
@@ -47,9 +47,9 @@ class PromptTemplate(Base):
     __tablename__ = "prompt_templates"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_template_id,
     )
     name: Mapped[str] = mapped_column(
         String(255),

@@ -3,13 +3,13 @@
 import enum
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, Enum, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.utils import generate_llm_config_id
 
 
 class LLMConfigType(str, enum.Enum):
@@ -36,9 +36,9 @@ class LLMConfig(Base):
     __tablename__ = "llm_configs"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        String(20),
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=generate_llm_config_id,
     )
     name: Mapped[str] = mapped_column(
         String(255),
