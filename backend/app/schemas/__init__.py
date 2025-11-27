@@ -1,12 +1,13 @@
-"""Pydantic schemas for request/response validation."""
+"""Pydantic schemas for request/response validation.
+
+Note: CRUD schemas for scripts, npcs, clues removed - now handled via Supabase PostgREST.
+Only complex operation schemas (export/import, clue-tree) and API-specific schemas are kept.
+"""
 
 from app.schemas.clue import (
-    ClueCreate,
-    ClueResponse,
     ClueTreeEdge,
     ClueTreeNode,
     ClueTreeResponse,
-    ClueUpdate,
 )
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.debug_audit_log import (
@@ -14,8 +15,7 @@ from app.schemas.debug_audit_log import (
     DebugAuditLogResponse,
 )
 from app.schemas.log import DialogueLogResponse
-from app.schemas.npc import NPCCreate, NPCResponse, NPCUpdate
-from app.schemas.script import ScriptCreate, ScriptResponse, ScriptUpdate
+from app.schemas.script import ScriptResponse
 from app.schemas.simulate import SimulateRequest, SimulateResponse
 
 __all__ = [
@@ -23,17 +23,8 @@ __all__ = [
     "PaginationParams",
     "PaginatedResponse",
     # Script
-    "ScriptCreate",
-    "ScriptUpdate",
     "ScriptResponse",
-    # NPC
-    "NPCCreate",
-    "NPCUpdate",
-    "NPCResponse",
-    # Clue
-    "ClueCreate",
-    "ClueUpdate",
-    "ClueResponse",
+    # Clue Tree
     "ClueTreeNode",
     "ClueTreeEdge",
     "ClueTreeResponse",
