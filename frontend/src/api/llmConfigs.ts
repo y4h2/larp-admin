@@ -90,10 +90,10 @@ export const llmConfigApi = {
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
 
+    // RLS policy automatically filters deleted_at IS NULL
     let query = supabase
       .from('llm_configs')
       .select('*', { count: 'exact' })
-      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
       .range(from, to);
 
@@ -122,11 +122,11 @@ export const llmConfigApi = {
   },
 
   get: async (id: string): Promise<LLMConfig> => {
+    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('llm_configs')
       .select('*')
       .eq('id', id)
-      .is('deleted_at', null)
       .single();
 
     if (error) throw new Error(error.message);
@@ -243,10 +243,10 @@ export const llmConfigApi = {
   },
 
   getDefaults: async (): Promise<Record<string, LLMConfig | null>> => {
+    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('llm_configs')
       .select('*')
-      .is('deleted_at', null)
       .eq('is_default', true);
 
     if (error) throw new Error(error.message);

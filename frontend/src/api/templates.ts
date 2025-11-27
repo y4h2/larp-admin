@@ -107,10 +107,10 @@ export const templateApi = {
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
 
+    // RLS policy automatically filters deleted_at IS NULL
     let query = supabase
       .from('prompt_templates')
       .select('*', { count: 'exact' })
-      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
       .range(from, to);
 
@@ -139,11 +139,11 @@ export const templateApi = {
   },
 
   get: async (id: string): Promise<PromptTemplate> => {
+    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('prompt_templates')
       .select('*')
       .eq('id', id)
-      .is('deleted_at', null)
       .single();
 
     if (error) throw new Error(error.message);
@@ -301,10 +301,10 @@ export const templateApi = {
   },
 
   getDefaults: async (): Promise<Record<string, PromptTemplate | null>> => {
+    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('prompt_templates')
       .select('*')
-      .is('deleted_at', null)
       .eq('is_default', true);
 
     if (error) throw new Error(error.message);
