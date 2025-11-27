@@ -1,1 +1,6 @@
 .playwright-mcp
+
+# Supabase local setup
+infra/supabase/.env
+infra/supabase/volumes/db/data
+infra/supabase/volumes/storage
