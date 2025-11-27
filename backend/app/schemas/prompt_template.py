@@ -1,76 +1,12 @@
-"""PromptTemplate schemas for request/response validation.
+"""PromptTemplate schemas for template rendering.
 
-Supports template syntax like '{clue.name}:{clue.detail}' with jsonpath-style
-nested field access.
+CRUD operations are now handled via Supabase PostgREST.
+Only render-related schemas are kept here.
 """
 
-from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
-
-# Template types
-TemplateTypeEnum = Literal["clue_embedding", "npc_system_prompt", "clue_reveal", "custom"]
-
-
-class PromptTemplateBase(BaseModel):
-    """Base schema for PromptTemplate."""
-
-    name: str = Field(
-        ...,
-        min_length=1,
-        max_length=255,
-        description="Template display name",
-    )
-    description: str | None = Field(
-        None,
-        description="Template description",
-    )
-    type: TemplateTypeEnum = Field(
-        ...,
-        description="Template type/purpose",
-    )
-    content: str = Field(
-        ...,
-        min_length=1,
-        description="Template content with {var.path} placeholders",
-    )
-    is_default: bool = Field(
-        default=False,
-        description="Whether this is the default template for its type",
-    )
-
-
-class PromptTemplateCreate(PromptTemplateBase):
-    """Schema for creating a new PromptTemplate."""
-
-    pass
-
-
-class PromptTemplateUpdate(BaseModel):
-    """Schema for updating an existing PromptTemplate."""
-
-    name: str | None = Field(None, min_length=1, max_length=255)
-    description: str | None = None
-    type: TemplateTypeEnum | None = None
-    content: str | None = Field(None, min_length=1)
-    is_default: bool | None = None
-
-
-class PromptTemplateResponse(PromptTemplateBase):
-    """Schema for PromptTemplate response."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    variables: list[str] = Field(
-        default_factory=list,
-        description="Auto-extracted variable names from content",
-    )
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: datetime | None = None
+from pydantic import BaseModel, Field
 
 
 class TemplateRenderRequest(BaseModel):

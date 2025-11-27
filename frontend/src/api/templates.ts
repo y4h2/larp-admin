@@ -1,7 +1,13 @@
-import client from './client';
+import { supabase } from '@/lib/supabase';
+import type { Database } from '@/lib/database.types';
 import type { PaginatedResponse } from '@/types';
+import client from './client';
 
 export type TemplateType = 'clue_embedding' | 'npc_system_prompt' | 'clue_reveal' | 'custom';
+
+type TemplateRow = Database['public']['Tables']['prompt_templates']['Row'];
+type TemplateInsert = Database['public']['Tables']['prompt_templates']['Insert'];
+type TemplateUpdate = Database['public']['Tables']['prompt_templates']['Update'];
 
 export interface PromptTemplate {
   id: string;
@@ -68,46 +74,256 @@ export interface AvailableVariablesResponse {
   categories: VariableCategory[];
 }
 
+// Extract variables from template content (simple regex extraction)
+function extractVariables(content: string): string[] {
+  const regex = /\{([^}]+)\}/g;
+  const variables = new Set<string>();
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    variables.add(match[1]);
+  }
+  return Array.from(variables);
+}
+
+// Transform database row to API response format
+function transformRow(row: TemplateRow): PromptTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    type: row.type as TemplateType,
+    content: row.content,
+    is_default: row.is_default,
+    variables: row.variables,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at,
+  };
+}
+
 export const templateApi = {
   list: async (params: TemplateQueryParams = {}): Promise<PaginatedResponse<PromptTemplate>> => {
-    const response = await client.get('/templates', { params });
-    return response.data;
+    const { page = 1, page_size = 20, type, search } = params;
+    const from = (page - 1) * page_size;
+    const to = from + page_size - 1;
+
+    let query = supabase
+      .from('prompt_templates')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false })
+      .range(from, to);
+
+    if (type) {
+      query = query.eq('type', type);
+    }
+
+    if (search) {
+      query = query.ilike('name', `%${search}%`);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw new Error(error.message);
+
+    const total = count ?? 0;
+    const items = (data ?? []).map(transformRow);
+
+    return {
+      items,
+      total,
+      page,
+      page_size,
+      total_pages: Math.ceil(total / page_size),
+    };
   },
 
   get: async (id: string): Promise<PromptTemplate> => {
-    const response = await client.get(`/templates/${id}`);
-    return response.data;
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
+
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('Template not found');
+
+    return transformRow(data);
   },
 
-  create: async (data: TemplateCreateData): Promise<PromptTemplate> => {
-    const response = await client.post('/templates', data);
-    return response.data;
+  create: async (createData: TemplateCreateData): Promise<PromptTemplate> => {
+    // If setting as default, unset other defaults first
+    if (createData.is_default) {
+      await supabase
+        .from('prompt_templates')
+        .update({ is_default: false })
+        .eq('type', createData.type)
+        .eq('is_default', true);
+    }
+
+    const insertData: TemplateInsert = {
+      name: createData.name,
+      description: createData.description ?? null,
+      type: createData.type,
+      content: createData.content,
+      is_default: createData.is_default ?? false,
+      variables: extractVariables(createData.content),
+    };
+
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return transformRow(data);
   },
 
-  update: async (id: string, data: TemplateUpdateData): Promise<PromptTemplate> => {
-    const response = await client.put(`/templates/${id}`, data);
-    return response.data;
+  update: async (id: string, updateData: TemplateUpdateData): Promise<PromptTemplate> => {
+    // If setting as default, we need to know the type first
+    if (updateData.is_default) {
+      const targetType = updateData.type;
+      if (targetType) {
+        await supabase
+          .from('prompt_templates')
+          .update({ is_default: false })
+          .eq('type', targetType)
+          .eq('is_default', true)
+          .neq('id', id);
+      } else {
+        const { data: existing } = await supabase
+          .from('prompt_templates')
+          .select('type')
+          .eq('id', id)
+          .single();
+
+        if (existing) {
+          await supabase
+            .from('prompt_templates')
+            .update({ is_default: false })
+            .eq('type', existing.type)
+            .eq('is_default', true)
+            .neq('id', id);
+        }
+      }
+    }
+
+    const dbUpdate: TemplateUpdate = {};
+    if (updateData.name !== undefined) dbUpdate.name = updateData.name;
+    if (updateData.description !== undefined) dbUpdate.description = updateData.description;
+    if (updateData.type !== undefined) dbUpdate.type = updateData.type;
+    if (updateData.content !== undefined) {
+      dbUpdate.content = updateData.content;
+      dbUpdate.variables = extractVariables(updateData.content);
+    }
+    if (updateData.is_default !== undefined) dbUpdate.is_default = updateData.is_default;
+
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .update(dbUpdate)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return transformRow(data);
   },
 
   delete: async (id: string): Promise<void> => {
-    await client.delete(`/templates/${id}`);
+    // Soft delete
+    const { error } = await supabase
+      .from('prompt_templates')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
   },
 
   duplicate: async (id: string): Promise<PromptTemplate> => {
-    const response = await client.post(`/templates/${id}/duplicate`);
-    return response.data;
+    // Get original template
+    const { data: original, error: fetchError } = await supabase
+      .from('prompt_templates')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    // Create duplicate
+    const insertData: TemplateInsert = {
+      name: `${original.name} (Copy)`,
+      description: original.description,
+      type: original.type as TemplateType,
+      content: original.content,
+      is_default: false,
+      variables: original.variables,
+    };
+
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return transformRow(data);
   },
 
   setDefault: async (id: string): Promise<PromptTemplate> => {
-    const response = await client.post(`/templates/${id}/set-default`);
-    return response.data;
+    // Get current template to know its type
+    const { data: existing, error: fetchError } = await supabase
+      .from('prompt_templates')
+      .select('type')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    // Unset other defaults of the same type
+    await supabase
+      .from('prompt_templates')
+      .update({ is_default: false })
+      .eq('type', existing.type)
+      .eq('is_default', true);
+
+    // Set this one as default
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .update({ is_default: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return transformRow(data);
   },
 
   getDefaults: async (): Promise<Record<string, PromptTemplate | null>> => {
-    const response = await client.get('/templates/defaults');
-    return response.data;
+    const { data, error } = await supabase
+      .from('prompt_templates')
+      .select('*')
+      .is('deleted_at', null)
+      .eq('is_default', true);
+
+    if (error) throw new Error(error.message);
+
+    const result: Record<string, PromptTemplate | null> = {
+      clue_embedding: null,
+      npc_system_prompt: null,
+      clue_reveal: null,
+      custom: null,
+    };
+
+    for (const row of data ?? []) {
+      result[row.type] = transformRow(row);
+    }
+
+    return result;
   },
 
+  // These endpoints stay on the backend (require server-side logic)
   render: async (data: TemplateRenderRequest): Promise<TemplateRenderResponse> => {
     const response = await client.post('/templates/render', data);
     return response.data;
