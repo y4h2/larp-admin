@@ -115,12 +115,12 @@ export default function CursorOverlay({
       className="cursor-overlay"
       style={{
         position: 'absolute',
-        top: 0,
+        top: -20,
         left: 0,
         right: 0,
         bottom: 0,
         pointerEvents: 'none',
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       {cursorsWithPositions.map((cursor) => {
@@ -143,6 +143,7 @@ export default function CursorOverlay({
                 endPos={cursor.selectionEnd}
                 color={cursor.color}
                 textareaBounds={textareaBounds}
+                topOffset={20}
               />
             )}
 
@@ -151,7 +152,7 @@ export default function CursorOverlay({
               className="remote-cursor"
               style={{
                 position: 'absolute',
-                top: cursor.position.top,
+                top: cursor.position.top + 20,
                 left: cursor.position.left,
                 width: 2,
                 height: cursor.position.height,
@@ -204,11 +205,13 @@ function SelectionHighlight({
   endPos,
   color,
   textareaBounds,
+  topOffset = 0,
 }: {
   startPos: CursorPixelPosition;
   endPos: CursorPixelPosition;
   color: string;
   textareaBounds: { top: number; left: number; width: number; height: number };
+  topOffset?: number;
 }) {
   // Simple single-line selection for now
   // For multi-line selection, this would need to be more complex
@@ -219,7 +222,7 @@ function SelectionHighlight({
       <div
         style={{
           position: 'absolute',
-          top: startPos.top,
+          top: startPos.top + topOffset,
           left: startPos.left,
           width: Math.max(0, endPos.left - startPos.left),
           height: startPos.height,
@@ -241,7 +244,7 @@ function SelectionHighlight({
       key="first"
       style={{
         position: 'absolute',
-        top: startPos.top,
+        top: startPos.top + topOffset,
         left: startPos.left,
         width: textareaBounds.width - startPos.left + textareaBounds.left,
         height: lineHeight,
@@ -260,7 +263,7 @@ function SelectionHighlight({
         key={`middle-${i}`}
         style={{
           position: 'absolute',
-          top: startPos.top + lineHeight * (i + 1),
+          top: startPos.top + lineHeight * (i + 1) + topOffset,
           left: textareaBounds.left,
           width: textareaBounds.width,
           height: lineHeight,
@@ -278,7 +281,7 @@ function SelectionHighlight({
         key="last"
         style={{
           position: 'absolute',
-          top: endPos.top,
+          top: endPos.top + topOffset,
           left: textareaBounds.left,
           width: endPos.left - textareaBounds.left,
           height: lineHeight,
