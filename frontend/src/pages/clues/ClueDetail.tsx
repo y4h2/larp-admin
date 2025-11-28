@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,8 +14,9 @@ import {
   message,
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined } from '@ant-design/icons';
-import { PageHeader, ClueTypeTag } from '@/components/common';
-import { useClues, useScripts, useNpcs } from '@/hooks';
+import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
+import { usePresence } from '@/contexts/PresenceContext';
+import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
 import { clueApi } from '@/api';
 import type { Clue } from '@/types';
 
@@ -27,14 +28,36 @@ export default function ClueDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const { trackEditing, stopEditing } = usePresence();
   const { fetchClue, updateClue, deleteClue } = useClues();
   const { scripts, fetchScripts } = useScripts();
   const { npcs, fetchNpcs } = useNpcs();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [clue, setClue] = useState<Clue | null>(null);
+  const [initialClue, setInitialClue] = useState<Clue | null>(null);
   const [siblingClues, setSiblingClues] = useState<Clue[]>([]);
+
+  // Realtime sync hook
+  const handleRemoteChange = useCallback(
+    (remoteData: Clue) => {
+      form.setFieldsValue(remoteData);
+    },
+    [form]
+  );
+
+  const {
+    data: clue,
+    setLocalData,
+    lastMergeResult,
+    isConnected,
+  } = useRealtimeSync<Clue>({
+    table: 'clues',
+    id: id || '',
+    initialData: initialClue,
+    onRemoteChange: handleRemoteChange,
+    enabled: !!id && !loading,
+  });
 
   useEffect(() => {
     fetchScripts();
@@ -56,7 +79,7 @@ export default function ClueDetail() {
       setLoading(true);
       try {
         const data = await fetchClue(id);
-        setClue(data);
+        setInitialClue(data);
         form.setFieldsValue(data);
         if (data.script_id) {
           fetchNpcs({ script_id: data.script_id });
@@ -71,12 +94,23 @@ export default function ClueDetail() {
     loadClue();
   }, [id, fetchClue, form, fetchNpcs]);
 
+  // Track editing presence
+  useEffect(() => {
+    if (id) {
+      trackEditing('clue', id);
+    }
+    return () => {
+      stopEditing();
+    };
+  }, [id, trackEditing, stopEditing]);
+
   const handleSave = async (values: Partial<Clue>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await updateClue(id, values);
-      setClue(updated);
+      setLocalData(updated);
+      setInitialClue(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       // Error handled in hook
@@ -116,13 +150,19 @@ export default function ClueDetail() {
             <ClueTypeTag type={clue.type} />
           </Space>
         }
-        subtitle={`ID: ${clue.id}`}
+        subtitle={
+          <Space>
+            <span>{`ID: ${clue.id}`}</span>
+            <EditingIndicator type="clue" id={id!} />
+          </Space>
+        }
         breadcrumbs={[
           { title: t('clue.title'), path: '/clues' },
           { title: clue.name },
         ]}
         extra={
           <Space>
+            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/clues')}>
               {t('common.back')}
             </Button>

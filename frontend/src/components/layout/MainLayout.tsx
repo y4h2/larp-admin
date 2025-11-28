@@ -14,16 +14,19 @@ import {
   MenuUnfoldOutlined,
   TeamOutlined,
   NodeIndexOutlined,
-  HistoryOutlined,
   FileTextOutlined,
   CommentOutlined,
   MessageOutlined,
   TranslationOutlined,
   CodeOutlined,
   ApiOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store';
+import { useAuth } from '@/contexts/AuthContext';
+import { PresenceProvider } from '@/contexts/PresenceContext';
+import SidebarOnlineUsers from './SidebarOnlineUsers';
 
 const { Header, Sider, Content } = Layout;
 
@@ -54,6 +57,19 @@ const getAllParentKeys = (items: MenuItem[]): string[] => {
   return keys;
 };
 
+// Check if current path is a collaborative editing page (detail pages)
+const isCollaborativePage = (pathname: string): boolean => {
+  // Match /scripts/:id, /npcs/:id, /clues/:id (but not list or tree pages)
+  const patterns = [
+    /^\/scripts\/[^/]+$/,
+    /^\/npcs\/[^/]+$/,
+    /^\/clues\/[^/]+$/,
+  ];
+  // Exclude /clues/tree
+  if (pathname === '/clues/tree') return false;
+  return patterns.some((pattern) => pattern.test(pathname));
+};
+
 // Menu items generator function that uses translations
 const getMenuItems = (t: (key: string) => string): MenuItem[] => [
   getItem(t('menu.scriptManagement'), 'scripts', <BookOutlined />, [
@@ -81,11 +97,13 @@ export default function MainLayout() {
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const { sidebarCollapsed, setSidebarCollapsed, language, setLanguage } = useUIStore();
+  const { user, signOut } = useAuth();
   const menuItems = getMenuItems(t);
   const [openKeys, setOpenKeys] = useState<string[]>(getAllParentKeys(menuItems));
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const showCollaborativeFeatures = isCollaborativePage(location.pathname);
 
   // Auto-close drawer when navigating on mobile
   useEffect(() => {
@@ -110,10 +128,8 @@ export default function MainLayout() {
   };
 
   const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', label: t('user.profile'), icon: <UserOutlined /> },
-    { key: 'history', label: t('user.activityHistory'), icon: <HistoryOutlined /> },
     { type: 'divider' },
-    { key: 'logout', label: t('user.logout'), danger: true },
+    { key: 'logout', label: t('user.logout'), icon: <LogoutOutlined />, danger: true },
   ];
 
   const languageMenuItems: MenuProps['items'] = [
@@ -133,12 +149,10 @@ export default function MainLayout() {
     handleLanguageChange(key as 'en' | 'zh');
   };
 
-  const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
+  const handleUserMenuClick: MenuProps['onClick'] = async ({ key }) => {
     if (key === 'logout') {
-      localStorage.removeItem('auth_token');
+      await signOut();
       navigate('/login');
-    } else if (key === 'profile') {
-      navigate('/settings/profile');
     }
   };
 
@@ -155,7 +169,7 @@ export default function MainLayout() {
 
   // Sidebar content (reused for both desktop Sider and mobile Drawer)
   const sidebarContent = (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div
         style={{
           height: 64,
@@ -178,13 +192,18 @@ export default function MainLayout() {
         onOpenChange={handleOpenChange}
         items={menuItems}
         onClick={handleMenuClick}
+        style={{ flex: 1 }}
       />
-    </>
+      {showCollaborativeFeatures && (
+        <SidebarOnlineUsers collapsed={!isMobile && sidebarCollapsed} />
+      )}
+    </div>
   );
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      {/* Desktop Sider */}
+    <PresenceProvider>
+      <Layout style={{ minHeight: '100vh' }}>
+        {/* Desktop Sider */}
       {!isMobile && (
         <Sider
           trigger={null}
@@ -246,7 +265,7 @@ export default function MainLayout() {
             <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
-                {!isMobile && <span>{t('user.admin')}</span>}
+                {!isMobile && <span>{user?.email || t('user.admin')}</span>}
               </Space>
             </Dropdown>
           </Space>
@@ -262,7 +281,8 @@ export default function MainLayout() {
         >
           <Outlet />
         </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </PresenceProvider>
   );
 }

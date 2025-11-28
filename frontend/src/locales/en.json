@@ -54,9 +54,41 @@
     "logout": "Logout",
     "admin": "Admin"
   },
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "emailRequired": "Please enter your email",
+    "emailInvalid": "Please enter a valid email",
+    "emailPlaceholder": "Email address",
+    "passwordRequired": "Please enter your password",
+    "passwordPlaceholder": "Password",
+    "loginFailed": "Login failed",
+    "signIn": "Sign In",
+    "welcomeBack": "Welcome Back",
+    "signInToContinue": "Sign in to continue to admin panel",
+    "loginSubtitle": "Sign in to continue to admin panel"
+  },
   "language": {
     "en": "English",
     "zh": "Chinese"
+  },
+  "presence": {
+    "onlineUsers": "Online Users",
+    "viewing": "Viewing",
+    "editing": "Editing",
+    "editingThis": "{{name}} is editing this {{type}}",
+    "multipleEditing": "{{count}} people are editing this {{type}}",
+    "lastSeen": "Last seen {{time}}"
+  },
+  "sync": {
+    "synced": "Synced",
+    "syncing": "Syncing...",
+    "conflictResolved": "Changes merged",
+    "autoMerged": "Auto-merged changes from {{name}}",
+    "fieldsUpdated": "Updated fields: {{fields}}",
+    "viewDiff": "View changes",
+    "revert": "Revert"
   },
   "script": {
     "title": "Script Management",

@@ -11,13 +11,15 @@ import {
   Empty,
   Row,
   Col,
+  Space,
   message,
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
+import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, type ResizableColumn } from '@/components/common';
+import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
-import { useScripts } from '@/hooks';
+import { useScripts, useRealtimeSync } from '@/hooks';
 import type { NPC, Clue } from '@/types';
 
 const { Option } = Select;
@@ -28,13 +30,43 @@ export default function NpcDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const { trackEditing, stopEditing } = usePresence();
 
   const { scripts, fetchScripts } = useScripts();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [npc, setNpc] = useState<NPC | null>(null);
+  const [initialNpc, setInitialNpc] = useState<NPC | null>(null);
   const [relatedClues, setRelatedClues] = useState<Clue[]>([]);
+
+  // Realtime sync hook
+  const handleRemoteChange = useCallback(
+    (remoteData: NPC) => {
+      const formData = {
+        ...remoteData,
+        knowledge_scope: {
+          knows: remoteData.knowledge_scope?.knows || [],
+          does_not_know: remoteData.knowledge_scope?.does_not_know || [],
+          world_model_limits: remoteData.knowledge_scope?.world_model_limits || [],
+        },
+      };
+      form.setFieldsValue(formData);
+    },
+    [form]
+  );
+
+  const {
+    data: npc,
+    setLocalData,
+    lastMergeResult,
+    isConnected,
+  } = useRealtimeSync<NPC>({
+    table: 'npcs',
+    id: id || '',
+    initialData: initialNpc,
+    onRemoteChange: handleRemoteChange,
+    enabled: !!id && !loading,
+  });
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -44,7 +76,7 @@ export default function NpcDetail() {
         npcApi.get(id),
         clueApi.list({ npc_id: id, page_size: 100 }),
       ]);
-      setNpc(npcData);
+      setInitialNpc(npcData);
       setRelatedClues(cluesData.items);
       // Ensure knowledge_scope has default values
       const formData = {
@@ -72,12 +104,23 @@ export default function NpcDetail() {
     fetchData();
   }, [fetchData]);
 
+  // Track editing presence
+  useEffect(() => {
+    if (id) {
+      trackEditing('npc', id);
+    }
+    return () => {
+      stopEditing();
+    };
+  }, [id, trackEditing, stopEditing]);
+
   const handleSave = async (values: Partial<NPC>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await npcApi.update(id, values);
-      setNpc(updated);
+      setLocalData(updated);
+      setInitialNpc(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       message.error(t('common.saveFailed'));
@@ -127,20 +170,28 @@ export default function NpcDetail() {
     <div>
       <PageHeader
         title={npc.name}
-        subtitle={scriptTitle}
+        subtitle={
+          <Space>
+            <span>{scriptTitle}</span>
+            <EditingIndicator type="npc" id={id!} />
+          </Space>
+        }
         breadcrumbs={[
           { title: t('npc.title'), path: '/npcs' },
           { title: npc.name },
         ]}
         extra={
-          <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            loading={saving}
-            onClick={() => form.submit()}
-          >
-            {t('common.save')}
-          </Button>
+          <Space>
+            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={saving}
+              onClick={() => form.submit()}
+            >
+              {t('common.save')}
+            </Button>
+          </Space>
         }
       />
 
