@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useState, useCallback, useRef } from 'react';
-import { Select } from 'antd';
-import type { SelectProps, RefSelectProps } from 'antd';
+import { Select, Tooltip } from 'antd';
+import type { SelectProps, RefSelectProps, DefaultOptionType } from 'antd/es/select';
+import { LockOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserColor } from '@/utils/cursorPosition';
@@ -15,26 +16,39 @@ export interface CollaborativeMultiSelectProps extends Omit<SelectProps, 'ref' |
   mode?: 'multiple' | 'tags';
 }
 
-interface EditingUser {
+interface LockState {
+  lockedBy: {
+    id: string;
+    name: string;
+    color: string;
+  } | null;
+}
+
+interface PresenceState {
   id: string;
   name: string;
   color: string;
+  isEditing: boolean;
 }
 
 const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSelectProps>(
-  ({ docId, fieldName, mode = 'multiple', value, onChange, ...selectProps }, ref) => {
+  ({ docId, fieldName, mode = 'multiple', disabled, value, onChange, ...selectProps }, ref) => {
     const { user } = useAuth();
-    const [editingUsers, setEditingUsers] = useState<EditingUser[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
+    const [lockState, setLockState] = useState<LockState>({ lockedBy: null });
+    const [isEditing, setIsEditing] = useState(false);
     const channelRef = useRef<RealtimeChannel | null>(null);
     const localValueRef = useRef<unknown[]>(Array.isArray(value) ? value : []);
+    const dropdownOpenRef = useRef(false);
+
+    const isLockedByOther = lockState.lockedBy && lockState.lockedBy.id !== user?.id;
+    const isLockedBySelf = lockState.lockedBy?.id === user?.id;
 
     // Keep localValueRef in sync with value prop
     useEffect(() => {
       localValueRef.current = Array.isArray(value) ? value : [];
     }, [value]);
 
-    // Initialize presence channel
+    // Initialize presence channel for field locking and value sync
     useEffect(() => {
       if (!user) return;
 
@@ -46,46 +60,44 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
         },
       });
 
-      // Track presence state - show who is editing
+      // Track presence state for locking
       channel.on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const presences = Object.values(state).flat() as Array<{
-          id: string;
-          name: string;
-          color: string;
-          isEditing: boolean;
-        }>;
+        const presences: PresenceState[] = [];
 
-        // Show other users who are editing
-        const others = presences.filter((p) => p.isEditing && p.id !== user.id);
-        setEditingUsers(others.map(p => ({ id: p.id, name: p.name, color: p.color })));
+        Object.values(state).forEach((arr) => {
+          (arr as PresenceState[]).forEach((p) => {
+            if (p.id && p.name) {
+              presences.push(p);
+            }
+          });
+        });
+
+        // Find if someone else is editing
+        const editingUser = presences.find((p) => p.isEditing && p.id !== user.id);
+
+        if (editingUser) {
+          setLockState({
+            lockedBy: {
+              id: editingUser.id,
+              name: editingUser.name,
+              color: editingUser.color,
+            },
+          });
+        } else {
+          setLockState({ lockedBy: null });
+        }
       });
 
-      // Handle value changes from other users
-      channel.on('broadcast', { event: 'value-change' }, (payload) => {
-        const { action, item, senderId } = payload.payload as {
-          action: 'add' | 'remove';
-          item: unknown;
+      // Handle value sync from other users
+      channel.on('broadcast', { event: 'value-sync' }, (payload) => {
+        const { newValue, senderId } = payload.payload as {
+          newValue: unknown[];
           senderId: string;
         };
 
         // Ignore our own changes
         if (senderId === user.id) return;
-
-        const currentValue = localValueRef.current;
-        let newValue: unknown[];
-
-        if (action === 'add') {
-          // Add item if not already present
-          if (!currentValue.includes(item)) {
-            newValue = [...currentValue, item];
-          } else {
-            return;
-          }
-        } else {
-          // Remove item
-          newValue = currentValue.filter((v) => v !== item);
-        }
 
         localValueRef.current = newValue;
         onChange?.(newValue, []);
@@ -93,6 +105,7 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
 
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          // Track our presence (not editing initially)
           await channel.track({
             id: user.id,
             name: user.email?.split('@')[0] || 'Unknown',
@@ -110,57 +123,66 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
       };
     }, [user, docId, fieldName, onChange]);
 
-    // Handle dropdown visibility change
+    // Sync editing state to presence
+    useEffect(() => {
+      if (!user || !channelRef.current) return;
+
+      channelRef.current.track({
+        id: user.id,
+        name: user.email?.split('@')[0] || 'Unknown',
+        color: getUserColor(user.id),
+        isEditing,
+      });
+    }, [user, isEditing]);
+
+    // Handle dropdown open
     const handleDropdownVisibleChange = useCallback(
-      async (open: boolean) => {
-        if (!user || !channelRef.current) return;
+      (open: boolean) => {
+        // If trying to open but locked by someone else, prevent
+        if (open && isLockedByOther) {
+          return;
+        }
 
-        setIsOpen(open);
-
-        // Update presence to show editing state
-        await channelRef.current.track({
-          id: user.id,
-          name: user.email?.split('@')[0] || 'Unknown',
-          color: getUserColor(user.id),
-          isEditing: open,
-        });
-
+        dropdownOpenRef.current = open;
         selectProps.onDropdownVisibleChange?.(open);
       },
-      [user, selectProps]
+      [isLockedByOther, selectProps]
     );
 
-    // Handle value change - broadcast to others
+    // Handle focus - acquire lock
+    const handleFocus = useCallback(
+      (e: React.FocusEvent<HTMLElement>) => {
+        if (isLockedByOther) return;
+        setIsEditing(true);
+        selectProps.onFocus?.(e);
+      },
+      [isLockedByOther, selectProps]
+    );
+
+    // Handle blur - release lock
+    const handleBlur = useCallback(
+      (e: React.FocusEvent<HTMLElement>) => {
+        setIsEditing(false);
+        selectProps.onBlur?.(e);
+      },
+      [selectProps]
+    );
+
+    // Handle selection change - broadcast to others
     const handleChange = useCallback(
-      (newValue: unknown, option: unknown) => {
+      (newValue: unknown, option?: DefaultOptionType | DefaultOptionType[]) => {
         if (!channelRef.current || !user) {
           onChange?.(newValue, option);
           return;
         }
 
-        const oldValue = localValueRef.current;
         const newValueArray = Array.isArray(newValue) ? newValue : [];
 
-        // Find added items
-        const added = newValueArray.filter((v) => !oldValue.includes(v));
-        // Find removed items
-        const removed = oldValue.filter((v) => !newValueArray.includes(v));
-
-        // Broadcast changes
-        added.forEach((item) => {
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'value-change',
-            payload: { action: 'add', item, senderId: user.id },
-          });
-        });
-
-        removed.forEach((item) => {
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'value-change',
-            payload: { action: 'remove', item, senderId: user.id },
-          });
+        // Broadcast the new value to other users
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'value-sync',
+          payload: { newValue: newValueArray, senderId: user.id },
         });
 
         localValueRef.current = newValueArray;
@@ -169,61 +191,72 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
       [user, onChange]
     );
 
-    // Build border style based on editing users
-    const hasOtherEditors = editingUsers.length > 0;
-    const borderColor = isOpen
-      ? getUserColor(user?.id || '')
-      : hasOtherEditors
-      ? editingUsers[0].color
-      : undefined;
-
-    const borderStyle = borderColor
+    // Build style based on lock state
+    const lockStyle = isLockedByOther
       ? {
-          borderColor,
-          boxShadow: `0 0 0 1px ${borderColor}40`,
+          borderColor: lockState.lockedBy!.color,
+          boxShadow: `0 0 0 1px ${lockState.lockedBy!.color}40`,
+        }
+      : isLockedBySelf
+      ? {
+          borderColor: getUserColor(user?.id || ''),
+          boxShadow: `0 0 0 1px ${getUserColor(user?.id || '')}40`,
         }
       : {};
 
-    return (
-      <div style={{ position: 'relative' }}>
-        <Select
-          ref={ref}
-          mode={mode}
-          value={value}
-          onChange={handleChange}
-          onDropdownVisibleChange={handleDropdownVisibleChange}
-          style={{ ...selectProps.style, ...borderStyle }}
-          {...selectProps}
-        />
-        {editingUsers.length > 0 && (
+    const selectElement = (
+      <Select
+        ref={ref}
+        mode={mode}
+        value={value}
+        {...selectProps}
+        disabled={disabled || !!isLockedByOther}
+        onDropdownVisibleChange={handleDropdownVisibleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onChange={handleChange}
+        style={{ ...selectProps.style, ...lockStyle }}
+        suffixIcon={
+          isLockedByOther ? (
+            <LockOutlined style={{ color: lockState.lockedBy!.color }} />
+          ) : (
+            selectProps.suffixIcon
+          )
+        }
+      />
+    );
+
+    if (isLockedByOther) {
+      return (
+        <div style={{ position: 'relative' }}>
+          <Tooltip title={`${lockState.lockedBy!.name} 正在编辑`} placement="top">
+            {selectElement}
+          </Tooltip>
           <div
             style={{
               position: 'absolute',
               top: -8,
               right: 0,
-              display: 'flex',
-              gap: 4,
             }}
           >
-            {editingUsers.map((u) => (
-              <span
-                key={u.id}
-                style={{
-                  backgroundColor: u.color,
-                  color: 'white',
-                  fontSize: 10,
-                  padding: '1px 4px',
-                  borderRadius: 2,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {u.name}
-              </span>
-            ))}
+            <span
+              style={{
+                backgroundColor: lockState.lockedBy!.color,
+                color: 'white',
+                fontSize: 10,
+                padding: '1px 4px',
+                borderRadius: 2,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {lockState.lockedBy!.name}
+            </span>
           </div>
-        )}
-      </div>
-    );
+        </div>
+      );
+    }
+
+    return selectElement;
   }
 );
 
