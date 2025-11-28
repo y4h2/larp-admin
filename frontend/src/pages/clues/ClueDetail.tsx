@@ -15,13 +15,13 @@ import {
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
+import { CollaborativeTextArea } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
 import { clueApi } from '@/api';
 import type { Clue } from '@/types';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 export default function ClueDetail() {
   const { t } = useTranslation();
@@ -241,7 +241,12 @@ export default function ClueDetail() {
             label={t('clue.detail')}
             rules={[{ required: true }]}
           >
-            <TextArea placeholder={t('clue.detailPlaceholder')} rows={4} />
+            <CollaborativeTextArea
+              docId={`clue_${id}`}
+              fieldName="detail"
+              placeholder={t('clue.detailPlaceholder')}
+              rows={4}
+            />
           </Form.Item>
 
           <Form.Item
@@ -249,7 +254,12 @@ export default function ClueDetail() {
             label={t('clue.detailForNpc')}
             extra={t('clue.detailForNpcExtra')}
           >
-            <TextArea placeholder={t('clue.detailForNpcPlaceholder')} rows={3} />
+            <CollaborativeTextArea
+              docId={`clue_${id}`}
+              fieldName="detail_for_npc"
+              placeholder={t('clue.detailForNpcPlaceholder')}
+              rows={3}
+            />
           </Form.Item>
 
           <Form.Item
@@ -263,7 +273,12 @@ export default function ClueDetail() {
             name="trigger_semantic_summary"
             label={t('clue.triggerSemanticSummary')}
           >
-            <TextArea placeholder={t('clue.triggerSemanticSummaryPlaceholder')} rows={2} />
+            <CollaborativeTextArea
+              docId={`clue_${id}`}
+              fieldName="trigger_semantic_summary"
+              placeholder={t('clue.triggerSemanticSummaryPlaceholder')}
+              rows={2}
+            />
           </Form.Item>
 
           <Form.Item
