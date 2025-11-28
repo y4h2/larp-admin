@@ -90,7 +90,7 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
     }, [user, docId, fieldName]);
 
     // Handle dropdown open - acquire lock
-    const handleDropdownVisibleChange = useCallback(
+    const handleOpenChange = useCallback(
       async (open: boolean) => {
         if (!user || !channelRef.current) return;
 
@@ -109,7 +109,7 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
           isEditing: open,
         });
 
-        selectProps.onDropdownVisibleChange?.(open);
+        selectProps.onOpenChange?.(open);
       },
       [user, isLockedByOther, selectProps]
     );
@@ -151,7 +151,7 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
         {...selectProps}
         open={isOpen}
         disabled={disabled || isLockedByOther}
-        onDropdownVisibleChange={handleDropdownVisibleChange}
+        onOpenChange={handleOpenChange}
         onChange={handleChange}
         style={{ ...selectProps.style, ...lockStyle }}
         suffixIcon={
