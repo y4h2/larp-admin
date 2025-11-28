@@ -17,7 +17,7 @@ import {
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, type ResizableColumn } from '@/components/common';
-import { CollaborativeTextArea } from '@/components/collaborative';
+import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
 import { useScripts, useRealtimeSync } from '@/hooks';
@@ -211,12 +211,21 @@ export default function NpcDetail() {
                         label={t('common.name')}
                         rules={[{ required: true, message: t('npc.enterNpcName') }]}
                       >
-                        <Input placeholder={t('npc.enterNpcName')} />
+                        <CollaborativeInput
+                          docId={`npc_${id}`}
+                          fieldName="name"
+                          placeholder={t('npc.enterNpcName')}
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item name="age" label={t('npc.age')}>
-                        <Input type="number" placeholder={t('npc.enterAge')} />
+                        <CollaborativeInput
+                          docId={`npc_${id}`}
+                          fieldName="age"
+                          type="number"
+                          placeholder={t('npc.enterAge')}
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={24}>
@@ -225,13 +234,13 @@ export default function NpcDetail() {
                         label={t('script.title')}
                         rules={[{ required: true }]}
                       >
-                        <Select>
+                        <CollaborativeSelect docId={`npc_${id}`} fieldName="script_id">
                           {scripts.map((s) => (
                             <Option key={s.id} value={s.id}>
                               {s.title}
                             </Option>
                           ))}
-                        </Select>
+                        </CollaborativeSelect>
                       </Form.Item>
                     </Col>
                     <Col span={24}>
@@ -267,7 +276,9 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'knows']}
                     label={t('npc.knows')}
                   >
-                    <Select
+                    <CollaborativeMultiSelect
+                      docId={`npc_${id}`}
+                      fieldName="knowledge_scope_knows"
                       mode="tags"
                       placeholder={t('npc.knowsPlaceholder')}
                       style={{ width: '100%' }}
@@ -277,7 +288,9 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'does_not_know']}
                     label={t('npc.doesNotKnow')}
                   >
-                    <Select
+                    <CollaborativeMultiSelect
+                      docId={`npc_${id}`}
+                      fieldName="knowledge_scope_does_not_know"
                       mode="tags"
                       placeholder={t('npc.doesNotKnowPlaceholder')}
                       style={{ width: '100%' }}
@@ -287,7 +300,9 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'world_model_limits']}
                     label={t('npc.worldModelLimits')}
                   >
-                    <Select
+                    <CollaborativeMultiSelect
+                      docId={`npc_${id}`}
+                      fieldName="knowledge_scope_world_model_limits"
                       mode="tags"
                       placeholder={t('npc.worldModelLimitsPlaceholder')}
                       style={{ width: '100%' }}

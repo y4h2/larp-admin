@@ -15,7 +15,7 @@ import {
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, EditingIndicator, SyncStatus } from '@/components/common';
-import { CollaborativeTextArea } from '@/components/collaborative';
+import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useRealtimeSync } from '@/hooks';
 import { scriptApi } from '@/api';
@@ -163,7 +163,11 @@ export default function ScriptDetail() {
                     label={t('script.scriptName')}
                     rules={[{ required: true, message: t('script.enterScriptName') }]}
                   >
-                    <Input placeholder={t('script.enterScriptName')} />
+                    <CollaborativeInput
+                      docId={`script_${id}`}
+                      fieldName="title"
+                      placeholder={t('script.enterScriptName')}
+                    />
                   </Form.Item>
                   <Form.Item name="summary" label={t('script.summary')}>
                     <CollaborativeTextArea
@@ -182,11 +186,11 @@ export default function ScriptDetail() {
                     />
                   </Form.Item>
                   <Form.Item name="difficulty" label={t('script.difficulty')}>
-                    <Select>
+                    <CollaborativeSelect docId={`script_${id}`} fieldName="difficulty">
                       <Option value="easy">{t('script.easy')}</Option>
                       <Option value="medium">{t('script.medium')}</Option>
                       <Option value="hard">{t('script.hard')}</Option>
-                    </Select>
+                    </CollaborativeSelect>
                   </Form.Item>
                 </Form>
               </Card>
@@ -199,10 +203,18 @@ export default function ScriptDetail() {
               <Card title={t('script.truthSubtitle')}>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                   <Form.Item name={['truth', 'murderer']} label={t('script.murderer')}>
-                    <Input placeholder={t('script.murdererPlaceholder')} />
+                    <CollaborativeInput
+                      docId={`script_${id}`}
+                      fieldName="truth_murderer"
+                      placeholder={t('script.murdererPlaceholder')}
+                    />
                   </Form.Item>
                   <Form.Item name={['truth', 'weapon']} label={t('script.weapon')}>
-                    <Input placeholder={t('script.weaponPlaceholder')} />
+                    <CollaborativeInput
+                      docId={`script_${id}`}
+                      fieldName="truth_weapon"
+                      placeholder={t('script.weaponPlaceholder')}
+                    />
                   </Form.Item>
                   <Form.Item name={['truth', 'motive']} label={t('script.motive')}>
                     <CollaborativeTextArea
