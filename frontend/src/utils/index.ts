@@ -67,3 +67,7 @@ export const statusColors: Record<string, string> = {
   online: '#52c41a',
   archived: '#d9d9d9',
 };
+
+// Auto-merge utilities for collaborative editing
+export { autoMerge, formatUpdatedFields } from './autoMerge';
+export type { MergeResult, MergeConflict } from './autoMerge';

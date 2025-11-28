@@ -14,7 +14,9 @@ import {
 } from 'antd';
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader } from '@/components/common';
+import { PageHeader, EditingIndicator, SyncStatus } from '@/components/common';
+import { usePresence } from '@/contexts/PresenceContext';
+import { useRealtimeSync } from '@/hooks';
 import { scriptApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { Script } from '@/types';
@@ -26,17 +28,40 @@ export default function ScriptDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const { trackEditing, stopEditing } = usePresence();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [script, setScript] = useState<Script | null>(null);
+  const [initialScript, setInitialScript] = useState<Script | null>(null);
+
+  // Realtime sync hook
+  const handleRemoteChange = useCallback(
+    (remoteData: Script) => {
+      // Update form with merged data
+      form.setFieldsValue(remoteData);
+    },
+    [form]
+  );
+
+  const {
+    data: script,
+    setLocalData,
+    lastMergeResult,
+    isConnected,
+  } = useRealtimeSync<Script>({
+    table: 'scripts',
+    id: id || '',
+    initialData: initialScript,
+    onRemoteChange: handleRemoteChange,
+    enabled: !!id && !loading,
+  });
 
   const fetchData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
       const scriptData = await scriptApi.get(id);
-      setScript(scriptData);
+      setInitialScript(scriptData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/scripts');
@@ -51,17 +76,28 @@ export default function ScriptDetail() {
 
   // Set form values after loading completes and Form is mounted
   useEffect(() => {
-    if (!loading && script) {
-      form.setFieldsValue(script);
+    if (!loading && initialScript) {
+      form.setFieldsValue(initialScript);
     }
-  }, [loading, script, form]);
+  }, [loading, initialScript, form]);
+
+  // Track editing presence
+  useEffect(() => {
+    if (id) {
+      trackEditing('script', id);
+    }
+    return () => {
+      stopEditing();
+    };
+  }, [id, trackEditing, stopEditing]);
 
   const handleSave = async (values: Partial<Script>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await scriptApi.update(id, values);
-      setScript(updated);
+      setLocalData(updated);
+      setInitialScript(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       message.error(t('common.saveFailed'));
@@ -86,13 +122,19 @@ export default function ScriptDetail() {
     <div>
       <PageHeader
         title={script.title}
-        subtitle={`${t('common.updatedAt')} ${formatDate(script.updated_at)}`}
+        subtitle={
+          <Space>
+            <span>{`${t('common.updatedAt')} ${formatDate(script.updated_at)}`}</span>
+            <EditingIndicator type="script" id={id!} />
+          </Space>
+        }
         breadcrumbs={[
           { title: t('script.title'), path: '/scripts' },
           { title: script.title },
         ]}
         extra={
           <Space>
+            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
             <Button
               icon={<NodeIndexOutlined />}
               onClick={() => navigate(`/clues/tree?script_id=${script.id}`)}

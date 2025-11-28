@@ -1,5 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout';
+import { ProtectedRoute } from '@/components/auth';
+
+// Auth
+import { Login } from '@/pages/auth';
 
 // Scripts
 import { ScriptList, ScriptDetail } from '@/pages/scripts';
@@ -23,9 +27,19 @@ import { TemplateList, TemplateDetail } from '@/pages/templates';
 import { LLMConfigList } from '@/pages/llm-configs';
 
 const router = createBrowserRouter([
+  // Public routes
+  {
+    path: '/login',
+    element: <Login />,
+  },
+  // Protected routes
   {
     path: '/',
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,

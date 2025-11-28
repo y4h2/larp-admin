@@ -54,9 +54,41 @@
     "logout": "退出登录",
     "admin": "管理员"
   },
+  "auth": {
+    "login": "登录",
+    "email": "邮箱",
+    "password": "密码",
+    "emailRequired": "请输入邮箱",
+    "emailInvalid": "请输入有效的邮箱地址",
+    "emailPlaceholder": "邮箱地址",
+    "passwordRequired": "请输入密码",
+    "passwordPlaceholder": "密码",
+    "loginFailed": "登录失败",
+    "signIn": "登录",
+    "welcomeBack": "欢迎回来",
+    "signInToContinue": "登录以继续使用管理后台",
+    "loginSubtitle": "登录以继续使用管理后台"
+  },
   "language": {
     "en": "English",
     "zh": "中文"
+  },
+  "presence": {
+    "onlineUsers": "在线用户",
+    "viewing": "正在查看",
+    "editing": "正在编辑",
+    "editingThis": "{{name}} 正在编辑此{{type}}",
+    "multipleEditing": "{{count}} 人正在编辑此{{type}}",
+    "lastSeen": "最后在线 {{time}}"
+  },
+  "sync": {
+    "synced": "已同步",
+    "syncing": "同步中...",
+    "conflictResolved": "更改已合并",
+    "autoMerged": "已自动合并 {{name}} 的更改",
+    "fieldsUpdated": "更新的字段: {{fields}}",
+    "viewDiff": "查看变更",
+    "revert": "撤销"
   },
   "script": {
     "title": "剧本管理",

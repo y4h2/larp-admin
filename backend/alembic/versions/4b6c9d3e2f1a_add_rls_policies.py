@@ -7,7 +7,6 @@ Create Date: 2024-11-27
 This migration:
 1. Enables RLS on tables accessed via PostgREST
 2. Adds policies for anon role to access data
-3. SELECT policies automatically filter soft-deleted records (deleted_at IS NULL)
 """
 
 from collections.abc import Sequence
@@ -20,26 +19,22 @@ down_revision: str | None = "3a5f8c9d2e1b"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# Tables with soft delete (have deleted_at column)
-SOFT_DELETE_TABLES = ["llm_configs", "prompt_templates", "scripts", "npcs", "clues"]
-
-# Tables without soft delete
-NO_SOFT_DELETE_TABLES = ["dialogue_logs"]
+# All tables that need RLS policies
+ALL_TABLES = ["llm_configs", "prompt_templates", "scripts", "npcs", "clues", "dialogue_logs"]
 
 
 def upgrade() -> None:
     """Enable RLS and add policies for PostgREST access."""
 
-    # Tables with soft delete - SELECT filters deleted records automatically
-    for table in SOFT_DELETE_TABLES:
+    for table in ALL_TABLES:
         # Enable RLS
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
 
-        # SELECT: Only return non-deleted records
+        # SELECT: Allow reading
         op.execute(f"""
             CREATE POLICY "{table}_anon_select" ON {table}
             FOR SELECT TO anon
-            USING (deleted_at IS NULL)
+            USING (true)
         """)
 
         # INSERT: Allow all inserts
@@ -49,7 +44,7 @@ def upgrade() -> None:
             WITH CHECK (true)
         """)
 
-        # UPDATE: Allow updating any record (including soft-deleted for restore)
+        # UPDATE: Allow updating any record
         op.execute(f"""
             CREATE POLICY "{table}_anon_update" ON {table}
             FOR UPDATE TO anon
@@ -57,36 +52,7 @@ def upgrade() -> None:
             WITH CHECK (true)
         """)
 
-        # DELETE: Allow hard delete (though we use soft delete)
-        op.execute(f"""
-            CREATE POLICY "{table}_anon_delete" ON {table}
-            FOR DELETE TO anon
-            USING (true)
-        """)
-
-    # Tables without soft delete - full access
-    for table in NO_SOFT_DELETE_TABLES:
-        op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
-
-        op.execute(f"""
-            CREATE POLICY "{table}_anon_select" ON {table}
-            FOR SELECT TO anon
-            USING (true)
-        """)
-
-        op.execute(f"""
-            CREATE POLICY "{table}_anon_insert" ON {table}
-            FOR INSERT TO anon
-            WITH CHECK (true)
-        """)
-
-        op.execute(f"""
-            CREATE POLICY "{table}_anon_update" ON {table}
-            FOR UPDATE TO anon
-            USING (true)
-            WITH CHECK (true)
-        """)
-
+        # DELETE: Allow hard delete
         op.execute(f"""
             CREATE POLICY "{table}_anon_delete" ON {table}
             FOR DELETE TO anon
@@ -97,9 +63,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove RLS policies and disable RLS."""
 
-    all_tables = SOFT_DELETE_TABLES + NO_SOFT_DELETE_TABLES
-
-    for table in all_tables:
+    for table in ALL_TABLES:
         # Drop policies
         op.execute(f'DROP POLICY IF EXISTS "{table}_anon_select" ON {table}')
         op.execute(f'DROP POLICY IF EXISTS "{table}_anon_insert" ON {table}')
