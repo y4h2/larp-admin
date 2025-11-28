@@ -15,7 +15,7 @@ import {
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
-import { CollaborativeTextArea } from '@/components/collaborative';
+import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
 import { clueApi } from '@/api';
@@ -188,12 +188,14 @@ export default function ClueDetail() {
             label={t('script.title')}
             rules={[{ required: true, message: t('clue.pleaseSelectScript') }]}
           >
-            <Select
+            <CollaborativeSelect
+              docId={`clue_${id}`}
+              fieldName="script_id"
               placeholder={t('clue.selectScript')}
               onChange={(value) => {
                 if (value) {
-                  fetchNpcs({ script_id: value });
-                  fetchSiblingClues(value);
+                  fetchNpcs({ script_id: value as string });
+                  fetchSiblingClues(value as string);
                   // Clear prerequisites when script changes since they're script-specific
                   form.setFieldValue('prereq_clue_ids', []);
                 }
@@ -204,7 +206,7 @@ export default function ClueDetail() {
                   {s.title}
                 </Option>
               ))}
-            </Select>
+            </CollaborativeSelect>
           </Form.Item>
 
           <Form.Item
@@ -212,13 +214,17 @@ export default function ClueDetail() {
             label="NPC"
             rules={[{ required: true, message: t('clue.selectNpc') }]}
           >
-            <Select placeholder={t('clue.selectNpc')}>
+            <CollaborativeSelect
+              docId={`clue_${id}`}
+              fieldName="npc_id"
+              placeholder={t('clue.selectNpc')}
+            >
               {npcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
                 </Option>
               ))}
-            </Select>
+            </CollaborativeSelect>
           </Form.Item>
 
           <Form.Item
@@ -226,14 +232,18 @@ export default function ClueDetail() {
             label={t('clue.name')}
             rules={[{ required: true }]}
           >
-            <Input placeholder={t('clue.name')} />
+            <CollaborativeInput
+              docId={`clue_${id}`}
+              fieldName="name"
+              placeholder={t('clue.name')}
+            />
           </Form.Item>
 
           <Form.Item name="type" label={t('clue.type')}>
-            <Select>
+            <CollaborativeSelect docId={`clue_${id}`} fieldName="type">
               <Option value="text">{t('common.text')}</Option>
               <Option value="image">{t('common.image')}</Option>
-            </Select>
+            </CollaborativeSelect>
           </Form.Item>
 
           <Form.Item
@@ -266,7 +276,12 @@ export default function ClueDetail() {
             name="trigger_keywords"
             label={t('clue.triggerKeywords')}
           >
-            <Select mode="tags" placeholder={t('clue.triggerKeywordsPlaceholder')} />
+            <CollaborativeMultiSelect
+              docId={`clue_${id}`}
+              fieldName="trigger_keywords"
+              mode="tags"
+              placeholder={t('clue.triggerKeywordsPlaceholder')}
+            />
           </Form.Item>
 
           <Form.Item
@@ -286,7 +301,12 @@ export default function ClueDetail() {
             label={t('clue.prerequisites')}
             extra={t('clue.prerequisiteCluesExtra')}
           >
-            <Select mode="multiple" placeholder={t('clue.selectPrerequisiteClues')}>
+            <CollaborativeMultiSelect
+              docId={`clue_${id}`}
+              fieldName="prereq_clue_ids"
+              mode="multiple"
+              placeholder={t('clue.selectPrerequisiteClues')}
+            >
               {siblingClues
                 .filter((c) => c.id !== id)
                 .map((c) => (
@@ -294,7 +314,7 @@ export default function ClueDetail() {
                     {c.name}
                   </Option>
                 ))}
-            </Select>
+            </CollaborativeMultiSelect>
           </Form.Item>
 
           <Form.Item>
