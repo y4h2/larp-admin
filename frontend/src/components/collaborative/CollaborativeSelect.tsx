@@ -4,6 +4,7 @@ import type { SelectProps, RefSelectProps } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { getUserColor } from '@/utils/cursorPosition';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -23,14 +24,49 @@ interface LockState {
 }
 
 const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>(
-  ({ docId, fieldName, disabled, ...selectProps }, ref) => {
+  ({ docId, fieldName, disabled, onChange, ...selectProps }, ref) => {
     const { user } = useAuth();
     const [lockState, setLockState] = useState<LockState>({ lockedBy: null });
     const [isOpen, setIsOpen] = useState(false);
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const onChangeRef = useRef(onChange);
+    const selectRef = useRef<RefSelectProps>(null);
+
+    // Combine external ref with internal ref
+    const setRefs = useCallback((node: RefSelectProps | null) => {
+      selectRef.current = node;
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    }, [ref]);
+
+    // Keep onChangeRef up to date
+    useEffect(() => {
+      onChangeRef.current = onChange;
+    }, [onChange]);
 
     const isLockedByOther = lockState.lockedBy && lockState.lockedBy.id !== user?.id;
     const isLockedBySelf = lockState.lockedBy?.id === user?.id;
+
+    // Idle timeout callback: close dropdown and release lock
+    const handleIdleTimeout = useCallback(() => {
+      selectRef.current?.blur();
+      setIsOpen(false);
+      // Release lock
+      if (channelRef.current && user) {
+        channelRef.current.track({
+          id: user.id,
+          name: user.email?.split('@')[0] || 'Unknown',
+          color: getUserColor(user.id),
+          isEditing: false,
+        });
+      }
+    }, [user]);
+
+    // Use idle timeout hook - active when dropdown is open
+    useIdleTimeout(isOpen, handleIdleTimeout);
 
     // Initialize presence channel for field locking
     useEffect(() => {
@@ -40,6 +76,7 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
       const channel = supabase.channel(roomName, {
         config: {
           presence: { key: user.id },
+          broadcast: { self: true },
         },
       });
 
@@ -65,21 +102,41 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
             },
           });
         } else {
-          setLockState({ lockedBy: null });
-        }
-      });
-
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Track our presence (not editing initially)
-          await channel.track({
-            id: user.id,
-            name: user.email?.split('@')[0] || 'Unknown',
-            color: getUserColor(user.id),
-            isEditing: false,
+          // Only clear lock if it was set by someone else
+          setLockState((prev) => {
+            if (prev.lockedBy && prev.lockedBy.id !== user.id) {
+              return { lockedBy: null };
+            }
+            return prev;
           });
         }
       });
+
+      // Handle value sync from other users via broadcast
+      channel
+        .on('broadcast', { event: 'value-sync' }, (payload) => {
+          const { newValue, senderId } = payload.payload as {
+            newValue: unknown;
+            senderId: string;
+          };
+
+          // Ignore our own changes
+          if (senderId === user.id) return;
+
+          // Update the form value using ref to avoid stale closure
+          onChangeRef.current?.(newValue, {});
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Track our presence (not editing initially)
+            await channel.track({
+              id: user.id,
+              name: user.email?.split('@')[0] || 'Unknown',
+              color: getUserColor(user.id),
+              isEditing: false,
+            });
+          }
+        });
 
       channelRef.current = channel;
 
@@ -117,8 +174,15 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
     // Handle selection change
     const handleChange = useCallback(
       (value: unknown, option: unknown) => {
-        // Release lock after selection
         if (channelRef.current && user) {
+          // Sync value to other users
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'value-sync',
+            payload: { newValue: value, senderId: user.id },
+          });
+
+          // Release lock after selection
           channelRef.current.track({
             id: user.id,
             name: user.email?.split('@')[0] || 'Unknown',
@@ -127,9 +191,9 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
           });
         }
         setIsOpen(false);
-        selectProps.onChange?.(value, option);
+        onChange?.(value, option);
       },
-      [user, selectProps]
+      [user, onChange]
     );
 
     // Build style based on lock state
@@ -147,7 +211,7 @@ const CollaborativeSelect = forwardRef<RefSelectProps, CollaborativeSelectProps>
 
     const selectElement = (
       <Select
-        ref={ref}
+        ref={setRefs}
         {...selectProps}
         open={isOpen}
         disabled={disabled || isLockedByOther}

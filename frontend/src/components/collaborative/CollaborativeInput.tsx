@@ -4,6 +4,7 @@ import type { InputProps, InputRef } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { getUserColor } from '@/utils/cursorPosition';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -33,9 +34,38 @@ const CollaborativeInput = forwardRef<InputRef, CollaborativeInputProps>(
     const [lockState, setLockState] = useState<LockState>({ lockedBy: null });
     const [isFocused, setIsFocused] = useState(false);
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const inputRef = useRef<InputRef>(null);
+
+    // Combine external ref with internal ref
+    const setRefs = useCallback((node: InputRef | null) => {
+      inputRef.current = node;
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    }, [ref]);
 
     const isLockedByOther = lockState.lockedBy && lockState.lockedBy.id !== user?.id;
     const isLockedBySelf = lockState.lockedBy?.id === user?.id;
+
+    // Idle timeout callback: blur and release lock
+    const handleIdleTimeout = useCallback(() => {
+      inputRef.current?.blur();
+      setIsFocused(false);
+      // Release lock
+      if (channelRef.current && user) {
+        channelRef.current.track({
+          id: user.id,
+          name: user.email?.split('@')[0] || 'Unknown',
+          color: getUserColor(user.id),
+          isEditing: false,
+        });
+      }
+    }, [user]);
+
+    // Use idle timeout hook - active when focused
+    useIdleTimeout(isFocused, handleIdleTimeout);
 
     // Initialize presence channel for field locking
     useEffect(() => {
@@ -155,7 +185,7 @@ const CollaborativeInput = forwardRef<InputRef, CollaborativeInputProps>(
 
     const inputElement = (
       <Input
-        ref={ref}
+        ref={setRefs}
         {...inputProps}
         disabled={disabled || isLockedByOther}
         onFocus={handleFocus}
