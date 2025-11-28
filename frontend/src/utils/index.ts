@@ -71,3 +71,12 @@ export const statusColors: Record<string, string> = {
 // Auto-merge utilities for collaborative editing
 export { autoMerge, formatUpdatedFields } from './autoMerge';
 export type { MergeResult, MergeConflict } from './autoMerge';
+
+// Cursor position utilities for collaborative editing
+export {
+  calculateCursorPosition,
+  calculateSelectionPosition,
+  cleanupMirror,
+  getUserColor,
+} from './cursorPosition';
+export type { CursorPixelPosition } from './cursorPosition';

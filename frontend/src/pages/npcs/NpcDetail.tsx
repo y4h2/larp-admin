@@ -17,13 +17,13 @@ import {
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, type ResizableColumn } from '@/components/common';
+import { CollaborativeTextArea } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
 import { useScripts, useRealtimeSync } from '@/hooks';
 import type { NPC, Clue } from '@/types';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 export default function NpcDetail() {
   const { t } = useTranslation();
@@ -236,7 +236,9 @@ export default function NpcDetail() {
                     </Col>
                     <Col span={24}>
                       <Form.Item name="background" label={t('npc.background')}>
-                        <TextArea
+                        <CollaborativeTextArea
+                          docId={`npc_${id}`}
+                          fieldName="background"
                           placeholder={t('npc.enterBackground')}
                           rows={4}
                         />
@@ -244,7 +246,9 @@ export default function NpcDetail() {
                     </Col>
                     <Col span={24}>
                       <Form.Item name="personality" label={t('npc.personality')}>
-                        <TextArea
+                        <CollaborativeTextArea
+                          docId={`npc_${id}`}
+                          fieldName="personality"
                           placeholder={t('npc.enterPersonality')}
                           rows={4}
                         />

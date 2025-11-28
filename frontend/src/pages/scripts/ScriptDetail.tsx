@@ -15,6 +15,7 @@ import {
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, EditingIndicator, SyncStatus } from '@/components/common';
+import { CollaborativeTextArea } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useRealtimeSync } from '@/hooks';
 import { scriptApi } from '@/api';
@@ -165,10 +166,20 @@ export default function ScriptDetail() {
                     <Input placeholder={t('script.enterScriptName')} />
                   </Form.Item>
                   <Form.Item name="summary" label={t('script.summary')}>
-                    <Input.TextArea placeholder={t('script.summaryPlaceholder')} rows={3} />
+                    <CollaborativeTextArea
+                      docId={`script_${id}`}
+                      fieldName="summary"
+                      placeholder={t('script.summaryPlaceholder')}
+                      rows={3}
+                    />
                   </Form.Item>
                   <Form.Item name="background" label={t('script.background')}>
-                    <Input.TextArea placeholder={t('script.backgroundPlaceholder')} rows={4} />
+                    <CollaborativeTextArea
+                      docId={`script_${id}`}
+                      fieldName="background"
+                      placeholder={t('script.backgroundPlaceholder')}
+                      rows={4}
+                    />
                   </Form.Item>
                   <Form.Item name="difficulty" label={t('script.difficulty')}>
                     <Select>
@@ -194,10 +205,20 @@ export default function ScriptDetail() {
                     <Input placeholder={t('script.weaponPlaceholder')} />
                   </Form.Item>
                   <Form.Item name={['truth', 'motive']} label={t('script.motive')}>
-                    <Input.TextArea placeholder={t('script.motivePlaceholder')} rows={3} />
+                    <CollaborativeTextArea
+                      docId={`script_${id}`}
+                      fieldName="truth_motive"
+                      placeholder={t('script.motivePlaceholder')}
+                      rows={3}
+                    />
                   </Form.Item>
                   <Form.Item name={['truth', 'crime_method']} label={t('script.crimeMethod')}>
-                    <Input.TextArea placeholder={t('script.crimeMethodPlaceholder')} rows={4} />
+                    <CollaborativeTextArea
+                      docId={`script_${id}`}
+                      fieldName="truth_crime_method"
+                      placeholder={t('script.crimeMethodPlaceholder')}
+                      rows={4}
+                    />
                   </Form.Item>
                 </Form>
               </Card>
