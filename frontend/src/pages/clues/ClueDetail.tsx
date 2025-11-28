@@ -80,7 +80,6 @@ export default function ClueDetail() {
       try {
         const data = await fetchClue(id);
         setInitialClue(data);
-        form.setFieldsValue(data);
         if (data.script_id) {
           fetchNpcs({ script_id: data.script_id });
           fetchSiblingClues(data.script_id);
@@ -92,7 +91,14 @@ export default function ClueDetail() {
       }
     };
     loadClue();
-  }, [id, fetchClue, form, fetchNpcs]);
+  }, [id, fetchClue, fetchNpcs]);
+
+  // Set form values after loading is complete and Form is mounted
+  useEffect(() => {
+    if (!loading && initialClue) {
+      form.setFieldsValue(initialClue);
+    }
+  }, [loading, initialClue, form]);
 
   // Track editing presence
   useEffect(() => {
