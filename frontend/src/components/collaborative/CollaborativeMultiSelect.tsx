@@ -4,6 +4,7 @@ import type { SelectProps, RefSelectProps } from 'antd/es/select';
 import { LockOutlined } from '@ant-design/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { getUserColor } from '@/utils/cursorPosition';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -38,8 +39,19 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
     const [isEditing, setIsEditing] = useState(false);
     const channelRef = useRef<RealtimeChannel | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const selectRef = useRef<RefSelectProps>(null);
     const currentValueRef = useRef<unknown[] | null>(null);
     const onChangeRef = useRef(onChange);
+
+    // Combine external ref with internal ref
+    const setRefs = useCallback((node: RefSelectProps | null) => {
+      selectRef.current = node;
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    }, [ref]);
 
     // Keep onChangeRef up to date
     useEffect(() => {
@@ -48,6 +60,23 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
 
     const isLockedByOther = lockState.lockedBy && lockState.lockedBy.id !== user?.id;
     const isLockedBySelf = lockState.lockedBy?.id === user?.id;
+
+    // Idle timeout callback: blur and release lock
+    const handleIdleTimeout = useCallback(() => {
+      selectRef.current?.blur();
+      // Sync value to other users before releasing lock
+      if (currentValueRef.current !== null && channelRef.current && user) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'value-sync',
+          payload: { newValue: currentValueRef.current, senderId: user.id },
+        });
+      }
+      setIsEditing(false);
+    }, [user]);
+
+    // Use idle timeout hook - active when editing
+    useIdleTimeout(isEditing, handleIdleTimeout);
 
     // Initialize presence channel for field locking
     useEffect(() => {
@@ -229,7 +258,7 @@ const CollaborativeMultiSelect = forwardRef<RefSelectProps, CollaborativeMultiSe
     const selectElement = (
       <div ref={containerRef}>
         <Select
-          ref={ref}
+          ref={setRefs}
           mode={mode}
           value={value}
           {...selectProps}

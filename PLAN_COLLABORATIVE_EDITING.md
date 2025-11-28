@@ -374,3 +374,183 @@ frontend/src/pages/clues/ClueDetail.tsx (add realtime)
 4. ✅ Concurrent edits are auto-merged without data loss
 5. ✅ Users are notified when auto-merge happens
 6. ✅ No flickering or jarring UX during sync
+
+---
+
+## Phase 5: Collaborative Form Components
+
+### 5.1 Component Strategy Overview
+
+| Component | Strategy | Description |
+|-----------|----------|-------------|
+| **CollaborativeTextArea** | Yjs CRDT | Real-time character-level sync with cursor awareness |
+| **CollaborativeInput** | Field Locking | Lock on focus, release on blur |
+| **CollaborativeSelect** | Field Locking | Lock when dropdown opens, release on close |
+| **CollaborativeMultiSelect** | Field Locking + Broadcast | Lock on focus, sync value via broadcast on blur |
+
+### 5.2 CollaborativeMultiSelect Implementation
+
+**File:** `frontend/src/components/collaborative/CollaborativeMultiSelect.tsx`
+
+#### Key Features
+- **Field-level locking**: Prevents concurrent edits to the same multi-select field
+- **Data sync on blur**: Broadcasts value changes only when user finishes editing
+- **Visual feedback**: Shows lock indicator and user color when locked by others
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   CollaborativeMultiSelect                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  State Management:                                               │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
+│  │ lockState       │  │ isEditing       │  │ currentValueRef │ │
+│  │ (who has lock)  │  │ (local editing) │  │ (pending value) │ │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                  │
+│  Event Handlers:                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ onFocus     │  │ onChange    │  │ onBlur      │             │
+│  │ - Set lock  │  │ - Store val │  │ - Broadcast │             │
+│  │ - Store val │  │ - Update UI │  │ - Release   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Supabase Realtime Channel                     │
+│                 `multiselect:{docId}:{fieldName}`                │
+├─────────────────────────────────────────────────────────────────┤
+│  Presence (Locking)           │  Broadcast (Data Sync)          │
+│  ┌─────────────────────────┐  │  ┌─────────────────────────┐   │
+│  │ { id, name, color,      │  │  │ event: 'value-sync'     │   │
+│  │   isEditing: boolean }  │  │  │ payload: { newValue,    │   │
+│  │                         │  │  │   senderId }            │   │
+│  └─────────────────────────┘  │  └─────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Implementation Details
+
+**1. Channel Configuration**
+```typescript
+const channel = supabase.channel(roomName, {
+  config: {
+    presence: { key: user.id },
+    broadcast: { self: true },  // Required to test broadcast locally
+  },
+});
+```
+
+**2. Event Registration Order (CRITICAL)**
+```typescript
+// ⚠️ IMPORTANT: Broadcast listener MUST be registered before subscribe()
+// Using chain syntax to ensure correct order
+channel
+  .on('presence', { event: 'sync' }, handlePresenceSync)
+  .on('broadcast', { event: 'value-sync' }, handleValueSync)
+  .subscribe(handleSubscribed);
+
+// ❌ WRONG: Separate registration may not work
+channel.on('broadcast', { event: 'value-sync' }, handler);
+channel.subscribe();  // Broadcast may not be received!
+```
+
+**3. Focus/Blur Lock Management**
+```typescript
+// onFocus: Acquire lock and store current value
+const handleFocus = (e) => {
+  if (isLockedByOther) return;
+  currentValueRef.current = Array.isArray(value) ? [...value] : [];
+  setIsEditing(true);
+};
+
+// onBlur: Check if truly leaving, then sync and release
+const handleBlur = (e) => {
+  const relatedTarget = e.relatedTarget;
+
+  // Don't release if focus stays within container (clicking options)
+  if (relatedTarget && containerRef.current?.contains(relatedTarget)) {
+    return;
+  }
+
+  // Delayed check for cases where relatedTarget is null
+  setTimeout(() => {
+    if (!containerRef.current?.contains(document.activeElement)) {
+      // Sync value to other users
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'value-sync',
+        payload: { newValue: currentValueRef.current, senderId: user.id },
+      });
+      setIsEditing(false);
+    }
+  }, 50);
+};
+```
+
+**4. Presence Sync for Lock State**
+```typescript
+channel.on('presence', { event: 'sync' }, () => {
+  const presences = /* extract from presenceState */;
+
+  // Only care about OTHER users' editing state
+  const editingUser = presences.find(p => p.isEditing && p.id !== user.id);
+
+  if (editingUser) {
+    setLockState({ lockedBy: editingUser });
+  } else {
+    // Only clear if lock was held by someone else
+    setLockState(prev =>
+      prev.lockedBy?.id !== user.id ? { lockedBy: null } : prev
+    );
+  }
+});
+```
+
+**5. Using Refs to Avoid Stale Closures**
+```typescript
+// Store onChange in ref to avoid dependency in useEffect
+const onChangeRef = useRef(onChange);
+useEffect(() => {
+  onChangeRef.current = onChange;
+}, [onChange]);
+
+// Use ref in broadcast handler
+channel.on('broadcast', { event: 'value-sync' }, (payload) => {
+  onChangeRef.current?.(payload.payload.newValue, []);
+});
+```
+
+#### Visual States
+
+| State | Border Color | Icon | Tooltip |
+|-------|--------------|------|---------|
+| Normal | Default | Default | - |
+| Self Editing | User's color | Default | - |
+| Locked by Other | Other user's color | 🔒 Lock | "{name} 正在编辑" |
+| Disabled | Default | Default | - |
+
+#### Usage Example
+
+```tsx
+<Form.Item name="trigger_keywords" label={t('clue.triggerKeywords')}>
+  <CollaborativeMultiSelect
+    docId={`clue_${id}`}
+    fieldName="trigger_keywords"
+    mode="tags"
+    placeholder={t('clue.triggerKeywordsPlaceholder')}
+  />
+</Form.Item>
+```
+
+### 5.3 Lessons Learned
+
+1. **Supabase Broadcast Registration**: Event listeners must be chained before `.subscribe()` call
+2. **Focus Management**: Use `relatedTarget` and `document.activeElement` to detect if focus truly left
+3. **Debounce Presence Updates**: Prevent rapid presence track calls during selection
+4. **Ref for Callbacks**: Store callbacks in refs to avoid stale closures in event handlers
+5. **Value Storage**: Store current value on focus, update on change, sync on blur
