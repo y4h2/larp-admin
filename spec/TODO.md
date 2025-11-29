@@ -177,6 +177,68 @@ id除了 uuid 之外考虑一些更加方便人类阅读的id
 
 
 
+
+ 基于 Supabase 的特性，以下是可以简化的部分：
+
+  高优先级 (立即可用)
+
+  1. PostgREST 替代标准 CRUD
+
+  当前每个实体都有手写的分页/过滤代码，可用 Supabase Client 直接查询：
+  // 之前: 手写 FastAPI 端点 + 前端 API 调用
+  // 之后: 直接用 Supabase
+  const { data, count } = await supabase
+    .from('scripts')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null)
+    .ilike('title', `%${search}%`)
+    .range(0, 19)
+  可删除: scripts/npcs/clues/templates/llm_configs 的基础 CRUD 端点 (~500 行)
+
+  2. RLS 策略替代软删除过滤
+
+  当前每个查询都要加 .where(deleted_at.is_(None))：
+  -- 数据库层面统一过滤
+  CREATE POLICY "hide_deleted" ON scripts
+    FOR SELECT USING (deleted_at IS NULL);
+  可删除: 所有端点中重复的软删除过滤逻辑
+
+  3. Realtime 替代轮询
+
+  DialogueLogs 页面可用实时订阅：
+  supabase
+    .channel('logs')
+    .on('postgres_changes',
+      { event: 'INSERT', table: 'dialogue_logs' },
+      (payload) => setLogs(prev => [payload.new, ...prev])
+    )
+    .subscribe()
+
+  中优先级
+
+  | 功能   | 当前实现                 | Supabase 替代                  |
+  |------|----------------------|------------------------------|
+  | 审计日志 | 手写 DebugAuditLog API | PostgreSQL Trigger + pgAudit |
+  | 会话跟踪 | UUID + localStorage  | Supabase Presence            |
+  | 文件存储 | JSON 导入导出            | Supabase Storage             |
+
+  保留 FastAPI 的部分
+
+  以下复杂业务逻辑建议保留在 FastAPI：
+  - /simulate/dialogue - 向量匹配 + LLM 调用
+  - /templates/render - 模板渲染引擎
+  - /scripts/{id}/copy - 复杂的深拷贝逻辑
+
+  建议的简化路径
+
+  1. Phase 1: 前端直接用 @supabase/supabase-js 查询简单实体 (llm_configs, templates)
+  2. Phase 2: 添加 RLS 策略，移除后端软删除过滤
+  3. Phase 3: 添加 Realtime 订阅到 dialogue_logs
+
+
+
+
+
 # Future
 
 

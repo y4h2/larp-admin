@@ -656,6 +656,9 @@ export default function DialogueSimulation() {
                       </div>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.matchingTemplate')}</div>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+                          {t('debug.matchingTemplateHint')}
+                        </Text>
                         <Select
                           placeholder={t('debug.selectMatchingTemplate')}
                           value={matchingTemplateId}
@@ -772,6 +775,7 @@ export default function DialogueSimulation() {
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
                           <BulbFilled style={{ color: '#52c41a', marginRight: 4 }} />{t('debug.npcClueTemplate')}
                         </div>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>{t('debug.npcClueTemplateHint')}</Text>
                         <Select placeholder={t('debug.selectNpcClueTemplate')} value={npcClueTemplateId} onChange={setNpcClueTemplateId} style={{ width: '100%' }} allowClear disabled={!enableNpcReply}>
                           {npcSystemTemplates.map((tpl) => (
                             <Option key={tpl.id} value={tpl.id}>
@@ -779,12 +783,12 @@ export default function DialogueSimulation() {
                             </Option>
                           ))}
                         </Select>
-                        <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.npcClueTemplateHint')}</Text>
                       </div>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
                           <BulbOutlined style={{ color: '#faad14', marginRight: 4 }} />{t('debug.npcNoClueTemplate')}
                         </div>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>{t('debug.npcNoClueTemplateHint')}</Text>
                         <Select placeholder={t('debug.selectNpcNoClueTemplate')} value={npcNoClueTemplateId} onChange={setNpcNoClueTemplateId} style={{ width: '100%' }} allowClear disabled={!enableNpcReply}>
                           {npcSystemTemplates.map((tpl) => (
                             <Option key={tpl.id} value={tpl.id}>
@@ -792,7 +796,6 @@ export default function DialogueSimulation() {
                             </Option>
                           ))}
                         </Select>
-                        <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.npcNoClueTemplateHint')}</Text>
                       </div>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.npcChatModel')}</div>
