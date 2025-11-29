@@ -418,6 +418,12 @@
       "npc_system_prompt": "NPC System Prompt",
       "clue_reveal": "Clue Reveal",
       "custom": "Custom"
+    },
+    "categoryDescriptions": {
+      "clue": "Clue object fields - use {clue.field_name}",
+      "npc": "NPC object fields - use {npc.field_name}",
+      "script": "Script object fields - use {script.field_name}",
+      "context": "Context variables - use {variable_name}"
     }
   },
   "llmConfig": {
