@@ -102,21 +102,46 @@ class MatchingService:
             chat_options_override=request.chat_options_override,
         )
 
-        # Get candidate clues for this NPC
-        candidates = await self._get_candidate_clues(
+        # Get ALL clues for this NPC (for debug info)
+        all_clues = await self._get_candidate_clues(
             script_id=request.script_id,
             npc_id=request.npc_id,
         )
 
+        # Categorize clues: eligible vs excluded (due to prerequisites)
+        eligible_clues: list[Clue] = []
+        excluded_clues: list[dict] = []
+
+        for clue in all_clues:
+            prereq_ids = clue.prereq_clue_ids or []
+            if not prereq_ids:
+                # No prerequisites, eligible
+                eligible_clues.append(clue)
+            else:
+                # Check prerequisites
+                missing_prereqs = [
+                    pid for pid in prereq_ids
+                    if pid not in context.unlocked_clue_ids
+                ]
+                if missing_prereqs:
+                    excluded_clues.append({
+                        "clue_id": clue.id,
+                        "name": clue.name,
+                        "reason": "prerequisites_not_met",
+                        "missing_prereq_ids": missing_prereqs,
+                    })
+                else:
+                    eligible_clues.append(clue)
+
         # Match clues based on strategy
         if request.matching_strategy == MatchingStrategy.LLM:
-            results = await self._match_with_llm(candidates, context)
+            results = await self._match_with_llm(eligible_clues, context)
         elif request.matching_strategy == MatchingStrategy.EMBEDDING:
-            results = await self._match_with_embedding(candidates, context)
+            results = await self._match_with_embedding(eligible_clues, context)
         else:
             # Default keyword-based matching
             results = []
-            for clue in candidates:
+            for clue in eligible_clues:
                 result = self._match_clue(clue, context)
                 if result.score > 0:
                     results.append(result)
@@ -152,6 +177,22 @@ class MatchingService:
         matched_clues = [self._result_to_schema(r) for r in results]
         triggered_clues = [self._result_to_schema(r) for r in triggered]
 
+        # Build detailed candidate info for debug
+        candidate_details = []
+        for clue in eligible_clues:
+            # Find match result if exists
+            match_result = next((r for r in results if r.clue.id == clue.id), None)
+            candidate_details.append({
+                "clue_id": clue.id,
+                "name": clue.name,
+                "has_prereqs": bool(clue.prereq_clue_ids),
+                "prereq_ids": clue.prereq_clue_ids or [],
+                "trigger_keywords": clue.trigger_keywords or [],
+                "score": match_result.score if match_result else 0.0,
+                "matched": match_result is not None and match_result.score > 0,
+                "triggered": match_result.is_triggered if match_result else False,
+            })
+
         # Generate NPC response if templates are provided
         npc_response = None
         has_clue_template = context.npc_clue_template_id is not None
@@ -182,11 +223,15 @@ class MatchingService:
             triggered_clues=triggered_clues,
             npc_response=npc_response,
             debug_info={
-                "total_candidates": len(candidates),
+                "total_clues": len(all_clues),
+                "total_candidates": len(eligible_clues),
+                "total_excluded": len(excluded_clues),
                 "total_matched": len(results),
                 "total_triggered": len(triggered),
                 "threshold": threshold,
                 "strategy": request.matching_strategy.value,
+                "candidates": candidate_details,
+                "excluded": excluded_clues,
             },
         )
 
@@ -297,6 +342,8 @@ class MatchingService:
         - Uses OpenAIEmbeddings and Chroma vector store
         - Renders clue content using template before embedding
         - Uses similarity search for matching
+
+        Note: candidates are already filtered by prerequisites in simulate()
         """
         results = []
 
@@ -317,25 +364,21 @@ class MatchingService:
             if template_content:
                 logger.info(f"Using template {context.template_id} for embedding")
 
-        # Filter candidates by prerequisites
-        eligible_clues = [
-            c for c in candidates if self._check_prerequisites(c, context)
-        ]
-
-        if not eligible_clues:
+        # Candidates are already filtered by prerequisites in simulate()
+        if not candidates:
             return results
 
         # Create vector retriever
         retriever = VectorClueRetriever(embedding_config)
 
         try:
-            # Build embedding database with eligible (unlocked) clues
-            retriever.build_embedding_db(eligible_clues, template_content)
+            # Build embedding database with candidate clues
+            retriever.build_embedding_db(candidates, template_content)
 
             # Search for matching clues
             vector_results = retriever.retrieve_clues(
                 context.player_message,
-                k=len(eligible_clues),  # Get all results
+                k=len(candidates),  # Get all results
                 score_threshold=0.0,
             )
 
@@ -360,7 +403,7 @@ class MatchingService:
         except Exception as e:
             logger.error(f"Vector matching failed: {e}", exc_info=True)
             # Fallback to keyword matching
-            for clue in eligible_clues:
+            for clue in candidates:
                 result = self._match_clue(clue, context)
                 if result.score > 0:
                     results.append(result)
@@ -410,6 +453,8 @@ class MatchingService:
 
         Provides all candidate clues to the LLM and asks it to identify
         which clues are relevant to the player message.
+
+        Note: candidates are already filtered by prerequisites in simulate()
         """
         results = []
 
@@ -423,17 +468,13 @@ class MatchingService:
                     results.append(result)
             return results
 
-        # Filter candidates by prerequisites
-        eligible_clues = [
-            c for c in candidates if self._check_prerequisites(c, context)
-        ]
-
-        if not eligible_clues:
+        # Candidates are already filtered by prerequisites in simulate()
+        if not candidates:
             return results
 
         # Get template if specified
         system_prompt = await self._build_llm_matching_prompt(
-            context.template_id, eligible_clues
+            context.template_id, candidates
         )
 
         # Call LLM
@@ -445,10 +486,10 @@ class MatchingService:
             )
 
             # Parse LLM response to extract matched clue IDs
-            matched_ids = self._parse_llm_response(llm_response, eligible_clues)
+            matched_ids = self._parse_llm_response(llm_response, candidates)
 
             # Build results
-            for clue in eligible_clues:
+            for clue in candidates:
                 if clue.id in matched_ids:
                     result = MatchResult(
                         clue=clue,

@@ -266,6 +266,7 @@
     "templateContent": "Matching Template Preview",
     "lockedClues": "Locked Clues",
     "noLockedClues": "All clues are unlocked",
+    "hasPrerequisites": "Has {{count}} prerequisite(s)",
     "renderAll": "Render All",
     "renderPreview": "Render Preview",
     "rendered": "Rendered",
