@@ -75,6 +75,21 @@ export interface AvailableVariablesResponse {
   categories: VariableCategory[];
 }
 
+// Export/Import types
+export interface TemplateExportItem {
+  name: string;
+  description: string | null;
+  type: TemplateType;
+  content: string;
+  is_default: boolean;
+}
+
+export interface TemplateExportData {
+  version: string;
+  exported_at: string;
+  templates: TemplateExportItem[];
+}
+
 // Extract variables from template content (simple regex extraction)
 function extractVariables(content: string): string[] {
   const regex = /\{([^}]+)\}/g;

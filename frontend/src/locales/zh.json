@@ -424,7 +424,15 @@
       "npc": "NPC对象字段 - 使用 {npc.字段名}",
       "script": "剧本对象字段 - 使用 {script.字段名}",
       "context": "上下文变量 - 使用 {变量名}"
-    }
+    },
+    "exportTemplate": "导出",
+    "importTemplate": "导入",
+    "exportAll": "导出全部",
+    "exportSuccess": "模板导出成功",
+    "exportFailed": "模板导出失败",
+    "importSuccess": "成功导入 {{count}} 个模板",
+    "importFailed": "模板导入失败",
+    "invalidFileFormat": "无效的文件格式"
   },
   "llmConfig": {
     "title": "模型配置",

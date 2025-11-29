@@ -424,7 +424,15 @@
       "npc": "NPC object fields - use {npc.field_name}",
       "script": "Script object fields - use {script.field_name}",
       "context": "Context variables - use {variable_name}"
-    }
+    },
+    "exportTemplate": "Export",
+    "importTemplate": "Import",
+    "exportAll": "Export All",
+    "exportSuccess": "Templates exported successfully",
+    "exportFailed": "Failed to export templates",
+    "importSuccess": "Successfully imported {{count}} templates",
+    "importFailed": "Failed to import templates",
+    "invalidFileFormat": "Invalid file format"
   },
   "llmConfig": {
     "title": "LLM Configurations",
