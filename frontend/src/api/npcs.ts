@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { NPC, PaginatedResponse } from '@/types';
+import { generateNpcId } from '@/utils/idGenerator';
 
 type NPCRow = Database['public']['Tables']['npcs']['Row'];
 type NPCInsert = Database['public']['Tables']['npcs']['Insert'];
@@ -86,6 +87,7 @@ export const npcApi = {
     }
 
     const insertData: NPCInsert = {
+      id: generateNpcId(),
       script_id: createData.script_id,
       name: createData.name ?? 'Unnamed NPC',
       age: createData.age ?? null,

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { PaginatedResponse } from '@/types';
+import { generateLlmConfigId } from '@/utils/idGenerator';
 
 export type LLMConfigType = 'embedding' | 'chat';
 
@@ -146,6 +147,7 @@ export const llmConfigApi = {
     }
 
     const insertData: LLMConfigInsert = {
+      id: generateLlmConfigId(),
       name: createData.name,
       type: createData.type,
       model: createData.model,
