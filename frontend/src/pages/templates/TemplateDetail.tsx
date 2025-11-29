@@ -17,6 +17,7 @@ import {
   Space,
   Checkbox,
   Alert,
+  Table,
 } from 'antd';
 import { SaveOutlined, EyeOutlined, CopyOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -415,6 +416,39 @@ export default function TemplateDetail() {
                   </div>
                 ),
               }))}
+            />
+
+          </Card>
+
+          <Card
+            title={t('template.listFormatTitle')}
+            style={{ marginTop: 16 }}
+            size="small"
+          >
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+              {t('template.listFormatHint')}
+            </Text>
+            <Table
+              dataSource={[
+                { key: '1', syntax: '{var}', effect: t('template.listFormatDefault'), example: '1. 项目一\n2. 项目二' },
+                { key: '2', syntax: '{var|comma}', effect: t('template.listFormatComma'), example: '项目一, 项目二' },
+                { key: '3', syntax: '{var|bullet}', effect: t('template.listFormatBullet'), example: '• 项目一\n• 项目二' },
+                { key: '4', syntax: '{var|dash}', effect: t('template.listFormatDash'), example: '- 项目一\n- 项目二' },
+                { key: '5', syntax: '{var|newline}', effect: t('template.listFormatNewline'), example: '项目一\n项目二' },
+              ]}
+              columns={[
+                { title: t('template.formatSyntax'), dataIndex: 'syntax', key: 'syntax', width: 100 },
+                { title: t('template.formatEffect'), dataIndex: 'effect', key: 'effect', width: 120 },
+                {
+                  title: t('template.formatPreview'),
+                  dataIndex: 'example',
+                  key: 'example',
+                  render: (text: string) => <Text style={{ whiteSpace: 'pre-wrap', fontSize: 11 }}>{text}</Text>
+                },
+              ]}
+              pagination={false}
+              size="small"
+              bordered
             />
           </Card>
         </Col>
