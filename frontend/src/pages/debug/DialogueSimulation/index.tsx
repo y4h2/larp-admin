@@ -897,6 +897,14 @@ export default function DialogueSimulation() {
                     <Space>
                       <ClueTypeTag type={clue.type} />
                       <span>{clue.name}</span>
+                      {clue.prereq_clue_ids && clue.prereq_clue_ids.length > 0 && (
+                        <Tooltip title={t('debug.hasPrerequisites', { count: clue.prereq_clue_ids.length })}>
+                          <Tag color="orange" style={{ marginLeft: 4 }}>
+                            <LockOutlined style={{ marginRight: 2 }} />
+                            {clue.prereq_clue_ids.length}
+                          </Tag>
+                        </Tooltip>
+                      )}
                       {renderedPreviews[clue.id] && <Tag color="green" style={{ marginLeft: 8 }}>{t('debug.rendered')}</Tag>}
                     </Space>
                   ),
