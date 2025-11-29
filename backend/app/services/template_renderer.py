@@ -23,17 +23,31 @@ class TemplateRenderer:
 
     Supports jsonpath-style nested field access:
     - {clue.name} - simple field
-    - {clue.trigger_keywords} - list field (joined with comma)
+    - {clue.trigger_keywords} - list field (numbered list by default)
     - {npc.knowledge_scope.knows} - nested field
+
+    List formatting options (append |format to variable):
+    - {var} or {var|list} - numbered list: "1. item1\\n2. item2" (default)
+    - {var|comma} - comma-separated: "item1, item2"
+    - {var|bullet} - bullet points: "• item1\\n• item2"
+    - {var|dash} - dashed list: "- item1\\n- item2"
+    - {var|newline} - newline-separated: "item1\\nitem2"
 
     Example:
         template = '{clue.name}:{clue.detail}'
         context = {'clue': {'name': 'Murder Weapon', 'detail': 'A knife...'}}
         render(template, context) -> 'Murder Weapon:A knife...'
+
+        template = '{npc.knowledge_scope.knows|comma}'
+        context = {'npc': {'knowledge_scope': {'knows': ['fact1', 'fact2']}}}
+        render(template, context) -> 'fact1, fact2'
     """
 
-    # Regex pattern for variable placeholders: {var} or {var.path.to.field}
-    VARIABLE_PATTERN = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\}")
+    # Regex pattern for variable placeholders: {var} or {var.path.to.field} or {var|format}
+    # Supports optional format suffix like {var.path|comma}, {var.path|bullet}, etc.
+    VARIABLE_PATTERN = re.compile(
+        r"\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(?:\|([a-zA-Z_]+))?\}"
+    )
 
     def __init__(self) -> None:
         """Initialize the template renderer."""
@@ -69,6 +83,7 @@ class TemplateRenderer:
 
         def replace_match(match: re.Match) -> str:
             var_path = match.group(1)
+            list_format = match.group(2)  # Optional format suffix (e.g., "comma", "bullet")
             value = self._resolve_jsonpath(context, var_path)
 
             if value is None:
@@ -77,7 +92,7 @@ class TemplateRenderer:
                     return match.group(0)  # Keep original placeholder
                 return ""
 
-            return self._format_value(value)
+            return self._format_value(value, list_format)
 
         rendered = self.VARIABLE_PATTERN.sub(replace_match, template)
 
@@ -123,12 +138,14 @@ class TemplateRenderer:
 
         return current
 
-    def _format_value(self, value: Any) -> str:
+    def _format_value(self, value: Any, list_format: str | None = None) -> str:
         """
         Format a value for template output.
 
         Args:
             value: Value to format.
+            list_format: Format type for lists (list, comma, bullet, dash, newline).
+                        Defaults to "list" (numbered list).
 
         Returns:
             Formatted string.
@@ -136,9 +153,9 @@ class TemplateRenderer:
         if value is None:
             return ""
 
-        # Handle list values - join with comma
+        # Handle list values with format option
         if isinstance(value, list):
-            return ", ".join(str(v) for v in value)
+            return self._format_list(value, list_format or "list")
 
         # Handle dict values - convert to readable format
         if isinstance(value, dict):
@@ -146,6 +163,40 @@ class TemplateRenderer:
             return json.dumps(value, ensure_ascii=False)
 
         return str(value)
+
+    def _format_list(self, items: list, format_type: str) -> str:
+        """
+        Format a list according to the specified format type.
+
+        Args:
+            items: List of items to format.
+            format_type: One of "list", "comma", "bullet", "dash", "newline".
+
+        Returns:
+            Formatted string.
+
+        Supported formats:
+            - list (default): Numbered list (1. item\\n2. item)
+            - comma: Comma-separated (item1, item2)
+            - bullet: Bullet points (• item\\n• item)
+            - dash: Dashed list (- item\\n- item)
+            - newline: Newline-separated (item\\nitem)
+        """
+        if not items:
+            return ""
+
+        str_items = [str(v) for v in items]
+
+        if format_type == "comma":
+            return ", ".join(str_items)
+        elif format_type == "newline":
+            return "\n".join(str_items)
+        elif format_type == "bullet":
+            return "\n".join(f"• {v}" for v in str_items)
+        elif format_type == "dash":
+            return "\n".join(f"- {v}" for v in str_items)
+        else:  # "list" (default) - numbered list
+            return "\n".join(f"{i + 1}. {v}" for i, v in enumerate(str_items))
 
     def extract_variables(self, template: str) -> list[str]:
         """
@@ -155,13 +206,15 @@ class TemplateRenderer:
             template: Template string.
 
         Returns:
-            List of unique variable paths.
+            List of unique variable paths (without format suffixes).
 
         Example:
-            extract_variables('{clue.name}:{clue.detail}')
+            extract_variables('{clue.name}:{clue.detail|comma}')
             # Returns: ['clue.name', 'clue.detail']
         """
-        return list(set(self.VARIABLE_PATTERN.findall(template)))
+        matches = self.VARIABLE_PATTERN.findall(template)
+        # findall returns list of (var_path, format) tuples, extract only var_path
+        return list(set(m[0] for m in matches))
 
     def validate_variables(
         self,
@@ -238,9 +291,9 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="clue.trigger_keywords",
-                        description="Keywords that trigger this clue (list, comma-joined)",
+                        description="Keywords that trigger this clue (list, numbered by default, use |comma for comma-separated)",
                         type="list",
-                        example="knife, weapon, murder",
+                        example="1. knife\n2. weapon\n3. murder",
                     ),
                     VariableInfo(
                         name="clue.trigger_semantic_summary",
@@ -286,21 +339,21 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.knows",
-                        description="Things the NPC knows (list, comma-joined)",
+                        description="Things the NPC knows (list, numbered by default, use |comma for comma-separated)",
                         type="list",
-                        example="saw the victim at 10pm, heard a scream",
+                        example="1. saw the victim at 10pm\n2. heard a scream",
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.does_not_know",
-                        description="Things the NPC doesn't know (list, comma-joined)",
+                        description="Things the NPC doesn't know (list, numbered by default, use |comma for comma-separated)",
                         type="list",
-                        example="who the murderer is, where the weapon is",
+                        example="1. who the murderer is\n2. where the weapon is",
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.world_model_limits",
-                        description="Limits of NPC's world knowledge (list, comma-joined)",
+                        description="Limits of NPC's world knowledge (list, numbered by default, use |comma for comma-separated)",
                         type="list",
-                        example="doesn't know about modern technology",
+                        example="1. doesn't know about modern technology",
                     ),
                 ],
             ),
@@ -382,9 +435,9 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="unlocked_clues",
-                        description="List of already unlocked clue names",
+                        description="List of already unlocked clue names (numbered by default, use |comma for comma-separated)",
                         type="list",
-                        example="Murder Weapon, Alibi Letter, Blood Stain",
+                        example="1. Murder Weapon\n2. Alibi Letter\n3. Blood Stain",
                     ),
                 ],
             ),
