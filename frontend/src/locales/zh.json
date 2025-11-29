@@ -418,6 +418,12 @@
       "npc_system_prompt": "NPC系统提示词",
       "clue_reveal": "线索揭示",
       "custom": "自定义"
+    },
+    "categoryDescriptions": {
+      "clue": "线索对象字段 - 使用 {clue.字段名}",
+      "npc": "NPC对象字段 - 使用 {npc.字段名}",
+      "script": "剧本对象字段 - 使用 {script.字段名}",
+      "context": "上下文变量 - 使用 {变量名}"
     }
   },
   "llmConfig": {

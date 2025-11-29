@@ -368,7 +368,7 @@ export default function TemplateDetail() {
                   <span>
                     <Tag color="purple">{category.name}</Tag>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      {category.description}
+                      {t(`template.categoryDescriptions.${category.name}`, { defaultValue: category.description })}
                     </Text>
                   </span>
                 ),
