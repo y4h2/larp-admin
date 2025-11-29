@@ -262,7 +262,7 @@
     "embeddingConfigHint": "可选：选择用于语义匹配的嵌入模型配置",
     "selectChatConfig": "选择对话配置",
     "chatConfigHint": "可选：选择用于大模型匹配的对话模型配置",
-    "templateContent": "模板内容",
+    "templateContent": "匹配模板预览",
     "lockedClues": "未解锁线索",
     "noLockedClues": "所有线索已解锁",
     "renderAll": "渲染全部",

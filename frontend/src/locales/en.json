@@ -262,7 +262,7 @@
     "embeddingConfigHint": "Optional: Select an embedding model configuration",
     "selectChatConfig": "Select Chat Config",
     "chatConfigHint": "Optional: Select a chat model configuration for LLM matching",
-    "templateContent": "Template Content",
+    "templateContent": "Matching Template Preview",
     "lockedClues": "Locked Clues",
     "noLockedClues": "All clues are unlocked",
     "renderAll": "Render All",
