@@ -6,6 +6,7 @@
     "edit": "Edit",
     "create": "Create",
     "confirm": "Confirm",
+    "next": "Next",
     "back": "Back",
     "noData": "No Data",
     "actions": "Actions",
@@ -477,6 +478,18 @@
     "types": {
       "embedding": "Embedding",
       "chat": "Chat"
-    }
+    },
+    "exportConfig": "Export",
+    "importConfig": "Import",
+    "exportAll": "Export All",
+    "exportSuccess": "Config exported successfully",
+    "exportFailed": "Failed to export config",
+    "importSuccess": "Successfully imported {{count}} configs",
+    "importFailed": "Failed to import configs",
+    "importApiKeyRequired": "Imported configs require API key re-entry",
+    "importApiKeyTitle": "Enter API Key",
+    "importApiKeyHint": "Imported config \"{{name}}\" requires API key",
+    "skipConfig": "Skip",
+    "importingConfig": "Importing configs..."
   }
 }

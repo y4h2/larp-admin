@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Button,
   Space,
@@ -12,6 +12,7 @@ import {
   Col,
   InputNumber,
   Switch,
+  message,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -22,10 +23,14 @@ import {
   EditOutlined,
   CheckCircleOutlined,
   EyeInvisibleOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useLLMConfigs } from '@/hooks';
+import { llmConfigApi } from '@/api/llmConfigs';
 import { formatDate } from '@/utils';
 import type {
   LLMConfig,
@@ -33,6 +38,8 @@ import type {
   LLMConfigCreateData,
   EmbeddingOptions,
   ChatOptions,
+  LLMConfigExportData,
+  LLMConfigExportItem,
 } from '@/api/llmConfigs';
 
 const { Option } = Select;
@@ -72,6 +79,13 @@ export default function LLMConfigList() {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<LLMConfig | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
+  const [pendingImports, setPendingImports] = useState<LLMConfigExportItem[]>([]);
+  const [currentImportIndex, setCurrentImportIndex] = useState(0);
+  const [importedCount, setImportedCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [apiKeyForm] = Form.useForm();
   const [filters, setFilters] = useState<{
     type?: LLMConfigType;
     search?: string;
@@ -180,6 +194,181 @@ export default function LLMConfigList() {
     }
   };
 
+  const handleExport = async (id?: string) => {
+    try {
+      let configsToExport: LLMConfig[];
+      if (id) {
+        const config = await llmConfigApi.get(id);
+        configsToExport = [config];
+      } else {
+        const response = await llmConfigApi.list({ page_size: 1000 });
+        configsToExport = response.items;
+      }
+
+      const exportData: LLMConfigExportData = {
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+        configs: configsToExport.map((c) => ({
+          name: c.name,
+          type: c.type,
+          model: c.model,
+          base_url: c.base_url,
+          api_key: '', // User needs to fill in when importing
+          is_default: c.is_default,
+          options: c.options,
+        })),
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = id
+        ? `llm_config_${configsToExport[0].name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.json`
+        : `llm_configs_export_${Date.now()}.json`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      message.success(t('llmConfig.exportSuccess'));
+    } catch {
+      message.error(t('llmConfig.exportFailed'));
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data: LLMConfigExportData = JSON.parse(text);
+
+      if (!data.version || !data.configs || !Array.isArray(data.configs)) {
+        throw new Error('Invalid file format');
+      }
+
+      // Get existing config names for deduplication
+      const existing = await llmConfigApi.list({ page_size: 1000 });
+      const existingNames = new Set(existing.items.map((c) => c.name));
+
+      // Rename duplicates
+      const configsToImport = data.configs.map((config) => {
+        let name = config.name;
+        if (existingNames.has(name)) {
+          let suffix = 1;
+          while (existingNames.has(`${config.name}_${suffix}`)) {
+            suffix++;
+          }
+          name = `${config.name}_${suffix}`;
+        }
+        existingNames.add(name);
+        return { ...config, name };
+      });
+
+      if (configsToImport.length === 0) {
+        message.info(t('llmConfig.importFailed'));
+        return;
+      }
+
+      // Separate configs with api_key already filled vs those needing input
+      const configsWithKey = configsToImport.filter((c) => c.api_key && c.api_key.trim() !== '');
+      const configsNeedingKey = configsToImport.filter((c) => !c.api_key || c.api_key.trim() === '');
+
+      // Import configs that already have api_key
+      let importedWithKey = 0;
+      for (const config of configsWithKey) {
+        try {
+          await llmConfigApi.create({
+            name: config.name,
+            type: config.type,
+            model: config.model,
+            base_url: config.base_url,
+            api_key: config.api_key,
+            is_default: false,
+            options: config.options,
+          });
+          importedWithKey++;
+        } catch {
+          // Continue with other configs
+        }
+      }
+
+      if (configsNeedingKey.length === 0) {
+        // All configs had api_key, we're done
+        if (importedWithKey > 0) {
+          message.success(t('llmConfig.importSuccess', { count: importedWithKey }));
+        }
+        fetchConfigs(filters);
+        return;
+      }
+
+      // Start the API key input flow for remaining configs
+      setPendingImports(configsNeedingKey);
+      setCurrentImportIndex(0);
+      setImportedCount(importedWithKey);
+      setApiKeyModalVisible(true);
+      apiKeyForm.resetFields();
+    } catch {
+      message.error(t('llmConfig.importFailed'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportWithApiKey = async (values: { api_key: string }) => {
+    const currentConfig = pendingImports[currentImportIndex];
+    let success = false;
+
+    try {
+      await llmConfigApi.create({
+        name: currentConfig.name,
+        type: currentConfig.type,
+        model: currentConfig.model,
+        base_url: currentConfig.base_url,
+        api_key: values.api_key,
+        is_default: false,
+        options: currentConfig.options,
+      });
+      success = true;
+    } catch {
+      message.error(t('llmConfig.createFailed'));
+    }
+
+    const newImportedCount = success ? importedCount + 1 : importedCount;
+    if (success) {
+      setImportedCount(newImportedCount);
+    }
+
+    apiKeyForm.resetFields();
+    if (currentImportIndex < pendingImports.length - 1) {
+      setCurrentImportIndex((prev) => prev + 1);
+    } else {
+      // All done
+      setApiKeyModalVisible(false);
+      setPendingImports([]);
+      if (newImportedCount > 0) {
+        message.success(t('llmConfig.importSuccess', { count: newImportedCount }));
+      }
+      fetchConfigs(filters);
+    }
+  };
+
+  const handleSkipImport = () => {
+    apiKeyForm.resetFields();
+    if (currentImportIndex < pendingImports.length - 1) {
+      setCurrentImportIndex((prev) => prev + 1);
+    } else {
+      // All done
+      setApiKeyModalVisible(false);
+      setPendingImports([]);
+      if (importedCount > 0) {
+        message.success(t('llmConfig.importSuccess', { count: importedCount }));
+      }
+      fetchConfigs(filters);
+    }
+  };
+
   const getTypeColor = (type: LLMConfigType) => {
     switch (type) {
       case 'embedding':
@@ -197,6 +386,12 @@ export default function LLMConfigList() {
       icon: <EditOutlined />,
       label: t('common.edit'),
       onClick: () => handleEdit(record),
+    },
+    {
+      key: 'export',
+      icon: <ExportOutlined />,
+      label: t('llmConfig.exportConfig'),
+      onClick: () => handleExport(record.id),
     },
     {
       key: 'setDefault',
@@ -304,14 +499,35 @@ export default function LLMConfigList() {
         title={t('llmConfig.title')}
         subtitle={t('llmConfig.subtitle')}
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => {
-            setEditingConfig(null);
-            form.resetFields();
-            setModalVisible(true);
-          }}>
-            {t('llmConfig.createConfig')}
-          </Button>
+          <Space>
+            <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileInputRef.current?.click()}>
+              {t('llmConfig.importConfig')}
+            </Button>
+            <Button icon={<DownloadOutlined />} onClick={() => handleExport()}>
+              {t('llmConfig.exportAll')}
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+              setEditingConfig(null);
+              form.resetFields();
+              setModalVisible(true);
+            }}>
+              {t('llmConfig.createConfig')}
+            </Button>
+          </Space>
         }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            handleImport(file);
+            e.target.value = '';
+          }
+        }}
       />
 
       <Space style={{ marginBottom: 16 }}>
@@ -516,6 +732,55 @@ export default function LLMConfigList() {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* API Key Input Modal for Import */}
+      <Modal
+        title={t('llmConfig.importApiKeyTitle')}
+        open={apiKeyModalVisible}
+        onCancel={() => {
+          setApiKeyModalVisible(false);
+          setPendingImports([]);
+          if (importedCount > 0) {
+            message.success(t('llmConfig.importSuccess', { count: importedCount }));
+            fetchConfigs(filters);
+          }
+        }}
+        footer={null}
+        maskClosable={false}
+      >
+        {pendingImports.length > 0 && currentImportIndex < pendingImports.length && (
+          <Form form={apiKeyForm} layout="vertical" onFinish={handleImportWithApiKey}>
+            <div style={{ marginBottom: 16 }}>
+              <Tag color="blue">{currentImportIndex + 1} / {pendingImports.length}</Tag>
+              <span style={{ marginLeft: 8 }}>
+                {t('llmConfig.importApiKeyHint', { name: pendingImports[currentImportIndex].name })}
+              </span>
+            </div>
+            <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
+              <div><strong>{t('llmConfig.model')}:</strong> {pendingImports[currentImportIndex].model}</div>
+              <div><strong>{t('llmConfig.baseUrl')}:</strong> {pendingImports[currentImportIndex].base_url}</div>
+              <div><strong>{t('llmConfig.type')}:</strong> {t(`llmConfig.types.${pendingImports[currentImportIndex].type}`)}</div>
+            </div>
+            <Form.Item
+              name="api_key"
+              label={t('llmConfig.apiKey')}
+              rules={[{ required: true, message: t('llmConfig.enterApiKey') }]}
+            >
+              <Input.Password placeholder={t('llmConfig.apiKeyPlaceholder')} />
+            </Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit">
+                  {currentImportIndex < pendingImports.length - 1 ? t('common.next') : t('common.confirm')}
+                </Button>
+                <Button onClick={handleSkipImport}>
+                  {t('llmConfig.skipConfig')}
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </div>
   );

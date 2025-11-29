@@ -62,6 +62,23 @@ export interface LLMConfigUpdateData {
   options?: EmbeddingOptions | ChatOptions;
 }
 
+// Export/Import types
+export interface LLMConfigExportItem {
+  name: string;
+  type: LLMConfigType;
+  model: string;
+  base_url: string;
+  api_key: string; // Exported as empty, user needs to fill in when importing
+  is_default: boolean;
+  options: EmbeddingOptions | ChatOptions;
+}
+
+export interface LLMConfigExportData {
+  version: string;
+  exported_at: string;
+  configs: LLMConfigExportItem[];
+}
+
 // Mask API key for display
 function maskApiKey(apiKey: string): string {
   if (!apiKey || apiKey.length < 8) return '***';

@@ -6,6 +6,7 @@
     "edit": "编辑",
     "create": "创建",
     "confirm": "确认",
+    "next": "下一个",
     "back": "返回",
     "noData": "暂无数据",
     "actions": "操作",
@@ -477,6 +478,18 @@
     "types": {
       "embedding": "嵌入",
       "chat": "对话"
-    }
+    },
+    "exportConfig": "导出",
+    "importConfig": "导入",
+    "exportAll": "导出全部",
+    "exportSuccess": "配置导出成功",
+    "exportFailed": "配置导出失败",
+    "importSuccess": "成功导入 {{count}} 个配置",
+    "importFailed": "配置导入失败",
+    "importApiKeyRequired": "导入的配置需要重新输入 API 密钥",
+    "importApiKeyTitle": "输入 API 密钥",
+    "importApiKeyHint": "导入的配置「{{name}}」需要输入 API 密钥",
+    "skipConfig": "跳过",
+    "importingConfig": "正在导入配置..."
   }
 }
