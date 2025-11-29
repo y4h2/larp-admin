@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { Clue, PaginatedResponse } from '@/types';
+import { generateClueId } from '@/utils/idGenerator';
 import client from './client';
 
 type ClueRow = Database['public']['Tables']['clues']['Row'];
@@ -124,6 +125,7 @@ export const clueApi = {
     }
 
     const insertData: ClueInsert = {
+      id: generateClueId(),
       script_id: createData.script_id,
       npc_id: createData.npc_id,
       name: createData.name ?? 'Unnamed Clue',

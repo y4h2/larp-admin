@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { Script, PaginatedResponse } from '@/types';
+import { generateScriptId } from '@/utils/idGenerator';
 import client from './client';
 
 type ScriptRow = Database['public']['Tables']['scripts']['Row'];
@@ -116,6 +117,7 @@ export const scriptApi = {
 
   create: async (createData: Partial<Script>): Promise<Script> => {
     const insertData: ScriptInsert = {
+      id: generateScriptId(),
       title: createData.title ?? 'Untitled Script',
       summary: createData.summary ?? null,
       background: createData.background ?? null,

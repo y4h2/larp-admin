@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/lib/database.types';
 import type { PaginatedResponse } from '@/types';
+import { generateTemplateId } from '@/utils/idGenerator';
 import client from './client';
 
 export type TemplateType = 'clue_embedding' | 'npc_system_prompt' | 'clue_reveal' | 'custom';
@@ -163,6 +164,7 @@ export const templateApi = {
     }
 
     const insertData: TemplateInsert = {
+      id: generateTemplateId(),
       name: createData.name,
       description: createData.description ?? null,
       type: createData.type,
@@ -253,6 +255,7 @@ export const templateApi = {
 
     // Create duplicate
     const insertData: TemplateInsert = {
+      id: generateTemplateId(),
       name: `${original.name} (Copy)`,
       description: original.description,
       type: original.type as TemplateType,
