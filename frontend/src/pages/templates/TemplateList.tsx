@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -13,6 +13,7 @@ import {
   Col,
   Collapse,
   Typography,
+  message,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -23,11 +24,14 @@ import {
   DeleteOutlined,
   EditOutlined,
   CheckCircleOutlined,
+  UploadOutlined,
+  DownloadOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { useTemplates } from '@/hooks/useTemplates';
-import { templateApi, type VariableCategory } from '@/api/templates';
+import { templateApi, type VariableCategory, type TemplateExportData } from '@/api/templates';
 import { formatDate } from '@/utils';
 import type { PromptTemplate, TemplateType, TemplateCreateData } from '@/api/templates';
 
@@ -55,6 +59,8 @@ export default function TemplateList() {
   const [modalVisible, setModalVisible] = useState(false);
   const [availableVariables, setAvailableVariables] = useState<VariableCategory[]>([]);
   const [templateContent, setTemplateContent] = useState('');
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState<{
     type?: TemplateType;
     search?: string;
@@ -124,6 +130,102 @@ export default function TemplateList() {
     }
   };
 
+  const handleExport = async (id?: string) => {
+    try {
+      // Get template(s) to export
+      let templatesToExport: PromptTemplate[];
+      if (id) {
+        const template = await templateApi.get(id);
+        templatesToExport = [template];
+      } else {
+        const response = await templateApi.list({ page_size: 1000 });
+        templatesToExport = response.items;
+      }
+
+      // Build export data
+      const exportData: TemplateExportData = {
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+        templates: templatesToExport.map((t) => ({
+          name: t.name,
+          description: t.description,
+          type: t.type,
+          content: t.content,
+          is_default: t.is_default,
+        })),
+      };
+
+      // Download file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = id
+        ? `template_${templatesToExport[0].name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}.json`
+        : `templates_export_${Date.now()}.json`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      message.success(t('template.exportSuccess'));
+    } catch {
+      message.error(t('template.exportFailed'));
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data: TemplateExportData = JSON.parse(text);
+
+      // Validate format
+      if (!data.version || !data.templates || !Array.isArray(data.templates)) {
+        throw new Error('Invalid file format');
+      }
+
+      // Get existing template names
+      const existing = await templateApi.list({ page_size: 1000 });
+      const existingNames = new Set(existing.items.map((t) => t.name));
+
+      // Helper to generate unique name
+      const getUniqueName = (name: string): string => {
+        if (!existingNames.has(name)) {
+          existingNames.add(name);
+          return name;
+        }
+        let suffix = 1;
+        while (existingNames.has(`${name}_${suffix}`)) {
+          suffix++;
+        }
+        const newName = `${name}_${suffix}`;
+        existingNames.add(newName);
+        return newName;
+      };
+
+      let imported = 0;
+      for (const template of data.templates) {
+        await templateApi.create({
+          name: getUniqueName(template.name),
+          description: template.description ?? undefined,
+          type: template.type,
+          content: template.content,
+          is_default: false,
+        });
+        imported++;
+      }
+
+      message.success(t('template.importSuccess', { count: imported }));
+      fetchTemplates(filters);
+    } catch {
+      message.error(t('template.importFailed'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const getTypeColor = (type: TemplateType) => {
     switch (type) {
       case 'clue_embedding':
@@ -151,6 +253,12 @@ export default function TemplateList() {
       icon: <CopyOutlined />,
       label: t('common.copy'),
       onClick: () => handleDuplicate(record.id),
+    },
+    {
+      key: 'export',
+      icon: <ExportOutlined />,
+      label: t('template.exportTemplate'),
+      onClick: () => handleExport(record.id),
     },
     {
       key: 'setDefault',
@@ -243,10 +351,31 @@ export default function TemplateList() {
         title={t('template.title')}
         subtitle={t('template.subtitle')}
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-            {t('template.createTemplate')}
-          </Button>
+          <Space>
+            <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileInputRef.current?.click()}>
+              {t('template.importTemplate')}
+            </Button>
+            <Button icon={<DownloadOutlined />} onClick={() => handleExport()}>
+              {t('template.exportAll')}
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+              {t('template.createTemplate')}
+            </Button>
+          </Space>
         }
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            handleImport(file);
+            e.target.value = '';
+          }
+        }}
       />
 
       <Space style={{ marginBottom: 16 }}>
