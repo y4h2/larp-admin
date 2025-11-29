@@ -1,11 +1,11 @@
-import { Row, Col, Typography, Tooltip, Empty, Tag, Spin } from 'antd';
+import { Row, Col, Typography, Tooltip, Empty, Tag, Spin, Divider, Table } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { templateApi } from '@/api';
 import type { VariableCategory, VariableInfo } from '@/api/templates';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 interface VariablePanelProps {
   onInsert: (variable: string) => void;
@@ -46,6 +46,25 @@ export default function VariablePanel({ onInsert }: VariablePanelProps) {
     return <Empty description={t('common.noData')} />;
   }
 
+  const listFormatData = [
+    { key: '1', syntax: '{var}', effect: t('template.listFormatDefault'), example: '1. 项目一\n2. 项目二' },
+    { key: '2', syntax: '{var|comma}', effect: t('template.listFormatComma'), example: '项目一, 项目二' },
+    { key: '3', syntax: '{var|bullet}', effect: t('template.listFormatBullet'), example: '• 项目一\n• 项目二' },
+    { key: '4', syntax: '{var|dash}', effect: t('template.listFormatDash'), example: '- 项目一\n- 项目二' },
+    { key: '5', syntax: '{var|newline}', effect: t('template.listFormatNewline'), example: '项目一\n项目二' },
+  ];
+
+  const listFormatColumns = [
+    { title: t('template.formatSyntax'), dataIndex: 'syntax', key: 'syntax', width: 150 },
+    { title: t('template.formatEffect'), dataIndex: 'effect', key: 'effect', width: 150 },
+    {
+      title: t('template.formatPreview'),
+      dataIndex: 'example',
+      key: 'example',
+      render: (text: string) => <Text style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{text}</Text>
+    },
+  ];
+
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -85,6 +104,22 @@ export default function VariablePanel({ onInsert }: VariablePanelProps) {
           </Col>
         ))}
       </Row>
+
+      <Divider style={{ margin: '16px 0' }} />
+
+      <div>
+        <Title level={5} style={{ marginBottom: 8 }}>{t('template.listFormatTitle')}</Title>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          {t('template.listFormatHint')}
+        </Text>
+        <Table
+          dataSource={listFormatData}
+          columns={listFormatColumns}
+          pagination={false}
+          size="small"
+          bordered
+        />
+      </div>
     </div>
   );
 }
