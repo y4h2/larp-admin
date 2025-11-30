@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
@@ -49,13 +49,21 @@ export default function DialogueLogs() {
 
   useEffect(() => {
     fetchScripts();
-  }, [fetchScripts]);
+    fetchNpcs(); // Fetch all NPCs for name display
+  }, [fetchScripts, fetchNpcs]);
 
-  useEffect(() => {
-    if (filters.script_id) {
-      fetchNpcs({ script_id: filters.script_id });
-    }
-  }, [filters.script_id, fetchNpcs]);
+  // Filter NPCs for dropdown based on selected script
+  const filteredNpcs = useMemo(() => {
+    return filters.script_id
+      ? npcs.filter((n) => n.script_id === filters.script_id)
+      : npcs;
+  }, [npcs, filters.script_id]);
+
+  // Helper to get NPC name by ID
+  const getNpcName = (npcId: string) => {
+    const npc = npcs.find((n) => n.id === npcId);
+    return npc?.name || npcId;
+  };
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -97,10 +105,7 @@ export default function DialogueLogs() {
       dataIndex: 'npc_id',
       key: 'npc_id',
       width: 100,
-      render: (id) => {
-        const npc = npcs.find((n) => n.id === id);
-        return npc?.name || id;
-      },
+      render: (id) => getNpcName(id),
     },
     {
       title: t('logs.matchedClues'),
@@ -175,7 +180,7 @@ export default function DialogueLogs() {
             allowClear
             disabled={!filters.script_id}
           >
-            {npcs.map((n) => (
+            {filteredNpcs.map((n) => (
               <Option key={n.id} value={n.id}>
                 {n.name}
               </Option>
@@ -225,7 +230,7 @@ export default function DialogueLogs() {
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label={t('logs.time')}>{formatDate(selectedLog.created_at)}</Descriptions.Item>
-              <Descriptions.Item label="NPC">{selectedLog.npc_id}</Descriptions.Item>
+              <Descriptions.Item label="NPC">{getNpcName(selectedLog.npc_id)}</Descriptions.Item>
             </Descriptions>
 
             <Card size="small" title={t('logs.playerMessage')} style={{ marginTop: 16 }}>

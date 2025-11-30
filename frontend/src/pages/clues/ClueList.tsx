@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
@@ -50,13 +50,25 @@ export default function ClueList() {
 
   useEffect(() => {
     fetchScripts();
-  }, [fetchScripts]);
+    fetchNpcs(); // Fetch all NPCs for name display
+  }, [fetchScripts, fetchNpcs]);
 
-  useEffect(() => {
-    if (filters.script_id) {
-      fetchNpcs({ script_id: filters.script_id });
-    }
-  }, [filters.script_id, fetchNpcs]);
+  // State for modal's script selection
+  const [modalScriptId, setModalScriptId] = useState<string | undefined>(undefined);
+
+  // Filter NPCs for dropdown based on selected script
+  const filteredNpcs = useMemo(() => {
+    return filters.script_id
+      ? npcs.filter((n) => n.script_id === filters.script_id)
+      : npcs;
+  }, [npcs, filters.script_id]);
+
+  // Filter NPCs for modal based on modal's selected script
+  const modalNpcs = useMemo(() => {
+    return modalScriptId
+      ? npcs.filter((n) => n.script_id === modalScriptId)
+      : [];
+  }, [npcs, modalScriptId]);
 
   useEffect(() => {
     fetchClues(filters);
@@ -66,6 +78,7 @@ export default function ClueList() {
     try {
       const clue = await createClue(values);
       setModalVisible(false);
+      setModalScriptId(undefined);
       form.resetFields();
       navigate(`/clues/${clue.id}`);
     } catch {
@@ -193,7 +206,10 @@ export default function ClueList() {
             >
               {t('common.viewTree')}
             </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+              setModalScriptId(filters.script_id); // Initialize with current filter
+              setModalVisible(true);
+            }}>
               {t('clue.createClue')}
             </Button>
           </Space>
@@ -232,7 +248,7 @@ export default function ClueList() {
           allowClear
           disabled={!filters.script_id}
         >
-          {npcs.map((n) => (
+          {filteredNpcs.map((n) => (
             <Option key={n.id} value={n.id}>
               {n.name}
             </Option>
@@ -272,6 +288,7 @@ export default function ClueList() {
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
+          setModalScriptId(undefined);
           form.resetFields();
         }}
         footer={null}
@@ -287,9 +304,8 @@ export default function ClueList() {
             <Select
               placeholder={t('clue.selectScript')}
               onChange={(value) => {
-                if (value) {
-                  fetchNpcs({ script_id: value });
-                }
+                setModalScriptId(value);
+                form.setFieldValue('npc_id', undefined); // Reset NPC when script changes
               }}
             >
               {scripts.map((s) => (
@@ -304,8 +320,8 @@ export default function ClueList() {
             label="NPC"
             rules={[{ required: true, message: t('clue.selectNpc') }]}
           >
-            <Select placeholder={t('clue.selectNpc')}>
-              {npcs.map((n) => (
+            <Select placeholder={t('clue.selectNpc')} disabled={!modalScriptId}>
+              {modalNpcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
                 </Option>
@@ -350,7 +366,11 @@ export default function ClueList() {
               <Button type="primary" htmlType="submit">
                 {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button onClick={() => {
+                setModalVisible(false);
+                setModalScriptId(undefined);
+                form.resetFields();
+              }}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>
