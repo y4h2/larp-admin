@@ -362,6 +362,11 @@ export default function DialogueSimulation() {
                 npc: {
                   id: selectedNpc.id, name: selectedNpc.name, age: selectedNpc.age,
                   personality: selectedNpc.personality, background: selectedNpc.background,
+                  knowledge_scope: {
+                    knows: selectedNpc.knowledge_scope?.knows || [],
+                    does_not_know: selectedNpc.knowledge_scope?.does_not_know || [],
+                    world_model_limits: selectedNpc.knowledge_scope?.world_model_limits || [],
+                  },
                 },
               },
             });
@@ -466,6 +471,11 @@ export default function DialogueSimulation() {
           npc: selectedNpc ? {
             id: selectedNpc.id, name: selectedNpc.name, age: selectedNpc.age,
             personality: selectedNpc.personality, background: selectedNpc.background,
+            knowledge_scope: {
+              knows: selectedNpc.knowledge_scope?.knows || [],
+              does_not_know: selectedNpc.knowledge_scope?.does_not_know || [],
+              world_model_limits: selectedNpc.knowledge_scope?.world_model_limits || [],
+            },
           } : null,
         },
       });
@@ -487,7 +497,11 @@ export default function DialogueSimulation() {
           npc: selectedNpc ? {
             id: selectedNpc.id, name: selectedNpc.name, age: selectedNpc.age,
             personality: selectedNpc.personality, background: selectedNpc.background,
-            knowledge_scope: selectedNpc.knowledge_scope || {},
+            knowledge_scope: {
+              knows: selectedNpc.knowledge_scope?.knows || [],
+              does_not_know: selectedNpc.knowledge_scope?.does_not_know || [],
+              world_model_limits: selectedNpc.knowledge_scope?.world_model_limits || [],
+            },
           } : {},
           script: selectedScript ? {
             id: selectedScript.id, title: selectedScript.title, background: selectedScript.background,
@@ -514,7 +528,11 @@ export default function DialogueSimulation() {
           npc: selectedNpc ? {
             id: selectedNpc.id, name: selectedNpc.name, age: selectedNpc.age,
             personality: selectedNpc.personality, background: selectedNpc.background,
-            knowledge_scope: selectedNpc.knowledge_scope || {},
+            knowledge_scope: {
+              knows: selectedNpc.knowledge_scope?.knows || [],
+              does_not_know: selectedNpc.knowledge_scope?.does_not_know || [],
+              world_model_limits: selectedNpc.knowledge_scope?.world_model_limits || [],
+            },
           } : {},
           script: selectedScript ? {
             id: selectedScript.id, title: selectedScript.title, background: selectedScript.background,
