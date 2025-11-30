@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 
 import httpx
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,23 @@ from app.schemas.simulate import (
 )
 from app.services.template_renderer import template_renderer
 from app.services.vector_matching import create_vector_retriever
+
+
+# Pydantic models for LLM structured output
+class LLMClueMatch(BaseModel):
+    """Single clue match from LLM."""
+
+    id: str = Field(description="The clue ID")
+    score: float = Field(ge=0.0, le=1.0, description="Match confidence score (0.0-1.0)")
+    reason: str = Field(description="Reason for the match")
+
+
+class LLMMatchResponse(BaseModel):
+    """LLM matching response structure."""
+
+    matches: list[LLMClueMatch] = Field(
+        default_factory=list, description="List of matched clues"
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -510,9 +528,9 @@ class MatchingService:
             context.template_id, candidates
         )
 
-        # Call LLM
+        # Call LLM with structured output
         try:
-            llm_response = await self._call_llm(
+            llm_response = await self._call_llm_for_matching(
                 chat_config,
                 system_prompt,
                 context.player_message,
@@ -521,18 +539,24 @@ class MatchingService:
             # Parse LLM response to extract matched clue IDs
             matched_ids = self._parse_llm_response(llm_response, candidates)
 
+            # Build a map of clue_id -> reason from LLM response
+            reason_map = {m.id: m.reason for m in llm_response.matches}
+
             # Build results
             for clue in candidates:
                 if clue.id in matched_ids:
+                    reason = reason_map.get(clue.id, "LLM identified as relevant")
                     result = MatchResult(
                         clue=clue,
                         score=matched_ids[clue.id],
-                        match_reasons=[f"LLM identified as relevant"],
+                        match_reasons=[f"LLM: {reason}"],
                     )
                     results.append(result)
 
+            logger.info(f"LLM matching found {len(results)} results")
+
         except Exception as e:
-            logger.error(f"Failed to match with LLM: {e}")
+            logger.error(f"Failed to match with LLM: {e}", exc_info=True)
 
         return results
 
@@ -550,7 +574,17 @@ class MatchingService:
     async def _build_llm_matching_prompt(
         self, template_id: str | None, clues: list[Clue]
     ) -> str:
-        """Build the system prompt for LLM matching."""
+        """
+        Build the system prompt for LLM matching.
+
+        The prompt structure:
+        1. Core role definition (fixed)
+        2. Clue list (always included)
+        3. Matching strategy (from template, or default)
+
+        Template controls the matching strategy - how to determine if player
+        input should trigger a clue. The response format is enforced by JSON Schema.
+        """
         # Build clue list
         clue_list = []
         for i, clue in enumerate(clues, 1):
@@ -564,7 +598,8 @@ class MatchingService:
 
         clues_text = "\n".join(clue_list)
 
-        # Use template if provided
+        # Load matching strategy from template
+        matching_strategy = None
         if template_id:
             query = select(PromptTemplate).where(
                 PromptTemplate.id == template_id,
@@ -578,23 +613,25 @@ class MatchingService:
                     template.content,
                     {"clues": clues_text},
                 )
-                return render_result.rendered_content
+                matching_strategy = render_result.rendered_content
 
-        # Default prompt
-        return f"""You are a clue matching assistant. Given a player message, identify which clues are relevant.
+        # Default matching strategy if no template provided
+        if not matching_strategy:
+            matching_strategy = """分析玩家消息的意图，判断是否与线索相关。
+对比每条线索的触发关键词和语义摘要，只有高度相关时才匹配。"""
 
-Available clues:
+        # Build final prompt
+        return f"""你是一个剧本杀线索匹配助手。根据玩家的对话内容，判断哪些线索应该被触发。
+
+## 可用线索列表
 {clues_text}
 
-Instructions:
-1. Analyze the player message to understand what they're asking about
-2. Compare with each clue's trigger keywords and semantic summary
-3. Return a JSON array of relevant clue IDs with confidence scores (0.0-1.0)
+## 匹配策略
+{matching_strategy}
 
-Response format:
-{{"matches": [{{"id": "clue-id", "score": 0.8, "reason": "why matched"}}]}}
-
-Only return the JSON object, no other text."""
+## 输出要求
+- 为每个匹配的线索提供置信度分数(score: 0.0-1.0)和匹配原因(reason)
+- 如果没有匹配的线索，返回空数组"""
 
     async def _call_llm(
         self, config: LLMConfig, system_prompt: str, user_message: str
@@ -617,32 +654,84 @@ Only return the JSON object, no other text."""
             data = response.json()
             return data["choices"][0]["message"]["content"]
 
+    async def _call_llm_for_matching(
+        self, config: LLMConfig, system_prompt: str, user_message: str
+    ) -> LLMMatchResponse:
+        """
+        Call LLM for clue matching with structured JSON output.
+
+        Uses OpenAI's JSON Schema response format to ensure consistent output.
+        """
+        # JSON Schema for the response format
+        response_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "clue_match_response",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "matches": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "description": "The clue ID",
+                                    },
+                                    "score": {
+                                        "type": "number",
+                                        "description": "Match confidence score (0.0-1.0)",
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "description": "Reason for the match",
+                                    },
+                                },
+                                "required": ["id", "score", "reason"],
+                                "additionalProperties": False,
+                            },
+                            "description": "List of matched clues",
+                        },
+                    },
+                    "required": ["matches"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{config.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {config.api_key}"},
+                json={
+                    "model": config.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    "temperature": 0.1,
+                    "response_format": response_schema,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+
+            # Parse and validate with Pydantic
+            return LLMMatchResponse.model_validate_json(content)
+
     def _parse_llm_response(
-        self, response: str, clues: list[Clue]
+        self, response: LLMMatchResponse, clues: list[Clue]
     ) -> dict[str, float]:
-        """Parse LLM response to extract matched clue IDs and scores."""
+        """Parse LLM structured response to extract matched clue IDs and scores."""
         matched_ids: dict[str, float] = {}
+        valid_ids = {c.id for c in clues}
 
-        try:
-            # Try to parse as JSON
-            # Extract JSON from response (it might have extra text)
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                data = json.loads(json_str)
-
-                matches = data.get("matches", [])
-                valid_ids = {c.id for c in clues}
-
-                for match in matches:
-                    clue_id = match.get("id", "")
-                    score = float(match.get("score", 0.5))
-                    if clue_id in valid_ids:
-                        matched_ids[clue_id] = min(1.0, max(0.0, score))
-
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.warning(f"Failed to parse LLM response: {e}, response: {response}")
+        for match in response.matches:
+            if match.id in valid_ids:
+                matched_ids[match.id] = min(1.0, max(0.0, match.score))
 
         return matched_ids
 
