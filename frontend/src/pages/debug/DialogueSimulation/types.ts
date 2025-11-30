@@ -3,6 +3,9 @@ import type { SimulationResult, MatchingStrategy } from '@/types';
 // LocalStorage key for persisting configuration
 export const STORAGE_KEY = 'dialogue-simulation-config';
 
+// Vector backend options
+export type VectorBackend = 'chroma' | 'pgvector';
+
 export interface StoredConfig {
   selectedScriptId: string | null;
   selectedNpcId: string | null;
@@ -17,6 +20,7 @@ export interface StoredConfig {
   overrideSimilarityThreshold: number | undefined;
   overrideTemperature: number | undefined;
   overrideMaxTokens: number | undefined;
+  overrideVectorBackend: VectorBackend | undefined;
 }
 
 export interface ChatMessage {

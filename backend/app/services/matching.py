@@ -23,7 +23,7 @@ from app.schemas.simulate import (
     SimulateResponse,
 )
 from app.services.template_renderer import template_renderer
-from app.services.vector_matching import VectorClueRetriever
+from app.services.vector_matching import create_vector_retriever
 
 logger = logging.getLogger(__name__)
 
@@ -336,12 +336,10 @@ class MatchingService:
         context: MatchContext,
     ) -> list[MatchResult]:
         """
-        Match clues using embedding similarity with LangChain and Chroma.
+        Match clues using embedding similarity with pgvector.
 
-        Based on VectorClueRetrievalStrategy from data/sample/clue.py:
-        - Uses OpenAIEmbeddings and Chroma vector store
-        - Renders clue content using template before embedding
-        - Uses similarity search for matching
+        Uses OpenAIEmbeddings and pgvector for vector storage and search.
+        Renders clue content using template before embedding.
 
         Note: candidates are already filtered by prerequisites in simulate()
         """
@@ -368,15 +366,26 @@ class MatchingService:
         if not candidates:
             return results
 
-        # Create vector retriever
-        retriever = VectorClueRetriever(embedding_config)
+        # Determine vector backend - use override if specified
+        vector_backend = None
+        if (
+            context.embedding_options_override
+            and context.embedding_options_override.vector_backend is not None
+        ):
+            vector_backend = context.embedding_options_override.vector_backend.value
+            logger.info(f"Using override vector_backend: {vector_backend}")
+
+        # Create vector retriever (uses override > config option > default pgvector)
+        retriever = create_vector_retriever(
+            embedding_config, db=self.db, backend=vector_backend
+        )
 
         try:
             # Build embedding database with candidate clues
-            retriever.build_embedding_db(candidates, template_content)
+            await retriever.build_embedding_db(candidates, template_content)
 
             # Search for matching clues
-            vector_results = retriever.retrieve_clues(
+            vector_results = await retriever.retrieve_clues(
                 context.player_message,
                 k=len(candidates),  # Get all results
                 score_threshold=0.0,
@@ -398,10 +407,12 @@ class MatchingService:
                         result.match_reasons.append("Matched using template rendering")
                     results.append(result)
 
-            logger.info(f"Vector matching found {len(results)} results")
+            logger.info(f"pgvector matching found {len(results)} results")
 
         except Exception as e:
             logger.error(f"Vector matching failed: {e}", exc_info=True)
+            # Rollback to reset the transaction state
+            await self.db.rollback()
             # Fallback to keyword matching
             for clue in candidates:
                 result = self._match_clue(clue, context)
@@ -409,8 +420,11 @@ class MatchingService:
                     results.append(result)
 
         finally:
-            # Always cleanup the Chroma collection after use
-            retriever.cleanup()
+            # Always cleanup the pgvector session data after use
+            try:
+                await retriever.cleanup()
+            except Exception as cleanup_error:
+                logger.warning(f"Cleanup failed: {cleanup_error}")
 
         return results
 

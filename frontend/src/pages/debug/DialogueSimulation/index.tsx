@@ -43,7 +43,7 @@ import type { Clue, MatchedClue, MatchingStrategy } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ChatPanel, StatusBar, ConfigDetails } from './components';
-import { loadStoredConfig, saveConfig, type ChatMessage } from './types';
+import { loadStoredConfig, saveConfig, type ChatMessage, type VectorBackend } from './types';
 
 const { Option } = Select;
 const { Text, Paragraph } = Typography;
@@ -121,6 +121,9 @@ export default function DialogueSimulation() {
   );
   const [overrideMaxTokens, setOverrideMaxTokens] = useState<number | undefined>(
     storedConfig.overrideMaxTokens
+  );
+  const [overrideVectorBackend, setOverrideVectorBackend] = useState<VectorBackend | undefined>(
+    storedConfig.overrideVectorBackend
   );
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -219,6 +222,7 @@ export default function DialogueSimulation() {
     overrideSimilarityThreshold,
     overrideTemperature,
     overrideMaxTokens,
+    overrideVectorBackend,
   });
 
   const getPresetDisplayName = (): string => {
@@ -248,6 +252,7 @@ export default function DialogueSimulation() {
     setOverrideSimilarityThreshold(config.overrideSimilarityThreshold);
     setOverrideTemperature(config.overrideTemperature);
     setOverrideMaxTokens(config.overrideMaxTokens);
+    setOverrideVectorBackend(config.overrideVectorBackend);
     message.success(t('debug.presetLoaded'));
   };
 
@@ -310,11 +315,12 @@ export default function DialogueSimulation() {
       overrideSimilarityThreshold,
       overrideTemperature,
       overrideMaxTokens,
+      overrideVectorBackend,
     });
   }, [
     selectedScriptId, selectedNpcId, matchingStrategy, matchingTemplateId, matchingLlmConfigId,
     enableNpcReply, npcClueTemplateId, npcNoClueTemplateId, npcChatConfigId,
-    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens,
+    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens, overrideVectorBackend,
   ]);
 
   useEffect(() => {
@@ -384,8 +390,8 @@ export default function DialogueSimulation() {
         npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
         session_id: sessionIdRef.current,
         save_log: true,
-        embedding_options_override: overrideSimilarityThreshold !== undefined
-          ? { similarity_threshold: overrideSimilarityThreshold } : undefined,
+        embedding_options_override: (overrideSimilarityThreshold !== undefined || overrideVectorBackend !== undefined)
+          ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
         chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined)
           ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens } : undefined,
       });
@@ -719,6 +725,39 @@ export default function DialogueSimulation() {
                               ))}
                             </Select>
                             <ConfigDetails config={selectedMatchingConfig} type="embedding" t={t} />
+                          </div>
+                          <div>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              <Space>
+                                {t('debug.vectorBackend')}
+                                {overrideVectorBackend !== undefined && (
+                                  <Tag color="orange" style={{ fontSize: 10 }}>{t('debug.override')}</Tag>
+                                )}
+                              </Space>
+                            </div>
+                            <Select
+                              placeholder={t('debug.selectVectorBackend')}
+                              value={overrideVectorBackend}
+                              onChange={setOverrideVectorBackend}
+                              style={{ width: '100%' }}
+                              allowClear
+                            >
+                              <Option value="pgvector">
+                                <Space>
+                                  <span>pgVector</span>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>(PostgreSQL)</Text>
+                                </Space>
+                              </Option>
+                              <Option value="chroma">
+                                <Space>
+                                  <span>Chroma</span>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>(In-memory)</Text>
+                                </Space>
+                              </Option>
+                            </Select>
+                            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                              {t('debug.vectorBackendHint')}
+                            </Text>
                           </div>
                           <div>
                             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>

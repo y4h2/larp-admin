@@ -30,8 +30,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "httpx>=0.26.0",
     "langchain-openai>=1.1.0",
-    "langchain-chroma>=1.0.0",
     "langchain-core>=1.1.0",
+    "pgvector>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +43,9 @@ dev = [
     "ruff>=0.2.0",
     "mypy>=1.8.0",
     "black>=24.1.0",
+]
+chroma = [
+    "langchain-chroma>=1.0.0",
 ]
 
 [build-system]
