@@ -43,6 +43,12 @@ class ChatOptionsOverride(BaseModel):
         le=32000,
         description="Override max tokens",
     )
+    score_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Override LLM matching score threshold (0.0-1.0)",
+    )
 
 
 class MatchingStrategy(str, Enum):
