@@ -10,8 +10,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 # Create async engine
-# Note: statement_cache_size=0 is required for Supavisor connection pooler
-# in transaction mode, as prepared statements don't work across pooled connections
+# Note: For Supabase/pgbouncer in transaction mode, we need to disable prepared statements
 engine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,

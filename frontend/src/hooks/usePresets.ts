@@ -8,6 +8,9 @@ const FAVORITES_KEY = 'dialogue-simulation-favorites';
 // Limits
 const MAX_HISTORY = 10;
 
+// Vector backend options
+export type VectorBackend = 'chroma' | 'pgvector';
+
 // Config structure (same as in DialogueSimulation)
 export interface PresetConfig {
   selectedScriptId: string | null;
@@ -23,6 +26,7 @@ export interface PresetConfig {
   overrideSimilarityThreshold: number | undefined;
   overrideTemperature: number | undefined;
   overrideMaxTokens: number | undefined;
+  overrideVectorBackend: VectorBackend | undefined;
 }
 
 export interface HistoryPreset {
@@ -57,7 +61,8 @@ const isSameConfig = (a: PresetConfig, b: PresetConfig): boolean => {
     a.npcChatConfigId === b.npcChatConfigId &&
     a.overrideSimilarityThreshold === b.overrideSimilarityThreshold &&
     a.overrideTemperature === b.overrideTemperature &&
-    a.overrideMaxTokens === b.overrideMaxTokens
+    a.overrideMaxTokens === b.overrideMaxTokens &&
+    a.overrideVectorBackend === b.overrideVectorBackend
   );
 };
 
@@ -260,6 +265,7 @@ export function usePresets() {
                 overrideSimilarityThreshold: fav.config.overrideSimilarityThreshold,
                 overrideTemperature: fav.config.overrideTemperature,
                 overrideMaxTokens: fav.config.overrideMaxTokens,
+                overrideVectorBackend: fav.config.overrideVectorBackend,
               },
             });
           }

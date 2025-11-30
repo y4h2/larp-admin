@@ -6,6 +6,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class VectorBackendOverride(str, Enum):
+    """Vector backend options."""
+
+    CHROMA = "chroma"
+    PGVECTOR = "pgvector"
+
+
 class EmbeddingOptionsOverride(BaseModel):
     """Override options for embedding models."""
 
@@ -14,6 +21,10 @@ class EmbeddingOptionsOverride(BaseModel):
         ge=0.0,
         le=1.0,
         description="Override similarity threshold (0.0-1.0)",
+    )
+    vector_backend: VectorBackendOverride | None = Field(
+        default=None,
+        description="Override vector backend (chroma or pgvector)",
     )
 
 
