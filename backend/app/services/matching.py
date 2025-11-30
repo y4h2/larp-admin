@@ -447,6 +447,25 @@ class MatchingService:
 
         return await self._get_default_llm_config(LLMConfigType.EMBEDDING)
 
+    async def _get_llm_config_for_chat(
+        self, llm_config_id: str | None
+    ) -> LLMConfig | None:
+        """Get chat config - prefer specified ID, otherwise use default."""
+        if llm_config_id:
+            query = select(LLMConfig).where(
+                LLMConfig.id == llm_config_id,
+                LLMConfig.type == LLMConfigType.CHAT,
+            )
+            result = await self.db.execute(query)
+            config = result.scalars().first()
+            if config:
+                return config
+            logger.warning(
+                f"Specified chat config {llm_config_id} not found, using default"
+            )
+
+        return await self._get_default_llm_config(LLMConfigType.CHAT)
+
     async def _load_template_content(self, template_id: str) -> str | None:
         """Load template content by ID."""
         query = select(PromptTemplate).where(
@@ -472,8 +491,8 @@ class MatchingService:
         """
         results = []
 
-        # Get chat config
-        chat_config = await self._get_default_llm_config(LLMConfigType.CHAT)
+        # Get chat config - prefer user-specified config, fallback to default
+        chat_config = await self._get_llm_config_for_chat(context.llm_config_id)
         if not chat_config:
             logger.warning("No chat LLM config found, falling back to keyword matching")
             for clue in candidates:
