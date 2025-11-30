@@ -363,18 +363,11 @@ function ClickableEdge(props: EdgeProps) {
   const edgeData = data as ClickableEdgeData | undefined;
   const isHighlighted = edgeData?.isHighlighted ?? false;
 
-  const edgeIndex = edgeData?.edgeIndex ?? 0;
-  const totalEdges = edgeData?.totalEdgesToTarget ?? 1;
-  // Only offset source X so arrows converge to the same landing point on target
-  const sourceOffsetX = totalEdges > 1
-    ? (edgeIndex - (totalEdges - 1) / 2) * 25
-    : 0;
-
   const [edgePath] = getSmoothStepPath({
-    sourceX: sourceX + sourceOffsetX,
+    sourceX,
     sourceY,
     sourcePosition,
-    targetX, // No offset - all arrows land at the same point
+    targetX,
     targetY,
     targetPosition,
     borderRadius: 8,
@@ -533,8 +526,11 @@ export default function ClueTree() {
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
 
   // Custom positions state (for manual dragging)
-  const [customPositions, setCustomPositions] = useState<{ [nodeId: string]: { x: number; y: number } }>({});
+  // Use ref to avoid triggering re-layout on every drag
+  const customPositionsRef = useRef<{ [nodeId: string]: { x: number; y: number } }>({});
   const [hasCustomPositions, setHasCustomPositions] = useState(false);
+  // Trigger for manual re-layout (e.g., after clearing positions)
+  const [layoutTrigger, setLayoutTrigger] = useState(0);
 
   // Hovered node state for edge highlighting
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -557,7 +553,7 @@ export default function ClueTree() {
       // Load saved positions for this script
       const allPositions = loadSavedPositions();
       const scriptPositions = allPositions[scriptId] || {};
-      setCustomPositions(scriptPositions);
+      customPositionsRef.current = scriptPositions;
       setHasCustomPositions(Object.keys(scriptPositions).length > 0);
     }
   }, [scriptId, fetchNpcs]);
@@ -742,7 +738,7 @@ export default function ClueTree() {
       edgesByTarget.set(edge.target, existing);
     });
 
-    runElkLayout(visibleNodes, visibleEdges, customPositions).then((positions) => {
+    runElkLayout(visibleNodes, visibleEdges, customPositionsRef.current).then((positions) => {
       const positionMap = new Map(positions.map((p) => [p.id, { x: p.x, y: p.y }]));
 
       const flowNodes: Node[] = visibleNodes.map((node) => {
@@ -800,7 +796,7 @@ export default function ClueTree() {
       setEdges(flowEdges);
       setLayouting(false);
     });
-  }, [treeData, setNodes, setEdges, visibleFields, npcMap, visibleNodeIds, collapsedNodes, hasChildrenMap, childCountMap, customPositions, runElkLayout, handleToggleCollapse]);
+  }, [treeData, setNodes, setEdges, visibleFields, npcMap, visibleNodeIds, collapsedNodes, hasChildrenMap, childCountMap, layoutTrigger, runElkLayout, handleToggleCollapse]);
 
   // Update node/edge highlighting when hovered node changes
   useEffect(() => {
@@ -840,22 +836,21 @@ export default function ClueTree() {
       );
 
       if (positionChanges.length > 0 && scriptId) {
-        const newPositions = { ...customPositions };
+        // Update ref directly without triggering re-render
         positionChanges.forEach((change) => {
           if (change.type === 'position' && 'position' in change && change.position) {
-            newPositions[change.id] = change.position;
+            customPositionsRef.current[change.id] = change.position;
           }
         });
-        setCustomPositions(newPositions);
         setHasCustomPositions(true);
 
         // Save to localStorage
         const allPositions = loadSavedPositions();
-        allPositions[scriptId] = newPositions;
+        allPositions[scriptId] = customPositionsRef.current;
         savePositionsToStorage(allPositions);
       }
     },
-    [onNodesChange, customPositions, scriptId]
+    [onNodesChange, scriptId]
   );
 
   // Clear custom positions and re-layout
@@ -868,7 +863,7 @@ export default function ClueTree() {
       okText: t('common.confirm'),
       cancelText: t('common.cancel'),
       onOk: () => {
-        setCustomPositions({});
+        customPositionsRef.current = {};
         setHasCustomPositions(false);
 
         // Remove from localStorage
@@ -876,15 +871,13 @@ export default function ClueTree() {
         delete allPositions[scriptId];
         savePositionsToStorage(allPositions);
 
-        // Force re-layout
-        if (treeData) {
-          setTreeData({ ...treeData });
-        }
+        // Force re-layout by incrementing trigger
+        setLayoutTrigger((prev) => prev + 1);
 
         message.success(t('clue.positionsCleared'));
       },
     });
-  }, [scriptId, modal, t, message, treeData]);
+  }, [scriptId, modal, t, message]);
 
   // AI Analysis handler
   const handleAIAnalysis = useCallback(async () => {
