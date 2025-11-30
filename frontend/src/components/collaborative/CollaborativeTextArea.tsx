@@ -68,6 +68,8 @@ const CollaborativeTextArea = forwardRef<CollaborativeTextAreaRef, Collaborative
     const isApplyingRemote = useRef(false);
     // Track the initial sync
     const hasInitialized = useRef(false);
+    // Track if we're applying external value changes
+    const isApplyingExternal = useRef(false);
 
     // Expose ref methods
     useImperativeHandle(ref, () => ({
@@ -86,6 +88,31 @@ const CollaborativeTextArea = forwardRef<CollaborativeTextAreaRef, Collaborative
         }
       }
     }, []);
+
+    // Handle external value changes (e.g., from form.setFieldValue or AI enhancement)
+    useEffect(() => {
+      // Only apply if value changed externally and we're initialized
+      if (
+        initialValue !== undefined &&
+        initialValue !== localValue &&
+        hasInitialized.current &&
+        !isApplyingRemote.current &&
+        !isApplyingExternal.current
+      ) {
+        isApplyingExternal.current = true;
+
+        // Update local state
+        setLocalValue(initialValue);
+
+        // Sync to yText if available
+        if (yText) {
+          const oldValue = yText.toString();
+          applyDiffToYText(yText, oldValue, initialValue);
+        }
+
+        isApplyingExternal.current = false;
+      }
+    }, [initialValue, yText]);
 
     // Initialize Yjs provider
     useEffect(() => {

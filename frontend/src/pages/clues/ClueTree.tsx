@@ -17,6 +17,10 @@ import {
   Checkbox,
   App,
   Tooltip,
+  Modal,
+  Progress,
+  List,
+  Divider,
 } from 'antd';
 import {
   ReactFlow,
@@ -50,10 +54,15 @@ import {
   MinusSquareOutlined,
   PlusSquareOutlined,
   AimOutlined,
+  RobotOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  BulbOutlined,
 } from '@ant-design/icons';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { PageHeader } from '@/components/common';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
+import { aiEnhancementApi, type AnalyzeClueChainResponse } from '@/api/aiEnhancement';
 import { useScripts, useNpcs } from '@/hooks';
 
 const { Option } = Select;
@@ -514,6 +523,11 @@ export default function ClueTree() {
   const [visibleFields, setVisibleFields] = useState<ClueNodeField[]>(DEFAULT_VISIBLE_FIELDS);
   const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
 
+  // AI Analysis state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalyzeClueChainResponse | null>(null);
+  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
+
   // Collapsed nodes state
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
 
@@ -871,6 +885,29 @@ export default function ClueTree() {
     });
   }, [scriptId, modal, t, message, treeData]);
 
+  // AI Analysis handler
+  const handleAIAnalysis = useCallback(async () => {
+    if (!treeData || treeData.nodes.length === 0) return;
+
+    setAnalyzing(true);
+    try {
+      const clues = treeData.nodes.map((node) => ({
+        id: node.id,
+        name: node.name,
+        detail: node.detail,
+        prereq_clue_ids: node.prereq_clue_ids || [],
+      }));
+
+      const result = await aiEnhancementApi.analyzeClueChain({ clues });
+      setAnalysisResult(result);
+      setAnalysisModalVisible(true);
+    } catch {
+      message.error(t('clue.aiAnalysis.failed'));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [treeData, message, t]);
+
   // Expand all collapsed nodes
   const handleExpandAll = useCallback(() => {
     setCollapsedNodes(new Set());
@@ -1114,6 +1151,14 @@ export default function ClueTree() {
                 </Button>
               </>
             )}
+            <Button
+              icon={<RobotOutlined />}
+              onClick={handleAIAnalysis}
+              loading={analyzing}
+              disabled={!treeData || treeData.nodes.length === 0}
+            >
+              {t('clue.aiAnalysis.button')}
+            </Button>
             <Button icon={<SyncOutlined />} onClick={fetchTree} disabled={!scriptId || saving}>
               {t('clue.refresh')}
             </Button>
@@ -1361,6 +1406,165 @@ export default function ClueTree() {
           </Descriptions>
         )}
       </Drawer>
+
+      {/* AI Analysis Modal */}
+      <Modal
+        title={
+          <Space>
+            <RobotOutlined />
+            {t('clue.aiAnalysis.title')}
+          </Space>
+        }
+        open={analysisModalVisible}
+        onCancel={() => setAnalysisModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setAnalysisModalVisible(false)}>
+            {t('common.close')}
+          </Button>,
+        ]}
+        width={700}
+      >
+        {analysisResult && (
+          <div>
+            {/* Score */}
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <Progress
+                type="circle"
+                percent={analysisResult.overall_score * 10}
+                format={() => `${analysisResult.overall_score}/10`}
+                strokeColor={
+                  analysisResult.overall_score >= 7
+                    ? '#52c41a'
+                    : analysisResult.overall_score >= 4
+                      ? '#faad14'
+                      : '#ff4d4f'
+                }
+              />
+              <div style={{ marginTop: 8 }}>
+                <Text strong>{t('clue.aiAnalysis.overallScore')}</Text>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <Alert
+              message={t('clue.aiAnalysis.summary')}
+              description={analysisResult.summary}
+              type="info"
+              style={{ marginBottom: 16 }}
+            />
+
+            {/* Issues */}
+            {analysisResult.issues.length > 0 && (
+              <>
+                <Divider orientation="left">
+                  <Space>
+                    <ExclamationCircleOutlined />
+                    {t('clue.aiAnalysis.issues')} ({analysisResult.issues.length})
+                  </Space>
+                </Divider>
+                <List
+                  size="small"
+                  dataSource={analysisResult.issues}
+                  renderItem={(issue) => (
+                    <List.Item>
+                      <Space>
+                        <Tag
+                          color={
+                            issue.severity === 'high'
+                              ? 'red'
+                              : issue.severity === 'medium'
+                                ? 'orange'
+                                : 'blue'
+                          }
+                        >
+                          {issue.severity}
+                        </Tag>
+                        <Text strong>{issue.type}</Text>
+                        <Text>{issue.description}</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </>
+            )}
+
+            {/* Suggestions */}
+            {analysisResult.suggestions.length > 0 && (
+              <>
+                <Divider orientation="left">
+                  <Space>
+                    <BulbOutlined />
+                    {t('clue.aiAnalysis.suggestions')} ({analysisResult.suggestions.length})
+                  </Space>
+                </Divider>
+                <List
+                  size="small"
+                  dataSource={analysisResult.suggestions}
+                  renderItem={(suggestion) => (
+                    <List.Item>
+                      <Space>
+                        <Tag
+                          color={
+                            suggestion.priority === 'high'
+                              ? 'red'
+                              : suggestion.priority === 'medium'
+                                ? 'orange'
+                                : 'green'
+                          }
+                        >
+                          {suggestion.priority}
+                        </Tag>
+                        <Text strong>{suggestion.type}</Text>
+                        <Text>{suggestion.description}</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              </>
+            )}
+
+            {/* Key Clues */}
+            {analysisResult.key_clues.length > 0 && (
+              <>
+                <Divider orientation="left">
+                  <Space>
+                    <CheckCircleOutlined />
+                    {t('clue.aiAnalysis.keyClues')}
+                  </Space>
+                </Divider>
+                <Space wrap>
+                  {analysisResult.key_clues.map((clueId) => {
+                    const clue = treeData?.nodes.find((n) => n.id === clueId);
+                    return (
+                      <Tag key={clueId} color="green">
+                        {clue?.name || clueId}
+                      </Tag>
+                    );
+                  })}
+                </Space>
+              </>
+            )}
+
+            {/* Reasoning Paths */}
+            {analysisResult.reasoning_paths.length > 0 && (
+              <>
+                <Divider orientation="left">{t('clue.aiAnalysis.reasoningPaths')}</Divider>
+                <List
+                  size="small"
+                  dataSource={analysisResult.reasoning_paths}
+                  renderItem={(path, index) => (
+                    <List.Item>
+                      <Text>
+                        {index + 1}. {path}
+                      </Text>
+                    </List.Item>
+                  )}
+                />
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
