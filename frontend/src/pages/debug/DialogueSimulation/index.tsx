@@ -187,10 +187,23 @@ export default function DialogueSimulation() {
     return chatConfigs.find((c) => c.id === npcChatConfigId);
   }, [chatConfigs, npcChatConfigId]);
 
+  // Total clues for selected NPC
+  const npcClues = useMemo(() => {
+    if (!selectedNpcId) return clues;
+    return clues.filter((c) => c.npc_id === selectedNpcId);
+  }, [clues, selectedNpcId]);
+
   const lockedClues = useMemo(() => {
     const unlockedSet = new Set(unlockedClueIds || []);
-    return clues.filter((c) => !unlockedSet.has(c.id));
-  }, [clues, unlockedClueIds]);
+    // Filter by selected NPC - only show clues belonging to this NPC
+    return npcClues.filter((c) => !unlockedSet.has(c.id));
+  }, [npcClues, unlockedClueIds]);
+
+  // Helper to get NPC name by ID
+  const getNpcName = (npcId: string) => {
+    const npc = npcs.find((n) => n.id === npcId);
+    return npc?.name || npcId;
+  };
 
   // Helper functions
   const getCurrentConfig = (): PresetConfig => ({
@@ -633,7 +646,14 @@ export default function DialogueSimulation() {
                           disabled={!selectedScriptId}
                           maxTagCount={2}
                         >
-                          {clues.map((c) => <Option key={c.id} value={c.id}>{c.name}</Option>)}
+                          {clues.map((c) => (
+                            <Option key={c.id} value={c.id}>
+                              <Space size={4}>
+                                <span>{c.name}</span>
+                                <Text type="secondary" style={{ fontSize: 11 }}>({getNpcName(c.npc_id)})</Text>
+                              </Space>
+                            </Option>
+                          ))}
                         </Select>
                       </div>
                     </Space>
@@ -883,7 +903,16 @@ export default function DialogueSimulation() {
           )}
 
           <Card
-            title={<Space><LockOutlined />{t('debug.lockedClues')}<Tag>{lockedClues.length}</Tag></Space>}
+            title={
+              <Space>
+                <LockOutlined />
+                {t('debug.lockedClues')}
+                <Tag>{lockedClues.length}/{npcClues.length}</Tag>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  ({t('debug.totalInScript', { count: clues.length })})
+                </Text>
+              </Space>
+            }
             size="small"
           >
             {lockedClues.length === 0 ? (
