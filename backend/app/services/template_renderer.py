@@ -1,6 +1,6 @@
 """Template rendering service for prompt templates.
 
-Supports template syntax like '{clue.name}:{clue.detail}' with jsonpath-style
+Supports template syntax like '{{clue.name}}:{{clue.detail}}' with jsonpath-style
 nested field access for clue, npc, script, and other objects.
 
 Based on the render_clue_template pattern from data/sample/clue.py.
@@ -22,31 +22,31 @@ class TemplateRenderer:
     """Service for rendering prompt templates with variable substitution.
 
     Supports jsonpath-style nested field access:
-    - {clue.name} - simple field
-    - {clue.trigger_keywords} - list field (numbered list by default)
-    - {npc.knowledge_scope.knows} - nested field
+    - {{clue.name}} - simple field
+    - {{clue.trigger_keywords}} - list field (numbered list by default)
+    - {{npc.knowledge_scope.knows}} - nested field
 
     List formatting options (append |format to variable):
-    - {var} or {var|list} - numbered list: "1. item1\\n2. item2" (default)
-    - {var|comma} - comma-separated: "item1, item2"
-    - {var|bullet} - bullet points: "• item1\\n• item2"
-    - {var|dash} - dashed list: "- item1\\n- item2"
-    - {var|newline} - newline-separated: "item1\\nitem2"
+    - {{var}} or {{var|list}} - numbered list: "1. item1\\n2. item2" (default)
+    - {{var|comma}} - comma-separated: "item1, item2"
+    - {{var|bullet}} - bullet points: "• item1\\n• item2"
+    - {{var|dash}} - dashed list: "- item1\\n- item2"
+    - {{var|newline}} - newline-separated: "item1\\nitem2"
 
     Example:
-        template = '{clue.name}:{clue.detail}'
+        template = '{{clue.name}}:{{clue.detail}}'
         context = {'clue': {'name': 'Murder Weapon', 'detail': 'A knife...'}}
         render(template, context) -> 'Murder Weapon:A knife...'
 
-        template = '{npc.knowledge_scope.knows|comma}'
+        template = '{{npc.knowledge_scope.knows|comma}}'
         context = {'npc': {'knowledge_scope': {'knows': ['fact1', 'fact2']}}}
         render(template, context) -> 'fact1, fact2'
     """
 
-    # Regex pattern for variable placeholders: {var} or {var.path.to.field} or {var|format}
-    # Supports optional format suffix like {var.path|comma}, {var.path|bullet}, etc.
+    # Regex pattern for variable placeholders: {{var}} or {{var.path.to.field}} or {{var|format}}
+    # Supports optional format suffix like {{var.path|comma}}, {{var.path|bullet}}, etc.
     VARIABLE_PATTERN = re.compile(
-        r"\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(?:\|([a-zA-Z_]+))?\}"
+        r"\{\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(?:\|([a-zA-Z_]+))?\}\}"
     )
 
     def __init__(self) -> None:
@@ -63,7 +63,7 @@ class TemplateRenderer:
         Render a template with the given context.
 
         Args:
-            template: Template string with {var.path} placeholders.
+            template: Template string with {{var.path}} placeholders.
             context: Context dictionary with objects like clue, npc, script.
             strict: If True, keep unresolved placeholders; otherwise replace with empty.
 
@@ -71,7 +71,7 @@ class TemplateRenderer:
             TemplateRenderResponse with rendered content and warnings.
 
         Example:
-            template = '{npc.name} says: {clue.detail}'
+            template = '{{npc.name}} says: {{clue.detail}}'
             context = {
                 'npc': {'name': 'John', 'age': 30},
                 'clue': {'name': 'Evidence', 'detail': 'A bloody knife'}
@@ -209,7 +209,7 @@ class TemplateRenderer:
             List of unique variable paths (without format suffixes).
 
         Example:
-            extract_variables('{clue.name}:{clue.detail|comma}')
+            extract_variables('{{clue.name}}:{{clue.detail|comma}}')
             # Returns: ['clue.name', 'clue.detail']
         """
         matches = self.VARIABLE_PATTERN.findall(template)
@@ -240,7 +240,7 @@ class TemplateRenderer:
         for var in variables:
             root = var.split(".")[0]
             if root not in allowed_roots:
-                errors.append(f"Unknown variable root: {{{var}}} (allowed: {', '.join(sorted(allowed_roots))})")
+                errors.append(f"Unknown variable root: {{{{{var}}}}} (allowed: {', '.join(sorted(allowed_roots))})")
 
         return len(errors) == 0, errors
 
@@ -257,7 +257,7 @@ class TemplateRenderer:
         categories = [
             VariableCategory(
                 name="clue",
-                description="Clue object fields - use {clue.field_name}",
+                description="Clue object fields - use {{clue.field_name}}",
                 variables=[
                     VariableInfo(
                         name="clue.id",
@@ -291,7 +291,7 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="clue.trigger_keywords",
-                        description="Keywords that trigger this clue (list, numbered by default, use |comma for comma-separated)",
+                        description="Keywords that trigger this clue (list, numbered by default, use {{var|comma}} for comma-separated)",
                         type="list",
                         example="1. knife\n2. weapon\n3. murder",
                     ),
@@ -305,7 +305,7 @@ class TemplateRenderer:
             ),
             VariableCategory(
                 name="npc",
-                description="NPC object fields - use {npc.field_name}",
+                description="NPC object fields - use {{npc.field_name}}",
                 variables=[
                     VariableInfo(
                         name="npc.id",
@@ -339,19 +339,19 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.knows",
-                        description="Things the NPC knows (list, numbered by default, use |comma for comma-separated)",
+                        description="Things the NPC knows (list, numbered by default, use {{var|comma}} for comma-separated)",
                         type="list",
                         example="1. saw the victim at 10pm\n2. heard a scream",
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.does_not_know",
-                        description="Things the NPC doesn't know (list, numbered by default, use |comma for comma-separated)",
+                        description="Things the NPC doesn't know (list, numbered by default, use {{var|comma}} for comma-separated)",
                         type="list",
                         example="1. who the murderer is\n2. where the weapon is",
                     ),
                     VariableInfo(
                         name="npc.knowledge_scope.world_model_limits",
-                        description="Limits of NPC's world knowledge (list, numbered by default, use |comma for comma-separated)",
+                        description="Limits of NPC's world knowledge (list, numbered by default, use {{var|comma}} for comma-separated)",
                         type="list",
                         example="1. doesn't know about modern technology",
                     ),
@@ -359,7 +359,7 @@ class TemplateRenderer:
             ),
             VariableCategory(
                 name="script",
-                description="Script object fields - use {script.field_name}",
+                description="Script object fields - use {{script.field_name}}",
                 variables=[
                     VariableInfo(
                         name="script.id",
@@ -419,7 +419,7 @@ class TemplateRenderer:
             ),
             VariableCategory(
                 name="context",
-                description="Context variables - use {variable_name}",
+                description="Context variables - use {{variable_name}}",
                 variables=[
                     VariableInfo(
                         name="player_input",
@@ -435,7 +435,7 @@ class TemplateRenderer:
                     ),
                     VariableInfo(
                         name="unlocked_clues",
-                        description="List of already unlocked clue names (numbered by default, use |comma for comma-separated)",
+                        description="List of already unlocked clue names (numbered by default, use {{var|comma}} for comma-separated)",
                         type="list",
                         example="1. Murder Weapon\n2. Alibi Letter\n3. Blood Stain",
                     ),
