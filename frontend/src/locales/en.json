@@ -334,6 +334,8 @@
     "vectorBackendHint": "Override vector storage backend (default: pgVector)",
     "llmReturnAllScores": "Return All Clue Scores",
     "llmReturnAllScoresHint": "When enabled, LLM will return scores for all clues including unmatched ones (useful for debugging)",
+    "llmScoreThreshold": "LLM Score Threshold",
+    "llmScoreThresholdHint": "Minimum score required to trigger a clue (default: 0.5)",
     "similarityThreshold": "Similarity Threshold",
     "similarityThresholdHint": "Override similarity threshold for this session (0.0 - 1.0)",
     "temperature": "Temperature",

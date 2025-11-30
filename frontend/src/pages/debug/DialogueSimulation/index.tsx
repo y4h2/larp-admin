@@ -129,6 +129,9 @@ export default function DialogueSimulation() {
   const [llmReturnAllScores, setLlmReturnAllScores] = useState<boolean>(
     storedConfig.llmReturnAllScores ?? false
   );
+  const [llmScoreThreshold, setLlmScoreThreshold] = useState<number | undefined>(
+    storedConfig.llmScoreThreshold
+  );
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
@@ -228,6 +231,7 @@ export default function DialogueSimulation() {
     overrideMaxTokens,
     overrideVectorBackend,
     llmReturnAllScores,
+    llmScoreThreshold,
   });
 
   const getPresetDisplayName = (): string => {
@@ -259,6 +263,7 @@ export default function DialogueSimulation() {
     setOverrideMaxTokens(config.overrideMaxTokens);
     setOverrideVectorBackend(config.overrideVectorBackend);
     setLlmReturnAllScores(config.llmReturnAllScores ?? false);
+    setLlmScoreThreshold(config.llmScoreThreshold);
     message.success(t('debug.presetLoaded'));
   };
 
@@ -323,11 +328,13 @@ export default function DialogueSimulation() {
       overrideMaxTokens,
       overrideVectorBackend,
       llmReturnAllScores,
+      llmScoreThreshold,
     });
   }, [
     selectedScriptId, selectedNpcId, matchingStrategy, matchingTemplateId, matchingLlmConfigId,
     enableNpcReply, npcClueTemplateId, npcNoClueTemplateId, npcChatConfigId,
-    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens, overrideVectorBackend, llmReturnAllScores,
+    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens, overrideVectorBackend,
+    llmReturnAllScores, llmScoreThreshold,
   ]);
 
   useEffect(() => {
@@ -399,8 +406,8 @@ export default function DialogueSimulation() {
         save_log: true,
         embedding_options_override: (overrideSimilarityThreshold !== undefined || overrideVectorBackend !== undefined)
           ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
-        chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined)
-          ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens } : undefined,
+        chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined || llmScoreThreshold !== undefined)
+          ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens, score_threshold: llmScoreThreshold } : undefined,
         llm_return_all_scores: llmReturnAllScores,
       });
 
@@ -821,6 +828,25 @@ export default function DialogueSimulation() {
                             <div style={{ marginTop: 4 }}>
                               <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.llmReturnAllScoresHint')}</Text>
                             </div>
+                          </div>
+                          <div style={{ marginTop: 12 }}>
+                            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+                              {t('debug.llmScoreThreshold')}
+                              {llmScoreThreshold !== undefined && (
+                                <Button type="link" size="small" onClick={() => setLlmScoreThreshold(undefined)} style={{ padding: '0 4px', height: 'auto' }}>
+                                  {t('debug.resetToDefault')}
+                                </Button>
+                              )}
+                            </div>
+                            <Slider
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={llmScoreThreshold ?? 0.5}
+                              onChange={setLlmScoreThreshold}
+                              marks={{ 0: '0', 0.5: '0.5', 1: '1' }}
+                            />
+                            <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.llmScoreThresholdHint')}</Text>
                           </div>
                         </div>
                       )}

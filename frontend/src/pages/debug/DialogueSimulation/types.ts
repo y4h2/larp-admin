@@ -23,6 +23,7 @@ export interface StoredConfig {
   overrideVectorBackend: VectorBackend | undefined;
   // LLM matching options
   llmReturnAllScores: boolean;
+  llmScoreThreshold: number | undefined;
 }
 
 export interface ChatMessage {

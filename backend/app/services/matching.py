@@ -188,6 +188,14 @@ class MatchingService:
                     if config_threshold is not None:
                         threshold = config_threshold
                         logger.info(f"Using config similarity_threshold: {threshold}")
+        elif request.matching_strategy == MatchingStrategy.LLM:
+            # Try override first for LLM matching
+            if (
+                context.chat_options_override
+                and context.chat_options_override.score_threshold is not None
+            ):
+                threshold = context.chat_options_override.score_threshold
+                logger.info(f"Using override LLM score_threshold: {threshold}")
 
         # Determine triggered clues based on strategy
         if request.matching_strategy == MatchingStrategy.LLM:

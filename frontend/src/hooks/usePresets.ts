@@ -29,6 +29,7 @@ export interface PresetConfig {
   overrideVectorBackend: VectorBackend | undefined;
   // LLM matching options
   llmReturnAllScores: boolean;
+  llmScoreThreshold: number | undefined;
 }
 
 export interface HistoryPreset {
@@ -65,7 +66,8 @@ const isSameConfig = (a: PresetConfig, b: PresetConfig): boolean => {
     a.overrideTemperature === b.overrideTemperature &&
     a.overrideMaxTokens === b.overrideMaxTokens &&
     a.overrideVectorBackend === b.overrideVectorBackend &&
-    a.llmReturnAllScores === b.llmReturnAllScores
+    a.llmReturnAllScores === b.llmReturnAllScores &&
+    a.llmScoreThreshold === b.llmScoreThreshold
   );
 };
 
@@ -270,6 +272,7 @@ export function usePresets() {
                 overrideMaxTokens: fav.config.overrideMaxTokens,
                 overrideVectorBackend: fav.config.overrideVectorBackend,
                 llmReturnAllScores: fav.config.llmReturnAllScores ?? false,
+                llmScoreThreshold: fav.config.llmScoreThreshold,
               },
             });
           }
