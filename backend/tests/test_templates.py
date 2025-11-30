@@ -11,7 +11,7 @@ def template_create_data() -> dict:
         "name": "Test Template",
         "description": "A template for testing",
         "type": "clue_embedding",
-        "content": "Clue: {clue.name}\nDetail: {clue.detail}",
+        "content": "Clue: {{clue.name}}\nDetail: {{clue.detail}}",
         "is_default": False,
     }
 
@@ -207,14 +207,14 @@ class TestTemplateUpdate:
             f"/api/templates/{template_id}",
             json={
                 "name": "Updated Name",
-                "content": "New content: {npc.name}",
+                "content": "New content: {{npc.name}}",
             },
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Updated Name"
-        assert data["content"] == "New content: {npc.name}"
+        assert data["content"] == "New content: {{npc.name}}"
         # Variables should be updated
         assert "npc.name" in data["variables"]
 
@@ -423,7 +423,7 @@ class TestTemplateRender:
     ):
         """Test rendering using template ID."""
         # Create a template
-        template_create_data["content"] = "Clue name: {clue.name}"
+        template_create_data["content"] = "Clue name: {{clue.name}}"
         create_response = await client.post("/api/templates", json=template_create_data)
         template_id = create_response.json()["id"]
 

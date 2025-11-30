@@ -13,7 +13,7 @@ import {
   Col,
   Collapse,
   Typography,
-  message,
+  App,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -43,6 +43,7 @@ const TEMPLATE_TYPES: TemplateType[] = ['clue_embedding', 'npc_system_prompt', '
 
 export default function TemplateList() {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const {
@@ -85,7 +86,7 @@ export default function TemplateList() {
   }, [modalVisible, availableVariables.length]);
 
   const insertVariable = (variableName: string) => {
-    const newContent = templateContent + `{${variableName}}`;
+    const newContent = templateContent + `{{${variableName}}}`;
     setTemplateContent(newContent);
     form.setFieldsValue({ content: newContent });
   };

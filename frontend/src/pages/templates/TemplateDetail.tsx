@@ -10,7 +10,7 @@ import {
   Empty,
   Row,
   Col,
-  message,
+  App,
   Typography,
   Tag,
   Collapse,
@@ -38,6 +38,7 @@ const TEMPLATE_TYPES: TemplateType[] = ['clue_embedding', 'npc_system_prompt', '
 
 export default function TemplateDetail() {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -162,17 +163,17 @@ export default function TemplateDetail() {
       const end = textArea.selectionEnd;
       const newContent =
         currentContent.substring(0, start) +
-        `{${variableName}}` +
+        `{{${variableName}}}` +
         currentContent.substring(end);
       form.setFieldsValue({ content: newContent });
       // Move cursor after the inserted variable
       setTimeout(() => {
         textArea.focus();
-        const newPosition = start + variableName.length + 2;
+        const newPosition = start + variableName.length + 4;
         textArea.setSelectionRange(newPosition, newPosition);
       }, 0);
     } else {
-      form.setFieldsValue({ content: currentContent + `{${variableName}}` });
+      form.setFieldsValue({ content: currentContent + `{{${variableName}}}`});
     }
   };
 
@@ -302,7 +303,7 @@ export default function TemplateDetail() {
                   <Text type="secondary">{t('template.detectedVariables')}: </Text>
                   {detectedVariables.map((v) => (
                     <Tag key={v} color="blue" style={{ marginBottom: 4 }}>
-                      {`{${v}}`}
+                      {`{{${v}}}`}
                     </Tag>
                   ))}
                 </div>
@@ -397,7 +398,7 @@ export default function TemplateDetail() {
                             color="blue"
                             style={{ cursor: 'pointer', marginBottom: 4 }}
                           >
-                            {`{${variable.name}}`}
+                            {`{{${variable.name}}}`}
                           </Tag>
                           <Text type="secondary" style={{ fontSize: 11 }}>
                             ({variable.type})
@@ -430,11 +431,11 @@ export default function TemplateDetail() {
             </Text>
             <Table
               dataSource={[
-                { key: '1', syntax: '{var}', effect: t('template.listFormatDefault'), example: '1. 项目一\n2. 项目二' },
-                { key: '2', syntax: '{var|comma}', effect: t('template.listFormatComma'), example: '项目一, 项目二' },
-                { key: '3', syntax: '{var|bullet}', effect: t('template.listFormatBullet'), example: '• 项目一\n• 项目二' },
-                { key: '4', syntax: '{var|dash}', effect: t('template.listFormatDash'), example: '- 项目一\n- 项目二' },
-                { key: '5', syntax: '{var|newline}', effect: t('template.listFormatNewline'), example: '项目一\n项目二' },
+                { key: '1', syntax: '{{var}}', effect: t('template.listFormatDefault'), example: '1. 项目一\n2. 项目二' },
+                { key: '2', syntax: '{{var|comma}}', effect: t('template.listFormatComma'), example: '项目一, 项目二' },
+                { key: '3', syntax: '{{var|bullet}}', effect: t('template.listFormatBullet'), example: '• 项目一\n• 项目二' },
+                { key: '4', syntax: '{{var|dash}}', effect: t('template.listFormatDash'), example: '- 项目一\n- 项目二' },
+                { key: '5', syntax: '{{var|newline}}', effect: t('template.listFormatNewline'), example: '项目一\n项目二' },
               ]}
               columns={[
                 { title: t('template.formatSyntax'), dataIndex: 'syntax', key: 'syntax', width: 100 },
