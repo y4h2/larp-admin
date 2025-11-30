@@ -332,6 +332,8 @@
     "vectorBackend": "向量后端",
     "selectVectorBackend": "选择向量后端",
     "vectorBackendHint": "覆盖向量存储后端（默认：pgVector）",
+    "llmReturnAllScores": "返回所有线索分数",
+    "llmReturnAllScoresHint": "开启后，大模型将返回所有线索的分数（包括未匹配的线索，适用于调试）",
     "similarityThreshold": "相似度阈值",
     "similarityThresholdHint": "临时覆盖本次会话的相似度阈值 (0.0 - 1.0)",
     "temperature": "温度",

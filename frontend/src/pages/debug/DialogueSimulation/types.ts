@@ -21,6 +21,8 @@ export interface StoredConfig {
   overrideTemperature: number | undefined;
   overrideMaxTokens: number | undefined;
   overrideVectorBackend: VectorBackend | undefined;
+  // LLM matching options
+  llmReturnAllScores: boolean;
 }
 
 export interface ChatMessage {

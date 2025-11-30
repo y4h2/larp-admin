@@ -65,6 +65,8 @@ class MatchContext:
     # Runtime options override
     embedding_options_override: EmbeddingOptionsOverride | None = None
     chat_options_override: ChatOptionsOverride | None = None
+    # LLM matching options
+    llm_return_all_scores: bool = False
 
 
 @dataclass
@@ -118,6 +120,7 @@ class MatchingService:
             session_id=request.session_id,
             embedding_options_override=request.embedding_options_override,
             chat_options_override=request.chat_options_override,
+            llm_return_all_scores=request.llm_return_all_scores,
         )
 
         # Get ALL clues for this NPC (for debug info)
@@ -186,10 +189,27 @@ class MatchingService:
                         threshold = config_threshold
                         logger.info(f"Using config similarity_threshold: {threshold}")
 
-        # Determine triggered clues (score >= threshold)
-        triggered = [r for r in results if r.score >= threshold]
-        for r in triggered:
-            r.is_triggered = True
+        # Determine triggered clues based on strategy
+        if request.matching_strategy == MatchingStrategy.LLM:
+            # LLM strategy: only trigger the single best matching clue
+            # This ensures a definitive decision while preserving other clues' analysis
+            candidates_above_threshold = [r for r in results if r.score >= threshold]
+            if candidates_above_threshold:
+                # Select the highest scoring clue as the triggered one
+                best_match = max(candidates_above_threshold, key=lambda r: r.score)
+                best_match.is_triggered = True
+                triggered = [best_match]
+                logger.info(
+                    f"LLM matching: selected best clue '{best_match.clue.name}' "
+                    f"(score={best_match.score:.2f}) from {len(candidates_above_threshold)} candidates"
+                )
+            else:
+                triggered = []
+        else:
+            # Keyword/Embedding strategy: trigger all clues above threshold
+            triggered = [r for r in results if r.score >= threshold]
+            for r in triggered:
+                r.is_triggered = True
 
         # Build response
         matched_clues = [self._result_to_schema(r) for r in results]
@@ -524,8 +544,10 @@ class MatchingService:
             return results
 
         # Get template if specified
+        # When return_all_scores=True, ask LLM to analyze all clues
+        # When return_all_scores=False, LLM only returns matched clues (saves tokens)
         system_prompt = await self._build_llm_matching_prompt(
-            context.template_id, candidates
+            context.template_id, candidates, context.llm_return_all_scores
         )
 
         # Call LLM with structured output
@@ -536,24 +558,34 @@ class MatchingService:
                 context.player_message,
             )
 
-            # Parse LLM response to extract matched clue IDs
-            matched_ids = self._parse_llm_response(llm_response, candidates)
+            # Build a map of clue_id -> (score, reason) from LLM response
+            score_reason_map = {m.id: (m.score, m.reason) for m in llm_response.matches}
 
-            # Build a map of clue_id -> reason from LLM response
-            reason_map = {m.id: m.reason for m in llm_response.matches}
-
-            # Build results
-            for clue in candidates:
-                if clue.id in matched_ids:
-                    reason = reason_map.get(clue.id, "LLM identified as relevant")
+            # Build results based on return_all_scores option
+            if context.llm_return_all_scores:
+                # Return all clues with their scores and analysis
+                for clue in candidates:
+                    score, reason = score_reason_map.get(clue.id, (0.0, "未匹配"))
                     result = MatchResult(
                         clue=clue,
-                        score=matched_ids[clue.id],
+                        score=score,
                         match_reasons=[f"LLM: {reason}"],
                     )
                     results.append(result)
-
-            logger.info(f"LLM matching found {len(results)} results")
+                logger.info(f"LLM matching: returning all {len(results)} clues' analysis")
+            else:
+                # Only return clues that LLM identified as matches (have score > 0)
+                for clue in candidates:
+                    if clue.id in score_reason_map:
+                        score, reason = score_reason_map[clue.id]
+                        if score > 0:
+                            result = MatchResult(
+                                clue=clue,
+                                score=score,
+                                match_reasons=[f"LLM: {reason}"],
+                            )
+                            results.append(result)
+                logger.info(f"LLM matching: returning {len(results)} matched clues")
 
         except Exception as e:
             logger.error(f"Failed to match with LLM: {e}", exc_info=True)
@@ -572,7 +604,10 @@ class MatchingService:
         return result.scalars().first()
 
     async def _build_llm_matching_prompt(
-        self, template_id: str | None, clues: list[Clue]
+        self,
+        template_id: str | None,
+        clues: list[Clue],
+        return_all_scores: bool = False,
     ) -> str:
         """
         Build the system prompt for LLM matching.
@@ -581,6 +616,7 @@ class MatchingService:
         1. Core role definition (fixed)
         2. Clue list (always included)
         3. Matching strategy (from template, or default)
+        4. Output requirements (varies based on return_all_scores)
 
         Template controls the matching strategy - how to determine if player
         input should trigger a clue. The response format is enforced by JSON Schema.
@@ -620,6 +656,15 @@ class MatchingService:
             matching_strategy = """分析玩家消息的意图，判断是否与线索相关。
 对比每条线索的触发关键词和语义摘要，只有高度相关时才匹配。"""
 
+        # Output requirements based on return_all_scores option
+        if return_all_scores:
+            output_requirements = """- 为【所有线索】提供置信度分数(score: 0.0-1.0)和匹配原因(reason)
+- 即使线索不匹配，也要返回其评分（不匹配的线索 score 应接近 0）
+- 确保返回的线索数量与输入的线索数量一致"""
+        else:
+            output_requirements = """- 只返回匹配的线索，提供置信度分数(score: 0.0-1.0)和匹配原因(reason)
+- 如果没有匹配的线索，返回空数组"""
+
         # Build final prompt
         return f"""你是一个剧本杀线索匹配助手。根据玩家的对话内容，判断哪些线索应该被触发。
 
@@ -630,8 +675,7 @@ class MatchingService:
 {matching_strategy}
 
 ## 输出要求
-- 为每个匹配的线索提供置信度分数(score: 0.0-1.0)和匹配原因(reason)
-- 如果没有匹配的线索，返回空数组"""
+{output_requirements}"""
 
     async def _call_llm(
         self, config: LLMConfig, system_prompt: str, user_message: str

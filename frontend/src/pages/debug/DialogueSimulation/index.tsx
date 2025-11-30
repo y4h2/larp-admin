@@ -125,6 +125,10 @@ export default function DialogueSimulation() {
   const [overrideVectorBackend, setOverrideVectorBackend] = useState<VectorBackend | undefined>(
     storedConfig.overrideVectorBackend
   );
+  // LLM matching options
+  const [llmReturnAllScores, setLlmReturnAllScores] = useState<boolean>(
+    storedConfig.llmReturnAllScores ?? false
+  );
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
@@ -223,6 +227,7 @@ export default function DialogueSimulation() {
     overrideTemperature,
     overrideMaxTokens,
     overrideVectorBackend,
+    llmReturnAllScores,
   });
 
   const getPresetDisplayName = (): string => {
@@ -253,6 +258,7 @@ export default function DialogueSimulation() {
     setOverrideTemperature(config.overrideTemperature);
     setOverrideMaxTokens(config.overrideMaxTokens);
     setOverrideVectorBackend(config.overrideVectorBackend);
+    setLlmReturnAllScores(config.llmReturnAllScores ?? false);
     message.success(t('debug.presetLoaded'));
   };
 
@@ -316,11 +322,12 @@ export default function DialogueSimulation() {
       overrideTemperature,
       overrideMaxTokens,
       overrideVectorBackend,
+      llmReturnAllScores,
     });
   }, [
     selectedScriptId, selectedNpcId, matchingStrategy, matchingTemplateId, matchingLlmConfigId,
     enableNpcReply, npcClueTemplateId, npcNoClueTemplateId, npcChatConfigId,
-    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens, overrideVectorBackend,
+    overrideSimilarityThreshold, overrideTemperature, overrideMaxTokens, overrideVectorBackend, llmReturnAllScores,
   ]);
 
   useEffect(() => {
@@ -394,6 +401,7 @@ export default function DialogueSimulation() {
           ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
         chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined)
           ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens } : undefined,
+        llm_return_all_scores: llmReturnAllScores,
       });
 
       setLastMatchResults(result.matched_clues);
@@ -805,6 +813,15 @@ export default function DialogueSimulation() {
                             ))}
                           </Select>
                           <ConfigDetails config={selectedMatchingConfig} type="chat" t={t} />
+                          <div style={{ marginTop: 12, padding: '8px 12px', background: llmReturnAllScores ? '#e6f7ff' : '#fafafa', borderRadius: 6, border: llmReturnAllScores ? '1px solid #91d5ff' : '1px solid #d9d9d9' }}>
+                            <Space>
+                              <Switch checked={llmReturnAllScores} onChange={setLlmReturnAllScores} size="small" />
+                              <Text type={llmReturnAllScores ? undefined : 'secondary'}>{t('debug.llmReturnAllScores')}</Text>
+                            </Space>
+                            <div style={{ marginTop: 4 }}>
+                              <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.llmReturnAllScoresHint')}</Text>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </Space>
