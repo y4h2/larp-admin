@@ -106,6 +106,11 @@ class SimulateRequest(BaseModel):
         default=None,
         description="Override chat options (e.g., temperature, max_tokens)",
     )
+    # LLM matching options
+    llm_return_all_scores: bool = Field(
+        default=False,
+        description="For LLM matching: return scores for all clues, not just matched ones",
+    )
 
 
 class MatchedClue(BaseModel):
