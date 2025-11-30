@@ -255,9 +255,11 @@ export default function ChatPanel({
                                     {(mc.score * 100).toFixed(0)}%
                                   </Descriptions.Item>
                                   <Descriptions.Item label={t('debug.matchType')}>
-                                    {mc.match_reasons.map((reason, k) => (
-                                      <Tag key={k}>{reason}</Tag>
-                                    ))}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                      {mc.match_reasons.map((reason, k) => (
+                                        <Tag key={k} style={{ marginRight: 0, marginBottom: 0, whiteSpace: 'normal', wordBreak: 'break-word' }}>{reason}</Tag>
+                                      ))}
+                                    </div>
                                   </Descriptions.Item>
                                 </Descriptions>
                               ))}
