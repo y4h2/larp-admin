@@ -13,7 +13,7 @@ import {
   Tooltip,
   App,
 } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined, RobotOutlined, BulbOutlined, UndoOutlined } from '@ant-design/icons';
+import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined, RobotOutlined, BulbOutlined, UndoOutlined, StopOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
@@ -47,6 +47,9 @@ export default function ClueDetail() {
 
   // Ref to track if form is mounted
   const formMountedRef = useRef(false);
+
+  // AbortController for cancelling AI streaming
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Realtime sync hook
   const handleRemoteChange = useCallback(
@@ -153,6 +156,17 @@ export default function ClueDetail() {
     }
   };
 
+  // Cancel AI streaming
+  const handleCancelAI = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setPolishing(false);
+    setGeneratingSummary(false);
+    message.info(t('clue.aiEnhance.cancelled'));
+  };
+
   // AI Enhancement handlers
   const handlePolishDetail = async () => {
     const name = form.getFieldValue('name');
@@ -162,25 +176,47 @@ export default function ClueDetail() {
       return;
     }
 
-    setPolishing(true);
-    try {
-      const result = await aiEnhancementApi.polishClue({
-        clue_name: name || '',
-        clue_detail: detail,
-      });
-      // Save original for undo
-      setPolishHistory({
-        field: 'detail',
-        original: detail,
-        polished: result.polished_detail,
-      });
-      form.setFieldValue('detail', result.polished_detail);
-      message.success(t('clue.aiEnhance.polishSuccess'));
-    } catch {
-      message.error(t('clue.aiEnhance.polishFailed'));
-    } finally {
-      setPolishing(false);
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
+    abortControllerRef.current = new AbortController();
+
+    setPolishing(true);
+    const originalDetail = detail;
+
+    await aiEnhancementApi.polishClueStream(
+      { clue_name: name || '', clue_detail: detail },
+      {
+        onChunk: (chunk) => {
+          const currentValue = form.getFieldValue('detail') || '';
+          // If this is the first chunk, replace with just the chunk
+          if (currentValue === originalDetail) {
+            form.setFieldValue('detail', chunk);
+          } else {
+            form.setFieldValue('detail', currentValue + chunk);
+          }
+        },
+        onComplete: (fullContent) => {
+          setPolishHistory({
+            field: 'detail',
+            original: originalDetail,
+            polished: fullContent,
+          });
+          form.setFieldValue('detail', fullContent);
+          message.success(t('clue.aiEnhance.polishSuccess'));
+          setPolishing(false);
+          abortControllerRef.current = null;
+        },
+        onError: (error) => {
+          message.error(t('clue.aiEnhance.polishFailed') + ': ' + error.message);
+          form.setFieldValue('detail', originalDetail);
+          setPolishing(false);
+          abortControllerRef.current = null;
+        },
+      },
+      abortControllerRef.current.signal,
+    );
   };
 
   const handleUndoPolish = () => {
@@ -226,19 +262,35 @@ export default function ClueDetail() {
       return;
     }
 
-    setGeneratingSummary(true);
-    try {
-      const result = await aiEnhancementApi.generateSemanticSummary({
-        clue_name: name || '',
-        clue_detail: detail,
-      });
-      form.setFieldValue('trigger_semantic_summary', result.semantic_summary);
-      message.success(t('clue.aiEnhance.generateSummarySuccess'));
-    } catch {
-      message.error(t('clue.aiEnhance.generateSummaryFailed'));
-    } finally {
-      setGeneratingSummary(false);
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
+    abortControllerRef.current = new AbortController();
+
+    setGeneratingSummary(true);
+
+    await aiEnhancementApi.generateSemanticSummaryStream(
+      { clue_name: name || '', clue_detail: detail },
+      {
+        onChunk: (chunk) => {
+          const currentValue = form.getFieldValue('trigger_semantic_summary') || '';
+          form.setFieldValue('trigger_semantic_summary', currentValue + chunk);
+        },
+        onComplete: (fullContent) => {
+          form.setFieldValue('trigger_semantic_summary', fullContent);
+          message.success(t('clue.aiEnhance.generateSummarySuccess'));
+          setGeneratingSummary(false);
+          abortControllerRef.current = null;
+        },
+        onError: (error) => {
+          message.error(t('clue.aiEnhance.generateSummaryFailed') + ': ' + error.message);
+          setGeneratingSummary(false);
+          abortControllerRef.current = null;
+        },
+      },
+      abortControllerRef.current.signal,
+    );
   };
 
   // Set form mounted ref when Form will be rendered
@@ -373,18 +425,29 @@ export default function ClueDetail() {
             label={
               <Space>
                 {t('clue.detail')}
-                <Tooltip title={t('clue.aiEnhance.polishTooltip')}>
+                {polishing ? (
                   <Button
                     type="link"
                     size="small"
-                    icon={<RobotOutlined />}
-                    loading={polishing}
-                    onClick={handlePolishDetail}
+                    icon={<StopOutlined />}
+                    onClick={handleCancelAI}
+                    danger
                   >
-                    {t('clue.aiEnhance.polish')}
+                    {t('clue.aiEnhance.cancel')}
                   </Button>
-                </Tooltip>
-                {polishHistory && polishHistory.field === 'detail' && (
+                ) : (
+                  <Tooltip title={t('clue.aiEnhance.polishTooltip')}>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<RobotOutlined />}
+                      onClick={handlePolishDetail}
+                    >
+                      {t('clue.aiEnhance.polish')}
+                    </Button>
+                  </Tooltip>
+                )}
+                {polishHistory && polishHistory.field === 'detail' && !polishing && (
                   <Tooltip title={t('clue.aiEnhance.undoTooltip')}>
                     <Button
                       type="link"
@@ -454,17 +517,28 @@ export default function ClueDetail() {
             label={
               <Space>
                 {t('clue.triggerSemanticSummary')}
-                <Tooltip title={t('clue.aiEnhance.generateSummaryTooltip')}>
+                {generatingSummary ? (
                   <Button
                     type="link"
                     size="small"
-                    icon={<RobotOutlined />}
-                    loading={generatingSummary}
-                    onClick={handleGenerateSummary}
+                    icon={<StopOutlined />}
+                    onClick={handleCancelAI}
+                    danger
                   >
-                    {t('clue.aiEnhance.generateSummary')}
+                    {t('clue.aiEnhance.cancel')}
                   </Button>
-                </Tooltip>
+                ) : (
+                  <Tooltip title={t('clue.aiEnhance.generateSummaryTooltip')}>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<RobotOutlined />}
+                      onClick={handleGenerateSummary}
+                    >
+                      {t('clue.aiEnhance.generateSummary')}
+                    </Button>
+                  </Tooltip>
+                )}
               </Space>
             }
           >

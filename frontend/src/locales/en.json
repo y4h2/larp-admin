@@ -233,7 +233,9 @@
       "noDetailForSummary": "Please enter clue detail first",
       "undo": "Undo",
       "undoTooltip": "Revert to original text before AI polishing",
-      "undoSuccess": "Reverted to original text"
+      "undoSuccess": "Reverted to original text",
+      "cancel": "Cancel",
+      "cancelled": "AI operation cancelled"
     },
     "aiAnalysis": {
       "button": "AI Analysis",

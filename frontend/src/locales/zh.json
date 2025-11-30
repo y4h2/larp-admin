@@ -233,7 +233,9 @@
       "noDetailForSummary": "请先输入线索详情",
       "undo": "撤销",
       "undoTooltip": "恢复 AI 润色前的原始文本",
-      "undoSuccess": "已恢复原始文本"
+      "undoSuccess": "已恢复原始文本",
+      "cancel": "取消",
+      "cancelled": "AI 操作已取消"
     },
     "aiAnalysis": {
       "button": "AI 分析",

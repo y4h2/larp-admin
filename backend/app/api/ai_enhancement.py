@@ -1,6 +1,10 @@
 """API routes for AI enhancement features."""
 
+import json
+from collections.abc import AsyncGenerator
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -91,6 +95,40 @@ async def polish_clue(
         raise HTTPException(status_code=500, detail=f"AI enhancement failed: {str(e)}")
 
 
+@router.post("/polish-clue/stream")
+async def polish_clue_stream(
+    request: PolishClueRequest,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Stream polish clue response."""
+    service = AIEnhancementService(db)
+
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            async for chunk in service.polish_clue_detail_stream(
+                clue_name=request.clue_name,
+                clue_detail=request.clue_detail,
+                context=request.context,
+                llm_config_id=request.llm_config_id,
+            ):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except ValueError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'AI enhancement failed: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/suggest-keywords", response_model=SuggestKeywordsResponse)
 async def suggest_keywords(
     request: SuggestKeywordsRequest,
@@ -132,6 +170,39 @@ async def generate_semantic_summary(
         raise HTTPException(status_code=500, detail=f"AI enhancement failed: {str(e)}")
 
 
+@router.post("/generate-semantic-summary/stream")
+async def generate_semantic_summary_stream(
+    request: GenerateSemanticSummaryRequest,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Stream generate semantic summary response."""
+    service = AIEnhancementService(db)
+
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            async for chunk in service.generate_semantic_summary_stream(
+                clue_name=request.clue_name,
+                clue_detail=request.clue_detail,
+                llm_config_id=request.llm_config_id,
+            ):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except ValueError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'AI enhancement failed: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/polish-npc", response_model=PolishNPCResponse)
 async def polish_npc(
     request: PolishNPCRequest,
@@ -152,6 +223,41 @@ async def polish_npc(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI enhancement failed: {str(e)}")
+
+
+@router.post("/polish-npc/stream")
+async def polish_npc_stream(
+    request: PolishNPCRequest,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Stream polish NPC description response."""
+    service = AIEnhancementService(db)
+
+    async def generate() -> AsyncGenerator[str, None]:
+        try:
+            async for chunk in service.polish_npc_description_stream(
+                npc_name=request.npc_name,
+                field=request.field,
+                content=request.content,
+                context=request.context,
+                llm_config_id=request.llm_config_id,
+            ):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except ValueError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': f'AI enhancement failed: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 class ClueInfo(BaseModel):
