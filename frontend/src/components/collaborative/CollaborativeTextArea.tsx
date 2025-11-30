@@ -70,6 +70,8 @@ const CollaborativeTextArea = forwardRef<CollaborativeTextAreaRef, Collaborative
     const hasInitialized = useRef(false);
     // Track if we're applying external value changes
     const isApplyingExternal = useRef(false);
+    // Track the latest initialValue for use in onSync callback
+    const latestInitialValue = useRef(initialValue);
 
     // Expose ref methods
     useImperativeHandle(ref, () => ({
@@ -89,23 +91,27 @@ const CollaborativeTextArea = forwardRef<CollaborativeTextAreaRef, Collaborative
       }
     }, []);
 
+    // Keep latestInitialValue ref updated
+    useEffect(() => {
+      latestInitialValue.current = initialValue;
+    }, [initialValue]);
+
     // Handle external value changes (e.g., from form.setFieldValue or AI enhancement)
     useEffect(() => {
-      // Only apply if value changed externally and we're initialized
+      // Only apply if value changed externally
       if (
         initialValue !== undefined &&
         initialValue !== localValue &&
-        hasInitialized.current &&
         !isApplyingRemote.current &&
         !isApplyingExternal.current
       ) {
         isApplyingExternal.current = true;
 
-        // Update local state
+        // Update local state immediately to show the value
         setLocalValue(initialValue);
 
-        // Sync to yText if available
-        if (yText) {
+        // Sync to yText if available and initialized
+        if (yText && hasInitialized.current) {
           const oldValue = yText.toString();
           applyDiffToYText(yText, oldValue, initialValue);
         }
@@ -148,10 +154,11 @@ const CollaborativeTextArea = forwardRef<CollaborativeTextAreaRef, Collaborative
         if (!hasInitialized.current) {
           hasInitialized.current = true;
           const currentYTextValue = text.toString();
+          const currentInitialValue = latestInitialValue.current;
 
-          if (currentYTextValue.length === 0 && initialValue) {
+          if (currentYTextValue.length === 0 && currentInitialValue) {
             // No remote content, use initial value
-            text.insert(0, initialValue);
+            text.insert(0, currentInitialValue);
           } else if (currentYTextValue.length > 0) {
             // Remote content exists, use it
             setLocalValue(currentYTextValue);

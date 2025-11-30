@@ -49,8 +49,7 @@
     "singleClueDebug": "线索调试",
     "settings": "设置",
     "templates": "提示词模板",
-    "llmConfigs": "模型配置",
-    "aiCreation": "AI 创作"
+    "llmConfigs": "模型配置"
   },
   "user": {
     "profile": "个人资料",
@@ -534,114 +533,5 @@
     "importApiKeyHint": "导入的配置「{{name}}」需要输入 API 密钥",
     "skipConfig": "跳过",
     "importingConfig": "正在导入配置..."
-  },
-  "aiCreation": {
-    "title": "AI 故事创作",
-    "subtitle": "使用 AI 辅助创建剧本杀故事",
-    "option": "方案",
-    "regenerate": "重新生成",
-    "optimize": "优化",
-    "confirmAndContinue": "确认并继续",
-    "generateTruth": "生成真相选项",
-    "generateDetails": "生成详情",
-    "proceedToReview": "进入审核",
-    "createScript": "创建剧本",
-    "clueChainOptimized": "线索链优化成功",
-    "scriptCreated": "剧本创建成功",
-    "genres": {
-      "murderMystery": "谋杀推理",
-      "thriller": "悬疑惊悚",
-      "wuxia": "武侠",
-      "modern": "现代都市",
-      "historical": "历史",
-      "fantasy": "奇幻"
-    },
-    "fields": {
-      "genre": "类型",
-      "era": "时代背景",
-      "location": "地点",
-      "atmosphere": "氛围",
-      "additionalNotes": "补充说明",
-      "npcCount": "NPC 人数",
-      "murderer": "凶手",
-      "motive": "动机",
-      "method": "手法",
-      "twist": "反转",
-      "role": "身份",
-      "age": "年龄",
-      "clueCount": "持有线索",
-      "llmConfig": "AI 模型"
-    },
-    "placeholders": {
-      "era": "例如：1920年代上海、维多利亚时期英国",
-      "location": "例如：洋楼、游轮",
-      "atmosphere": "描述故事的氛围和基调",
-      "additionalNotes": "任何特殊要求或约束条件",
-      "llmConfig": "选择用于生成的 AI 模型"
-    },
-    "steps": {
-      "setting": {
-        "name": "设定",
-        "title": "故事设定",
-        "hint": "定义剧本杀故事的基本设定。AI 将根据这些信息生成真相选项。"
-      },
-      "truth": {
-        "name": "真相",
-        "title": "选择真相",
-        "hint": "从 AI 生成的真相选项中选择一个。这将成为故事的核心谜题。"
-      },
-      "clueChain": {
-        "name": "线索链",
-        "title": "审核线索链",
-        "hint": "审核 AI 生成的线索链。您可以优化它或继续进行 NPC 分配。",
-        "valid": "线索链有效，可以使用",
-        "invalid": "线索链存在问题，需要修复",
-        "warnings": "警告",
-        "stats": "统计信息",
-        "totalClues": "总线索数",
-        "rootClues": "根线索数",
-        "paths": "推理路径数",
-        "aiNotes": "AI 建议",
-        "viewClues": "查看所有线索"
-      },
-      "npcs": {
-        "name": "NPC",
-        "title": "审核 NPC",
-        "hint": "审核 AI 生成的 NPC 及其持有的线索。"
-      },
-      "details": {
-        "name": "详情",
-        "title": "审核详情",
-        "hint": "审核线索和 NPC 的详细内容。",
-        "clueDetails": "线索详情",
-        "npcDetails": "NPC 详情"
-      },
-      "review": {
-        "name": "审核",
-        "title": "最终审核",
-        "hint": "在创建剧本之前审核所有生成的内容。",
-        "summary": "摘要",
-        "totalClues": "总线索数",
-        "totalNPCs": "总 NPC 数",
-        "status": "状态",
-        "ready": "就绪",
-        "hasWarnings": "有警告"
-      }
-    },
-    "success": {
-      "title": "剧本创建成功！",
-      "subtitle": "您的 AI 生成的剧本杀故事已创建。",
-      "viewScript": "查看剧本",
-      "createAnother": "再创建一个"
-    },
-    "errors": {
-      "loadLLMConfigs": "加载 AI 模型配置失败",
-      "generateTruth": "生成真相选项失败",
-      "generateClueChain": "生成线索链失败",
-      "optimizeClueChain": "优化线索链失败",
-      "generateNPCs": "生成 NPC 失败",
-      "generateDetails": "生成详情失败",
-      "createScript": "创建剧本失败"
-    }
   }
 }

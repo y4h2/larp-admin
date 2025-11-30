@@ -21,7 +21,6 @@ import {
   CodeOutlined,
   ApiOutlined,
   LogoutOutlined,
-  RobotOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store';
@@ -73,7 +72,6 @@ const isCollaborativePage = (pathname: string): boolean => {
 
 // Menu items generator function that uses translations
 const getMenuItems = (t: (key: string) => string): MenuItem[] => [
-  getItem(t('menu.aiCreation'), '/ai-creation', <RobotOutlined />),
   getItem(t('menu.scriptManagement'), 'scripts', <BookOutlined />, [
     getItem(t('menu.scriptList'), '/scripts', <FileTextOutlined />),
   ]),

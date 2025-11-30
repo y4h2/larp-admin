@@ -49,8 +49,7 @@
     "singleClueDebug": "Single Clue Debug",
     "settings": "Settings",
     "templates": "Prompt Templates",
-    "llmConfigs": "LLM Configs",
-    "aiCreation": "AI Creation"
+    "llmConfigs": "LLM Configs"
   },
   "user": {
     "profile": "Profile",
@@ -534,114 +533,5 @@
     "importApiKeyHint": "Imported config \"{{name}}\" requires API key",
     "skipConfig": "Skip",
     "importingConfig": "Importing configs..."
-  },
-  "aiCreation": {
-    "title": "AI Story Creation",
-    "subtitle": "Create murder mystery stories with AI assistance",
-    "option": "Option",
-    "regenerate": "Regenerate",
-    "optimize": "Optimize",
-    "confirmAndContinue": "Confirm & Continue",
-    "generateTruth": "Generate Truth Options",
-    "generateDetails": "Generate Details",
-    "proceedToReview": "Proceed to Review",
-    "createScript": "Create Script",
-    "clueChainOptimized": "Clue chain optimized successfully",
-    "scriptCreated": "Script created successfully",
-    "genres": {
-      "murderMystery": "Murder Mystery",
-      "thriller": "Thriller",
-      "wuxia": "Wuxia (Martial Arts)",
-      "modern": "Modern",
-      "historical": "Historical",
-      "fantasy": "Fantasy"
-    },
-    "fields": {
-      "genre": "Genre",
-      "era": "Era/Time Period",
-      "location": "Location",
-      "atmosphere": "Atmosphere",
-      "additionalNotes": "Additional Notes",
-      "npcCount": "NPC Count",
-      "murderer": "Murderer",
-      "motive": "Motive",
-      "method": "Method",
-      "twist": "Twist",
-      "role": "Role",
-      "age": "Age",
-      "clueCount": "Assigned Clues",
-      "llmConfig": "AI Model"
-    },
-    "placeholders": {
-      "era": "e.g., 1920s Shanghai, Victorian England",
-      "location": "e.g., A mansion, A cruise ship",
-      "atmosphere": "Describe the mood and tone of the story",
-      "additionalNotes": "Any specific requirements or constraints",
-      "llmConfig": "Select an AI model for generation"
-    },
-    "steps": {
-      "setting": {
-        "name": "Setting",
-        "title": "Story Setting",
-        "hint": "Define the basic setting for your murder mystery story. AI will use this to generate truth options."
-      },
-      "truth": {
-        "name": "Truth",
-        "title": "Select Truth",
-        "hint": "Choose one of the AI-generated truth options. This will be the core mystery of your story."
-      },
-      "clueChain": {
-        "name": "Clue Chain",
-        "title": "Review Clue Chain",
-        "hint": "Review the AI-generated clue chain. You can optimize it or proceed to NPC assignment.",
-        "valid": "Clue chain is valid and ready for use",
-        "invalid": "Clue chain has issues that need to be fixed",
-        "warnings": "Warnings",
-        "stats": "Statistics",
-        "totalClues": "Total Clues",
-        "rootClues": "Root Clues",
-        "paths": "Reasoning Paths",
-        "aiNotes": "AI Notes",
-        "viewClues": "View All Clues"
-      },
-      "npcs": {
-        "name": "NPCs",
-        "title": "Review NPCs",
-        "hint": "Review the AI-generated NPCs and their assigned clues."
-      },
-      "details": {
-        "name": "Details",
-        "title": "Review Details",
-        "hint": "Review the detailed content for clues and NPCs.",
-        "clueDetails": "Clue Details",
-        "npcDetails": "NPC Details"
-      },
-      "review": {
-        "name": "Review",
-        "title": "Final Review",
-        "hint": "Review all generated content before creating the script.",
-        "summary": "Summary",
-        "totalClues": "Total Clues",
-        "totalNPCs": "Total NPCs",
-        "status": "Status",
-        "ready": "Ready",
-        "hasWarnings": "Has Warnings"
-      }
-    },
-    "success": {
-      "title": "Script Created Successfully!",
-      "subtitle": "Your AI-generated murder mystery script has been created.",
-      "viewScript": "View Script",
-      "createAnother": "Create Another"
-    },
-    "errors": {
-      "loadLLMConfigs": "Failed to load AI model configurations",
-      "generateTruth": "Failed to generate truth options",
-      "generateClueChain": "Failed to generate clue chain",
-      "optimizeClueChain": "Failed to optimize clue chain",
-      "generateNPCs": "Failed to generate NPCs",
-      "generateDetails": "Failed to generate details",
-      "createScript": "Failed to create script"
-    }
   }
 }
