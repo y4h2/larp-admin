@@ -365,15 +365,16 @@ function ClickableEdge(props: EdgeProps) {
 
   const edgeIndex = edgeData?.edgeIndex ?? 0;
   const totalEdges = edgeData?.totalEdgesToTarget ?? 1;
-  const offsetX = totalEdges > 1
+  // Only offset source X so arrows converge to the same landing point on target
+  const sourceOffsetX = totalEdges > 1
     ? (edgeIndex - (totalEdges - 1) / 2) * 25
     : 0;
 
   const [edgePath] = getSmoothStepPath({
-    sourceX: sourceX + offsetX,
+    sourceX: sourceX + sourceOffsetX,
     sourceY,
     sourcePosition,
-    targetX: targetX + offsetX,
+    targetX, // No offset - all arrows land at the same point
     targetY,
     targetPosition,
     borderRadius: 8,
