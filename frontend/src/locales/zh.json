@@ -267,6 +267,7 @@
     "lockedClues": "未解锁线索",
     "noLockedClues": "所有线索已解锁",
     "hasPrerequisites": "有 {{count}} 个前置依赖",
+    "totalInScript": "剧本共 {{count}} 条",
     "renderAll": "渲染全部",
     "renderPreview": "渲染预览",
     "rendered": "已渲染",
