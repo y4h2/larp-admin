@@ -5,3 +5,4 @@ export { clueApi } from './clues';
 export { simulationApi, logApi } from './simulation';
 export { templateApi } from './templates';
 export { llmConfigApi } from './llmConfigs';
+export { aiEnhancementApi } from './aiEnhancement';

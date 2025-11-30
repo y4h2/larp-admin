@@ -1,24 +1,24 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
-  Input,
   Select,
   Button,
   Space,
   Spin,
   Empty,
   Tag,
-  message,
+  Tooltip,
+  App,
 } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined, RobotOutlined, BulbOutlined, UndoOutlined } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
-import { clueApi } from '@/api';
+import { clueApi, aiEnhancementApi } from '@/api';
 import type { Clue } from '@/types';
 
 const { Option } = Select;
@@ -27,6 +27,7 @@ export default function ClueDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const { trackEditing, stopEditing } = usePresence();
   const { fetchClue, updateClue, deleteClue } = useClues();
@@ -35,8 +36,17 @@ export default function ClueDetail() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [polishing, setPolishing] = useState(false);
+  const [suggestingKeywords, setSuggestingKeywords] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [initialClue, setInitialClue] = useState<Clue | null>(null);
   const [siblingClues, setSiblingClues] = useState<Clue[]>([]);
+
+  // AI Polish history for undo
+  const [polishHistory, setPolishHistory] = useState<{ field: string; original: string; polished: string } | null>(null);
+
+  // Ref to track if form is mounted
+  const formMountedRef = useRef(false);
 
   // Realtime sync hook
   const handleRemoteChange = useCallback(
@@ -96,7 +106,15 @@ export default function ClueDetail() {
   // Set form values after loading is complete and Form is mounted
   useEffect(() => {
     if (!loading && initialClue) {
-      form.setFieldsValue(initialClue);
+      // Use requestAnimationFrame to ensure Form is mounted before setting values
+      const setValues = () => {
+        if (formMountedRef.current) {
+          form.setFieldsValue(initialClue);
+        } else {
+          requestAnimationFrame(setValues);
+        }
+      };
+      requestAnimationFrame(setValues);
     }
   }, [loading, initialClue, form]);
 
@@ -134,6 +152,104 @@ export default function ClueDetail() {
       // Error handled in hook
     }
   };
+
+  // AI Enhancement handlers
+  const handlePolishDetail = async () => {
+    const name = form.getFieldValue('name');
+    const detail = form.getFieldValue('detail');
+    if (!detail) {
+      message.warning(t('clue.aiEnhance.noDetailToPolish'));
+      return;
+    }
+
+    setPolishing(true);
+    try {
+      const result = await aiEnhancementApi.polishClue({
+        clue_name: name || '',
+        clue_detail: detail,
+      });
+      // Save original for undo
+      setPolishHistory({
+        field: 'detail',
+        original: detail,
+        polished: result.polished_detail,
+      });
+      form.setFieldValue('detail', result.polished_detail);
+      message.success(t('clue.aiEnhance.polishSuccess'));
+    } catch {
+      message.error(t('clue.aiEnhance.polishFailed'));
+    } finally {
+      setPolishing(false);
+    }
+  };
+
+  const handleUndoPolish = () => {
+    if (polishHistory) {
+      form.setFieldValue(polishHistory.field, polishHistory.original);
+      setPolishHistory(null);
+      message.info(t('clue.aiEnhance.undoSuccess'));
+    }
+  };
+
+  const handleSuggestKeywords = async () => {
+    const name = form.getFieldValue('name');
+    const detail = form.getFieldValue('detail');
+    if (!detail) {
+      message.warning(t('clue.aiEnhance.noDetailForKeywords'));
+      return;
+    }
+
+    setSuggestingKeywords(true);
+    try {
+      const existingKeywords = form.getFieldValue('trigger_keywords') || [];
+      const result = await aiEnhancementApi.suggestKeywords({
+        clue_name: name || '',
+        clue_detail: detail,
+        existing_keywords: existingKeywords,
+      });
+      // Merge with existing keywords
+      const merged = [...new Set([...existingKeywords, ...result.keywords])];
+      form.setFieldValue('trigger_keywords', merged);
+      message.success(t('clue.aiEnhance.suggestKeywordsSuccess', { count: result.keywords.length }));
+    } catch {
+      message.error(t('clue.aiEnhance.suggestKeywordsFailed'));
+    } finally {
+      setSuggestingKeywords(false);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    const name = form.getFieldValue('name');
+    const detail = form.getFieldValue('detail');
+    if (!detail) {
+      message.warning(t('clue.aiEnhance.noDetailForSummary'));
+      return;
+    }
+
+    setGeneratingSummary(true);
+    try {
+      const result = await aiEnhancementApi.generateSemanticSummary({
+        clue_name: name || '',
+        clue_detail: detail,
+      });
+      form.setFieldValue('trigger_semantic_summary', result.semantic_summary);
+      message.success(t('clue.aiEnhance.generateSummarySuccess'));
+    } catch {
+      message.error(t('clue.aiEnhance.generateSummaryFailed'));
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+
+  // Set form mounted ref when Form will be rendered
+  useEffect(() => {
+    if (!loading && clue) {
+      formMountedRef.current = true;
+    }
+    return () => {
+      formMountedRef.current = false;
+    };
+  }, [loading, clue]);
 
   if (loading) {
     return (
@@ -254,7 +370,35 @@ export default function ClueDetail() {
 
           <Form.Item
             name="detail"
-            label={t('clue.detail')}
+            label={
+              <Space>
+                {t('clue.detail')}
+                <Tooltip title={t('clue.aiEnhance.polishTooltip')}>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<RobotOutlined />}
+                    loading={polishing}
+                    onClick={handlePolishDetail}
+                  >
+                    {t('clue.aiEnhance.polish')}
+                  </Button>
+                </Tooltip>
+                {polishHistory && polishHistory.field === 'detail' && (
+                  <Tooltip title={t('clue.aiEnhance.undoTooltip')}>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<UndoOutlined />}
+                      onClick={handleUndoPolish}
+                      style={{ color: '#faad14' }}
+                    >
+                      {t('clue.aiEnhance.undo')}
+                    </Button>
+                  </Tooltip>
+                )}
+              </Space>
+            }
             rules={[{ required: true }]}
           >
             <CollaborativeTextArea
@@ -280,7 +424,22 @@ export default function ClueDetail() {
 
           <Form.Item
             name="trigger_keywords"
-            label={t('clue.triggerKeywords')}
+            label={
+              <Space>
+                {t('clue.triggerKeywords')}
+                <Tooltip title={t('clue.aiEnhance.suggestKeywordsTooltip')}>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<BulbOutlined />}
+                    loading={suggestingKeywords}
+                    onClick={handleSuggestKeywords}
+                  >
+                    {t('clue.aiEnhance.suggestKeywords')}
+                  </Button>
+                </Tooltip>
+              </Space>
+            }
           >
             <CollaborativeMultiSelect
               docId={`clue_${id}`}
@@ -292,7 +451,22 @@ export default function ClueDetail() {
 
           <Form.Item
             name="trigger_semantic_summary"
-            label={t('clue.triggerSemanticSummary')}
+            label={
+              <Space>
+                {t('clue.triggerSemanticSummary')}
+                <Tooltip title={t('clue.aiEnhance.generateSummaryTooltip')}>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<RobotOutlined />}
+                    loading={generatingSummary}
+                    onClick={handleGenerateSummary}
+                  >
+                    {t('clue.aiEnhance.generateSummary')}
+                  </Button>
+                </Tooltip>
+              </Space>
+            }
           >
             <CollaborativeTextArea
               docId={`clue_${id}`}

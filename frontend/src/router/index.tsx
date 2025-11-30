@@ -26,6 +26,9 @@ import { TemplateList, TemplateDetail } from '@/pages/templates';
 // LLM Configs
 import { LLMConfigList } from '@/pages/llm-configs';
 
+// AI Creation
+import AICreationWizard from '@/pages/ai-creation';
+
 const router = createBrowserRouter([
   // Public routes
   {
@@ -44,6 +47,11 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <Navigate to="/scripts" replace />,
+      },
+      // AI Creation
+      {
+        path: 'ai-creation',
+        element: <AICreationWizard />,
       },
       // Scripts
       {
