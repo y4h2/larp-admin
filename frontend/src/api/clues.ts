@@ -56,7 +56,6 @@ function transformRow(row: ClueRow): Clue {
     prereq_clue_ids: row.prereq_clue_ids,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    deleted_at: row.deleted_at,
   };
 }
 
@@ -66,7 +65,6 @@ export const clueApi = {
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
 
-    // RLS policy automatically filters deleted_at IS NULL
     let query = supabase
       .from('clues')
       .select('*', { count: 'exact' })
@@ -106,7 +104,6 @@ export const clueApi = {
   },
 
   get: async (id: string): Promise<Clue> => {
-    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('clues')
       .select('*')
@@ -170,10 +167,9 @@ export const clueApi = {
   },
 
   delete: async (id: string): Promise<void> => {
-    // Soft delete
     const { error } = await supabase
       .from('clues')
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq('id', id);
 
     if (error) throw new Error(error.message);

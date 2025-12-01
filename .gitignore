@@ -7,3 +7,4 @@ infra/supabase/volumes/storage
 .serena
 .env
 .DS_Store
+.env.production

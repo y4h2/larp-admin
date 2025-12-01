@@ -128,7 +128,10 @@
     "exportSuccess": "Script exported successfully",
     "exportFailed": "Failed to export script",
     "importSuccess": "Script imported successfully",
-    "importFailed": "Failed to import script"
+    "importFailed": "Failed to import script",
+    "enterScriptTitle": "Enter script title",
+    "enterSummary": "Enter summary",
+    "deleteConfirm": "Are you sure you want to delete script \"{{name}}\"?"
   },
   "npc": {
     "title": "NPC Management",

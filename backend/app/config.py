@@ -1,16 +1,44 @@
 """Application configuration settings."""
 
+import os
 from functools import lru_cache
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def get_env_file() -> str:
+    """
+    根据 ENV_FILE 环境变量或 ENVIRONMENT 决定加载哪个配置文件。
+
+    优先级：
+    1. ENV_FILE 环境变量（如果设置）
+    2. ENVIRONMENT=production -> .env.production (如果存在) -> .env
+    3. 默认 -> .env.local (如果存在) -> .env
+    """
+    # 显式指定的环境文件
+    env_file = os.getenv("ENV_FILE")
+    if env_file:
+        return env_file
+
+    environment = os.getenv("ENVIRONMENT", "development")
+
+    if environment == "production":
+        if os.path.exists(".env.production"):
+            return ".env.production"
+        return ".env"
+    else:
+        # development / staging
+        if os.path.exists(".env.local"):
+            return ".env.local"
+        return ".env"
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=get_env_file(),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",  # Ignore extra env vars like VITE_*

@@ -26,7 +26,6 @@ function transformRow(row: NPCRow): NPC {
     knowledge_scope: row.knowledge_scope as Record<string, unknown> | null,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    deleted_at: row.deleted_at,
   };
 }
 
@@ -36,7 +35,6 @@ export const npcApi = {
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
 
-    // RLS policy automatically filters deleted_at IS NULL
     let query = supabase
       .from('npcs')
       .select('*', { count: 'exact' })
@@ -68,7 +66,6 @@ export const npcApi = {
   },
 
   get: async (id: string): Promise<NPC> => {
-    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('npcs')
       .select('*')
@@ -93,7 +90,7 @@ export const npcApi = {
       age: createData.age ?? null,
       background: createData.background ?? null,
       personality: createData.personality ?? null,
-      knowledge_scope: createData.knowledge_scope ?? null,
+      knowledge_scope: createData.knowledge_scope ?? {},  // 默认空对象，数据库要求 NOT NULL
     };
 
     const { data, error } = await supabase
@@ -126,10 +123,9 @@ export const npcApi = {
   },
 
   delete: async (id: string): Promise<void> => {
-    // Soft delete
     const { error } = await supabase
       .from('npcs')
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq('id', id);
 
     if (error) throw new Error(error.message);

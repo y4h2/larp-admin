@@ -70,10 +70,10 @@ export const scriptApi = {
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
 
-    // RLS policy automatically filters deleted_at IS NULL
     let query = supabase
       .from('scripts')
       .select('*', { count: 'exact' })
+      .is('deleted_at', null)  // 过滤软删除的记录
       .order('updated_at', { ascending: false })
       .range(from, to);
 
@@ -102,11 +102,11 @@ export const scriptApi = {
   },
 
   get: async (id: string): Promise<Script> => {
-    // RLS policy automatically filters deleted_at IS NULL
     const { data, error } = await supabase
       .from('scripts')
       .select('*')
       .eq('id', id)
+      .is('deleted_at', null)
       .single();
 
     if (error) throw new Error(error.message);
@@ -122,7 +122,7 @@ export const scriptApi = {
       summary: createData.summary ?? null,
       background: createData.background ?? null,
       difficulty: createData.difficulty ?? 'medium',
-      truth: createData.truth ?? null,
+      truth: createData.truth ?? {},  // 默认空对象，数据库要求 NOT NULL
     };
 
     const { data, error } = await supabase
