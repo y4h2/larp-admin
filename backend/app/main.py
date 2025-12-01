@@ -7,8 +7,10 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.api import api_router
 from app.config import settings
@@ -59,6 +61,10 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
+
+    # Add proxy headers middleware (for running behind Nginx/reverse proxy)
+    if settings.environment == "production":
+        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
     # Add CORS middleware
     app.add_middleware(

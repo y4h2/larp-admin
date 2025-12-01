@@ -183,6 +183,129 @@ npm run build
 # Output in frontend/dist/
 ```
 
+## Deployment
+
+### VPS Deployment
+
+#### 1. Prerequisites
+
+- Ubuntu 20.04+ or similar Linux distribution
+- Python 3.11+
+- Node.js 18+
+- Nginx (optional, for reverse proxy)
+
+#### 2. Clone and Setup
+
+```bash
+# Clone repository
+git clone https://github.com/y4h2/larp-admin.git
+cd larp-admin
+
+# Setup backend
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your database credentials and other settings
+```
+
+#### 3. Build Frontend
+
+```bash
+cd backend
+./build.sh
+```
+
+This will build the frontend and copy it to `backend/static/`.
+
+#### 4. Run with Gunicorn (Production)
+
+```bash
+pip install gunicorn
+
+# Run with 4 workers
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001
+```
+
+#### 5. Setup Systemd Service
+
+Create `/etc/systemd/system/larp-admin.service`:
+
+```ini
+[Unit]
+Description=LARP Admin API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/larp-admin/backend
+Environment="PATH=/path/to/larp-admin/backend/venv/bin"
+EnvironmentFile=/path/to/larp-admin/backend/.env
+ExecStart=/path/to/larp-admin/backend/venv/bin/gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8001
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable larp-admin
+sudo systemctl start larp-admin
+```
+
+#### 6. Nginx Reverse Proxy (Optional)
+
+Create `/etc/nginx/sites-available/larp-admin`:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/larp-admin /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 7. SSL with Certbot (Optional)
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+### Docker Deployment
+
+```bash
+# Build and run with Docker Compose
+cd larp-admin
+docker-compose up -d --build
+```
+
 ## License
 
 Private - Internal Use Only
+
+
+
+
