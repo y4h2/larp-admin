@@ -1,0 +1,37 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build frontend and copy to backend/static
+    dir: backend
+    cmds:
+      - ./build.sh
+
+  pack:
+    desc: Build and package as larpadmin.zip
+    cmds:
+      - ./pack.sh
+
+  dev:backend:
+    desc: Run backend dev server
+    dir: backend
+    cmds:
+      - uvicorn app.main:app --reload --port 8001
+
+  dev:frontend:
+    desc: Run frontend dev server
+    dir: frontend
+    cmds:
+      - npm run dev
+
+  migrate:
+    desc: Run database migrations
+    dir: backend
+    cmds:
+      - alembic upgrade head
+
+  test:
+    desc: Run backend tests
+    dir: backend
+    cmds:
+      - pytest
