@@ -141,3 +141,6 @@ cython_debug/
 
 # LSP config files
 pyrightconfig.json
+
+# Frontend build output
+static/

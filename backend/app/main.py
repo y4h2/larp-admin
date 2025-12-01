@@ -2,13 +2,19 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
 from app.config import settings
+
+# Frontend static files directory
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 # Configure logging
 logging.basicConfig(
@@ -71,14 +77,27 @@ def create_app() -> FastAPI:
         """Health check endpoint."""
         return {"status": "healthy", "version": settings.app_version}
 
-    @app.get("/")
-    async def root() -> dict[str, str]:
-        """Root endpoint."""
-        return {
-            "name": settings.app_name,
-            "version": settings.app_version,
-            "docs": "/docs",
-        }
+    # Serve frontend static files (only in production or if static dir exists)
+    if STATIC_DIR.exists():
+        # Mount static assets (js, css, images, etc.)
+        app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str) -> FileResponse:
+            """Serve SPA - return index.html for all non-API routes."""
+            file_path = STATIC_DIR / full_path
+            if file_path.exists() and file_path.is_file():
+                return FileResponse(file_path)
+            return FileResponse(STATIC_DIR / "index.html")
+    else:
+        @app.get("/")
+        async def root() -> dict[str, str]:
+            """Root endpoint (dev mode without frontend)."""
+            return {
+                "name": settings.app_name,
+                "version": settings.app_version,
+                "docs": "/docs",
+            }
 
     return app
 

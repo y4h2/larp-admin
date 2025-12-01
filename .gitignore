@@ -4,3 +4,6 @@
 infra/supabase/.env
 infra/supabase/volumes/db/data
 infra/supabase/volumes/storage
+.serena
+.env
+.DS_Store

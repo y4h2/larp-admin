@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DEBUG=false
+      - ENVIRONMENT=production
+    volumes:
+      - ./backend/static:/app/static  # Mount pre-built frontend
+    restart: unless-stopped
