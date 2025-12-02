@@ -983,178 +983,217 @@ export default function DialogueSimulation() {
 
         {/* Middle: Match Results + Templates + Locked Clues */}
         <Col xs={24} sm={24} md={16} lg={10} xl={10}>
-          {lastMatchResults && lastMatchResults.length > 0 && (
-            <Card title={t('debug.matchResults')} size="small" style={{ marginBottom: 16 }}>
-              {lastDebugInfo && (
-                <Alert
-                  title={t('debug.debugSummary')}
-                  description={
-                    <Space orientation="vertical" size={0}>
-                      <Text>{t('debug.totalCandidates')}: {String(lastDebugInfo.total_candidates ?? 0)}</Text>
-                      <Text>{t('debug.totalMatched')}: {String(lastDebugInfo.total_matched ?? 0)}</Text>
-                      <Text>{t('debug.totalTriggered')}: {String(lastDebugInfo.total_triggered ?? 0)}</Text>
-                      <Text>{t('debug.strategy')}: {t(`debug.${String(lastDebugInfo.strategy ?? 'keyword')}Matching`)}</Text>
-                    </Space>
-                  }
-                  type="info"
-                  style={{ marginBottom: 12 }}
-                />
-              )}
-              <Table columns={matchResultColumns} dataSource={lastMatchResults} rowKey="clue_id" size="small" pagination={false} scroll={{ y: 200 }} />
-            </Card>
-          )}
-
-          {selectedMatchingTemplate && (
-            <Card title={t('debug.templateContent')} size="small" style={{ marginBottom: 16 }}>
-              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 200, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9' }}>
-                {selectedMatchingTemplate.content}
-              </div>
-              {selectedMatchingTemplate.variables && selectedMatchingTemplate.variables.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
-                  <div style={{ marginTop: 4 }}>
-                    {selectedMatchingTemplate.variables.map((v, i) => <Tag key={i} color="blue" style={{ marginBottom: 4 }}>{v}</Tag>)}
-                  </div>
-                </div>
-              )}
-            </Card>
-          )}
-
-          <Card
-            title={
-              <Space>
-                <LockOutlined />
-                {t('debug.lockedClues')}
-                <Tag>{lockedClues.length}/{npcClues.length}</Tag>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  ({t('debug.totalInScript', { count: clues.length })})
-                </Text>
-              </Space>
-            }
-            size="small"
-          >
-            {lockedClues.length === 0 ? (
-              <Empty description={t('debug.noLockedClues')} />
-            ) : (
-              <Collapse
-                size="small"
-                items={lockedClues.map((clue) => ({
-                  key: clue.id,
+          <Card size="small">
+            <Tabs
+              defaultActiveKey="results"
+              size="small"
+              items={[
+                {
+                  key: 'results',
                   label: (
-                    <Space>
-                      <ClueTypeTag type={clue.type} />
-                      <span>{clue.name}</span>
-                      {clue.prereq_clue_ids && clue.prereq_clue_ids.length > 0 && (
-                        <Tooltip title={t('debug.hasPrerequisites', { count: clue.prereq_clue_ids.length })}>
-                          <Tag color="orange" style={{ marginLeft: 4 }}>
-                            <LockOutlined style={{ marginRight: 2 }} />
-                            {clue.prereq_clue_ids.length}
-                          </Tag>
-                        </Tooltip>
+                    <span>
+                      <SearchOutlined /> {t('debug.matchResults')}
+                      {lastMatchResults && lastMatchResults.length > 0 && (
+                        <Tag style={{ marginLeft: 8 }}>{lastMatchResults.length}</Tag>
                       )}
-                      {renderedPreviews[clue.id] && <Tag color="green" style={{ marginLeft: 8 }}>{t('debug.rendered')}</Tag>}
-                    </Space>
-                  ),
-                  extra: matchingTemplateId && (
-                    <Tooltip title={t('debug.renderPreview')}>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={renderingClueId === clue.id ? <Spin size="small" /> : <EyeOutlined />}
-                        onClick={(e) => { e.stopPropagation(); handleRenderClue(clue); }}
-                        disabled={renderingClueId !== null}
-                      />
-                    </Tooltip>
+                    </span>
                   ),
                   children: (
-                    <div>
-                      <div style={{ marginBottom: 12 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.detail')}:</Text>
-                        <Paragraph style={{ margin: '4px 0', fontSize: 13 }} ellipsis={{ rows: 2, expandable: true }}>{clue.detail}</Paragraph>
-                      </div>
-                      {clue.trigger_keywords && clue.trigger_keywords.length > 0 && (
-                        <div style={{ marginBottom: 12 }}>
-                          <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.triggerKeywords')}:</Text>
-                          <div style={{ marginTop: 4 }}>{clue.trigger_keywords.map((kw, i) => <Tag key={i} style={{ marginBottom: 4 }}>{kw}</Tag>)}</div>
-                        </div>
+                    <>
+                      {lastMatchResults && lastMatchResults.length > 0 ? (
+                        <>
+                          {lastDebugInfo && (
+                            <Alert
+                              title={t('debug.debugSummary')}
+                              description={
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                  <Text>{t('debug.totalCandidates')}: {String(lastDebugInfo.total_candidates ?? 0)}</Text>
+                                  <Text>{t('debug.totalMatched')}: {String(lastDebugInfo.total_matched ?? 0)}</Text>
+                                  <Text>{t('debug.totalTriggered')}: {String(lastDebugInfo.total_triggered ?? 0)}</Text>
+                                  <Text>{t('debug.strategy')}: {t(`debug.${String(lastDebugInfo.strategy ?? 'keyword')}Matching`)}</Text>
+                                </div>
+                              }
+                              type="info"
+                              style={{ marginBottom: 12 }}
+                            />
+                          )}
+                          <Table columns={matchResultColumns} dataSource={lastMatchResults} rowKey="clue_id" size="small" pagination={false} scroll={{ y: 200 }} />
+                          {selectedMatchingTemplate && (
+                            <div style={{ marginTop: 16 }}>
+                              <Text strong style={{ fontSize: 12 }}>{t('debug.templateContent')}:</Text>
+                              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 200, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9', marginTop: 8 }}>
+                                {selectedMatchingTemplate.content}
+                              </div>
+                              {selectedMatchingTemplate.variables && selectedMatchingTemplate.variables.length > 0 && (
+                                <div style={{ marginTop: 12 }}>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                                  <div style={{ marginTop: 4 }}>
+                                    {selectedMatchingTemplate.variables.map((v, i) => <Tag key={i} color="blue" style={{ marginBottom: 4 }}>{v}</Tag>)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <Empty description={t('debug.noMatchResults')} />
                       )}
-                      {renderedPreviews[clue.id] && (
-                        <div style={{ marginTop: 12 }}>
-                          <Divider style={{ margin: '8px 0' }} />
-                          <Text strong style={{ color: '#1890ff', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
-                          <div style={{ background: '#e6f7ff', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #91d5ff', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 150, overflow: 'auto' }}>
-                            {renderedPreviews[clue.id].rendered_content || t('template.emptyResult')}
+                    </>
+                  ),
+                },
+                {
+                  key: 'clues',
+                  label: (
+                    <span>
+                      <LockOutlined /> {t('debug.lockedClues')}
+                      <Tag style={{ marginLeft: 8 }}>{lockedClues.length}/{npcClues.length}</Tag>
+                    </span>
+                  ),
+                  children: (
+                    <>
+                      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+                        {t('debug.totalInScript', { count: clues.length })}
+                      </Text>
+                      {lockedClues.length === 0 ? (
+                        <Empty description={t('debug.noLockedClues')} />
+                      ) : (
+                        <Collapse
+                          size="small"
+                          items={lockedClues.map((clue) => ({
+                            key: clue.id,
+                            label: (
+                              <Space>
+                                <ClueTypeTag type={clue.type} />
+                                <span>{clue.name}</span>
+                                {clue.prereq_clue_ids && clue.prereq_clue_ids.length > 0 && (
+                                  <Tooltip title={t('debug.hasPrerequisites', { count: clue.prereq_clue_ids.length })}>
+                                    <Tag color="orange" style={{ marginLeft: 4 }}>
+                                      <LockOutlined style={{ marginRight: 2 }} />
+                                      {clue.prereq_clue_ids.length}
+                                    </Tag>
+                                  </Tooltip>
+                                )}
+                                {renderedPreviews[clue.id] && <Tag color="green" style={{ marginLeft: 8 }}>{t('debug.rendered')}</Tag>}
+                              </Space>
+                            ),
+                            extra: matchingTemplateId && (
+                              <Tooltip title={t('debug.renderPreview')}>
+                                <Button
+                                  size="small"
+                                  type="text"
+                                  icon={renderingClueId === clue.id ? <Spin size="small" /> : <EyeOutlined />}
+                                  onClick={(e) => { e.stopPropagation(); handleRenderClue(clue); }}
+                                  disabled={renderingClueId !== null}
+                                />
+                              </Tooltip>
+                            ),
+                            children: (
+                              <div>
+                                <div style={{ marginBottom: 12 }}>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.detail')}:</Text>
+                                  <Paragraph style={{ margin: '4px 0', fontSize: 13 }} ellipsis={{ rows: 2, expandable: true }}>{clue.detail}</Paragraph>
+                                </div>
+                                {clue.trigger_keywords && clue.trigger_keywords.length > 0 && (
+                                  <div style={{ marginBottom: 12 }}>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>{t('clue.triggerKeywords')}:</Text>
+                                    <div style={{ marginTop: 4 }}>{clue.trigger_keywords.map((kw, i) => <Tag key={i} style={{ marginBottom: 4 }}>{kw}</Tag>)}</div>
+                                  </div>
+                                )}
+                                {renderedPreviews[clue.id] && (
+                                  <div style={{ marginTop: 12 }}>
+                                    <Divider style={{ margin: '8px 0' }} />
+                                    <Text strong style={{ color: '#1890ff', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
+                                    <div style={{ background: '#e6f7ff', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #91d5ff', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 150, overflow: 'auto' }}>
+                                      {renderedPreviews[clue.id].rendered_content || t('template.emptyResult')}
+                                    </div>
+                                    {renderedPreviews[clue.id].warnings.length > 0 && (
+                                      <Alert type="warning" title={t('template.renderWarnings')} description={renderedPreviews[clue.id].warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ),
+                          }))}
+                        />
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  key: 'npcTemplates',
+                  label: (
+                    <span>
+                      <RobotOutlined /> {t('debug.npcTemplates')}
+                    </span>
+                  ),
+                  disabled: !enableNpcReply,
+                  children: (
+                    <>
+                      {selectedNpcClueTemplate && (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text strong style={{ fontSize: 12 }}>{t('debug.npcClueTemplatePreview')}</Text>
+                            <Button size="small" icon={renderingNpcClueTemplate ? <Spin size="small" /> : <EyeOutlined />} onClick={handleRenderNpcClueTemplate} disabled={renderingNpcClueTemplate || !selectedNpc}>{t('template.render')}</Button>
                           </div>
-                          {renderedPreviews[clue.id].warnings.length > 0 && (
-                            <Alert type="warning" title={t('template.renderWarnings')} description={renderedPreviews[clue.id].warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />
+                          <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 150, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9' }}>
+                            {selectedNpcClueTemplate.content}
+                          </div>
+                          {selectedNpcClueTemplate.variables && selectedNpcClueTemplate.variables.length > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                              <div style={{ marginTop: 4 }}>{selectedNpcClueTemplate.variables.map((v, i) => <Tag key={i} color="purple" style={{ marginBottom: 4 }}>{v}</Tag>)}</div>
+                            </div>
+                          )}
+                          {npcClueTemplatePreview && (
+                            <div style={{ marginTop: 12 }}>
+                              <Divider style={{ margin: '8px 0' }} />
+                              <Text strong style={{ color: '#722ed1', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
+                              <div style={{ background: '#f9f0ff', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #d3adf7', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
+                                {npcClueTemplatePreview.rendered_content || t('template.emptyResult')}
+                              </div>
+                              {npcClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
+                            </div>
                           )}
                         </div>
                       )}
-                    </div>
+
+                      {selectedNpcNoClueTemplate && (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <Text strong style={{ fontSize: 12 }}>{t('debug.npcNoClueTemplatePreview')}</Text>
+                            <Button size="small" icon={renderingNpcNoClueTemplate ? <Spin size="small" /> : <EyeOutlined />} onClick={handleRenderNpcNoClueTemplate} disabled={renderingNpcNoClueTemplate || !selectedNpc}>{t('template.render')}</Button>
+                          </div>
+                          <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 150, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9' }}>
+                            {selectedNpcNoClueTemplate.content}
+                          </div>
+                          {selectedNpcNoClueTemplate.variables && selectedNpcNoClueTemplate.variables.length > 0 && (
+                            <div style={{ marginTop: 12 }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
+                              <div style={{ marginTop: 4 }}>{selectedNpcNoClueTemplate.variables.map((v, i) => <Tag key={i} color="orange" style={{ marginBottom: 4 }}>{v}</Tag>)}</div>
+                            </div>
+                          )}
+                          {npcNoClueTemplatePreview && (
+                            <div style={{ marginTop: 12 }}>
+                              <Divider style={{ margin: '8px 0' }} />
+                              <Text strong style={{ color: '#fa8c16', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
+                              <div style={{ background: '#fff7e6', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #ffd591', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
+                                {npcNoClueTemplatePreview.rendered_content || t('template.emptyResult')}
+                              </div>
+                              {npcNoClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcNoClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {!selectedNpcClueTemplate && !selectedNpcNoClueTemplate && (
+                        <Empty description={t('debug.selectNpcTemplate')} />
+                      )}
+                    </>
                   ),
-                }))}
-              />
-            )}
+                },
+              ]}
+            />
           </Card>
-
-          {/* NPC Template Previews */}
-          {selectedNpcClueTemplate && enableNpcReply && (
-            <Card
-              title={<Space><RobotOutlined />{t('debug.npcClueTemplatePreview')}</Space>}
-              size="small"
-              style={{ marginTop: 16 }}
-              extra={<Button size="small" icon={renderingNpcClueTemplate ? <Spin size="small" /> : <EyeOutlined />} onClick={handleRenderNpcClueTemplate} disabled={renderingNpcClueTemplate || !selectedNpc}>{t('template.render')}</Button>}
-            >
-              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 150, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9' }}>
-                {selectedNpcClueTemplate.content}
-              </div>
-              {selectedNpcClueTemplate.variables && selectedNpcClueTemplate.variables.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
-                  <div style={{ marginTop: 4 }}>{selectedNpcClueTemplate.variables.map((v, i) => <Tag key={i} color="purple" style={{ marginBottom: 4 }}>{v}</Tag>)}</div>
-                </div>
-              )}
-              {npcClueTemplatePreview && (
-                <div style={{ marginTop: 12 }}>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Text strong style={{ color: '#722ed1', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
-                  <div style={{ background: '#f9f0ff', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #d3adf7', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
-                    {npcClueTemplatePreview.rendered_content || t('template.emptyResult')}
-                  </div>
-                  {npcClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
-                </div>
-              )}
-            </Card>
-          )}
-
-          {selectedNpcNoClueTemplate && enableNpcReply && (
-            <Card
-              title={<Space><RobotOutlined />{t('debug.npcNoClueTemplatePreview')}</Space>}
-              size="small"
-              style={{ marginTop: 16 }}
-              extra={<Button size="small" icon={renderingNpcNoClueTemplate ? <Spin size="small" /> : <EyeOutlined />} onClick={handleRenderNpcNoClueTemplate} disabled={renderingNpcNoClueTemplate || !selectedNpc}>{t('template.render')}</Button>}
-            >
-              <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 6, maxHeight: 150, overflow: 'auto', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', border: '1px solid #d9d9d9' }}>
-                {selectedNpcNoClueTemplate.content}
-              </div>
-              {selectedNpcNoClueTemplate.variables && selectedNpcNoClueTemplate.variables.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{t('template.detectedVariables')}:</Text>
-                  <div style={{ marginTop: 4 }}>{selectedNpcNoClueTemplate.variables.map((v, i) => <Tag key={i} color="orange" style={{ marginBottom: 4 }}>{v}</Tag>)}</div>
-                </div>
-              )}
-              {npcNoClueTemplatePreview && (
-                <div style={{ marginTop: 12 }}>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Text strong style={{ color: '#fa8c16', fontSize: 12 }}>{t('debug.renderedResult')}:</Text>
-                  <div style={{ background: '#fff7e6', padding: 12, borderRadius: 6, marginTop: 8, border: '1px solid #ffd591', whiteSpace: 'pre-wrap', fontSize: 13, maxHeight: 200, overflow: 'auto' }}>
-                    {npcNoClueTemplatePreview.rendered_content || t('template.emptyResult')}
-                  </div>
-                  {npcNoClueTemplatePreview.warnings.length > 0 && <Alert type="warning" title={t('template.renderWarnings')} description={npcNoClueTemplatePreview.warnings.join(', ')} style={{ marginTop: 8, fontSize: 12 }} />}
-                </div>
-              )}
-            </Card>
-          )}
         </Col>
 
         {/* Right: Chat */}
