@@ -48,6 +48,14 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class LLMMatchPrompts:
+    """LLM matching prompts for debug info."""
+
+    system_prompt: str
+    user_message: str
+
+
+@dataclass
 class MatchContext:
     """Context for clue matching."""
 
@@ -166,8 +174,9 @@ class MatchingService:
                     eligible_clues.append(clue)
 
         # Match clues based on strategy
+        llm_prompts: LLMMatchPrompts | None = None
         if request.matching_strategy == MatchingStrategy.LLM:
-            results = await self._match_with_llm(eligible_clues, context)
+            results, llm_prompts = await self._match_with_llm(eligible_clues, context)
         elif request.matching_strategy == MatchingStrategy.EMBEDDING:
             results = await self._match_with_embedding(eligible_clues, context)
         else:
@@ -239,16 +248,22 @@ class MatchingService:
         for clue in eligible_clues:
             # Find match result if exists
             match_result = next((r for r in results if r.clue.id == clue.id), None)
-            candidate_details.append({
+            detail = {
                 "clue_id": clue.id,
                 "name": clue.name,
                 "has_prereqs": bool(clue.prereq_clue_ids),
                 "prereq_ids": clue.prereq_clue_ids or [],
                 "trigger_keywords": clue.trigger_keywords or [],
+                "trigger_semantic_summary": clue.trigger_semantic_summary or "",
                 "score": match_result.score if match_result else 0.0,
                 "matched": match_result is not None and match_result.score > 0,
                 "triggered": match_result.is_triggered if match_result else False,
-            })
+            }
+            # Add LLM prompts for LLM strategy
+            if llm_prompts:
+                detail["llm_system_prompt"] = llm_prompts.system_prompt
+                detail["llm_user_message"] = llm_prompts.user_message
+            candidate_details.append(detail)
 
         # Generate NPC response if templates are provided
         npc_result = NpcResponseResult()
@@ -547,7 +562,7 @@ class MatchingService:
         self,
         candidates: list[Clue],
         context: MatchContext,
-    ) -> list[MatchResult]:
+    ) -> tuple[list[MatchResult], LLMMatchPrompts | None]:
         """
         Match clues using LLM.
 
@@ -555,8 +570,13 @@ class MatchingService:
         which clues are relevant to the player message.
 
         Note: candidates are already filtered by prerequisites in simulate()
+
+        Returns:
+            Tuple of (results, llm_prompts) where llm_prompts contains the
+            system_prompt and user_message sent to the LLM for debugging.
         """
         results = []
+        llm_prompts = None
 
         # Get chat config - prefer user-specified config, fallback to default
         chat_config = await self._get_llm_config_for_chat(context.llm_config_id)
@@ -566,17 +586,23 @@ class MatchingService:
                 result = self._match_clue(clue, context)
                 if result.score > 0:
                     results.append(result)
-            return results
+            return results, None
 
         # Candidates are already filtered by prerequisites in simulate()
         if not candidates:
-            return results
+            return results, None
 
         # Get template if specified
         # When return_all_scores=True, ask LLM to analyze all clues
         # When return_all_scores=False, LLM only returns matched clues (saves tokens)
         system_prompt = await self._build_llm_matching_prompt(
             context.template_id, candidates, context.llm_return_all_scores
+        )
+
+        # Store prompts for debug info
+        llm_prompts = LLMMatchPrompts(
+            system_prompt=system_prompt,
+            user_message=context.player_message,
         )
 
         # Call LLM with structured output
@@ -619,7 +645,7 @@ class MatchingService:
         except Exception as e:
             logger.error(f"Failed to match with LLM: {e}", exc_info=True)
 
-        return results
+        return results, llm_prompts
 
     async def _get_default_llm_config(
         self, config_type: LLMConfigType

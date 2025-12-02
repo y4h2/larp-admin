@@ -22,6 +22,7 @@ import {
   Empty,
   Progress,
   Tooltip,
+  Divider,
 } from 'antd';
 import {
   SearchOutlined,
@@ -35,14 +36,58 @@ import {
   CloseCircleOutlined,
   CopyOutlined,
   CodeOutlined,
+  CommentOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
 import { logApi, templateApi, llmConfigApi, type PromptTemplate, type LLMConfig } from '@/api';
 import { useScripts, useNpcs } from '@/hooks';
 import { formatDate } from '@/utils';
-import type { DialogueLog, MatchedClue } from '@/types';
+import type { DialogueLog, MatchedClue, PromptSegment } from '@/types';
 
 const { Option } = Select;
+
+// 分段提示词渲染组件 - 不同颜色区分来源
+const SegmentedPromptRenderer: React.FC<{ segments: PromptSegment[] }> = ({ segments }) => {
+  const getSegmentStyle = (type: PromptSegment['type']) => {
+    switch (type) {
+      case 'system':
+        return { background: '#e6f7ff', borderBottom: '2px solid #1890ff' };  // 蓝色 - 系统添加
+      case 'template':
+        return { background: '#fff7e6', borderBottom: '2px solid #fa8c16' };  // 橙色 - 模板内容
+      case 'variable':
+        return { background: '#f6ffed', borderBottom: '2px solid #52c41a' };  // 绿色 - 变量替换
+      default:
+        return {};
+    }
+  };
+
+  return (
+    <div style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.6 }}>
+      {segments.map((seg, i) => (
+        <span
+          key={i}
+          style={{
+            ...getSegmentStyle(seg.type),
+            padding: '1px 2px',
+            borderRadius: 2,
+          }}
+          title={seg.type === 'variable' ? `变量: ${seg.variable_name}` : seg.type}
+        >
+          {seg.content}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+// 图例组件
+const PromptLegend: React.FC = () => (
+  <div style={{ display: 'flex', gap: 16, fontSize: 11, marginTop: 8, color: '#666' }}>
+    <span><span style={{ background: '#e6f7ff', padding: '2px 6px', borderRadius: 2 }}>■</span> 系统</span>
+    <span><span style={{ background: '#fff7e6', padding: '2px 6px', borderRadius: 2 }}>■</span> 模板</span>
+    <span><span style={{ background: '#f6ffed', padding: '2px 6px', borderRadius: 2 }}>■</span> 变量</span>
+  </div>
+);
 const { RangePicker } = DatePicker;
 const { Text, Paragraph } = Typography;
 
@@ -270,8 +315,13 @@ export default function DialogueLogs() {
       title: t('logs.username'),
       dataIndex: 'username',
       key: 'username',
-      width: 100,
-      render: (username) => username || <Text type="secondary">{t('logs.noUsername')}</Text>,
+      width: 120,
+      render: (username: string | null | undefined) => {
+        if (!username) return <Text type="secondary">-</Text>;
+        // 只显示 @ 之前的部分
+        const displayName = username.includes('@') ? username.split('@')[0] : username;
+        return <Text title={username}>{displayName}</Text>;
+      },
     },
     {
       title: t('logs.playerMessage'),
@@ -325,7 +375,8 @@ export default function DialogueLogs() {
       title: t('logs.session'),
       dataIndex: 'session_id',
       key: 'session_id',
-      width: 140,
+      width: 120,
+      ellipsis: true,
       render: (id) => (
         <Text code copyable style={{ fontSize: 12 }}>
           {id?.slice(0, 8)}...
@@ -336,8 +387,13 @@ export default function DialogueLogs() {
       title: t('logs.username'),
       dataIndex: 'username',
       key: 'username',
-      width: 100,
-      render: (username) => username || <Text type="secondary">{t('logs.noUsername')}</Text>,
+      width: 80,
+      render: (username: string | null | undefined) => {
+        if (!username) return <Text type="secondary">-</Text>;
+        // 只显示 @ 之前的部分
+        const displayName = username.includes('@') ? username.split('@')[0] : username;
+        return <Text title={username}>{displayName}</Text>;
+      },
     },
     {
       title: 'NPC',
@@ -442,6 +498,385 @@ export default function DialogueLogs() {
       </Card>
     </div>
   );
+
+  // Render Conversation Flow Tab (ChatGPT-style)
+  const renderConversationTab = (log: DialogueLog) => {
+    const promptInfo = log.debug_info?.prompt_info;
+    const debugInfo = log.debug_info;
+
+    return (
+      <div>
+        {/* Session Metadata */}
+        <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 8 }}>
+          <Space separator={<Divider orientation="vertical" />}>
+            <span>
+              {t('logs.sessionId')}:{' '}
+              <Text code copyable={{ text: log.session_id }}>
+                {log.session_id.slice(0, 8)}...
+              </Text>
+            </span>
+            <span>{formatDate(log.created_at)}</span>
+            <span>NPC: {getNpcName(log.npc_id)}</span>
+          </Space>
+        </div>
+
+        {/* Chat Messages */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* System Prompt - Collapsible */}
+          {promptInfo?.system_prompt && (
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'system',
+                  label: (
+                    <span style={{ color: '#666' }}>
+                      <SettingOutlined style={{ marginRight: 6 }} />
+                      {t('logs.systemPromptLabel')}
+                    </span>
+                  ),
+                  children: (
+                    <Paragraph
+                      copyable
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        margin: 0,
+                        maxHeight: 300,
+                        overflow: 'auto',
+                        fontSize: 13,
+                      }}
+                    >
+                      {promptInfo.system_prompt}
+                    </Paragraph>
+                  ),
+                },
+              ]}
+            />
+          )}
+
+          {/* User Prompt - Collapsible */}
+          {promptInfo?.user_prompt && (
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'user_prompt',
+                  label: (
+                    <span style={{ color: '#1890ff' }}>
+                      <CodeOutlined style={{ marginRight: 6 }} />
+                      {t('logs.userPromptLabel')}
+                    </span>
+                  ),
+                  children: (
+                    <Paragraph
+                      copyable
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        margin: 0,
+                        maxHeight: 300,
+                        overflow: 'auto',
+                        fontSize: 13,
+                        background: '#e6f7ff',
+                        padding: 12,
+                        borderRadius: 4,
+                      }}
+                    >
+                      {promptInfo.user_prompt}
+                    </Paragraph>
+                  ),
+                },
+              ]}
+            />
+          )}
+
+          {/* Player Message - Right aligned, blue */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div
+              style={{
+                maxWidth: '85%',
+                padding: 12,
+                background: '#1890ff',
+                color: '#fff',
+                borderRadius: '12px 12px 4px 12px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              }}
+            >
+              <div style={{ fontSize: 12, marginBottom: 4, opacity: 0.8 }}>
+                <UserOutlined style={{ marginRight: 4 }} />
+                {t('logs.playerMessage')}
+              </div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{log.player_message}</div>
+            </div>
+          </div>
+
+          {/* Retrieval Process - Collapsible */}
+          {debugInfo && (debugInfo.candidates?.length > 0 || log.matched_clues?.length > 0) && (
+            <Collapse
+              size="small"
+              defaultActiveKey={['retrieval']}
+              items={[
+                {
+                  key: 'retrieval',
+                  label: (
+                    <Space>
+                      <SearchOutlined style={{ color: '#722ed1' }} />
+                      <span style={{ color: '#722ed1' }}>{t('logs.retrievalProcess')}</span>
+                      <Tag color="purple">{debugInfo.strategy || 'keyword'}</Tag>
+                      {debugInfo.threshold != null && (
+                        <Tag>{t('logs.threshold')}: {debugInfo.threshold}</Tag>
+                      )}
+                    </Space>
+                  ),
+                  children: (
+                    <div>
+                      {/* Candidates - 可折叠显示详情 */}
+                      {debugInfo.candidates && debugInfo.candidates.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                          <Text strong style={{ fontSize: 13 }}>
+                            {t('logs.candidateClues')} ({debugInfo.candidates.length})
+                          </Text>
+                          <Collapse
+                            size="small"
+                            style={{ marginTop: 8 }}
+                            items={debugInfo.candidates.map((c, i) => ({
+                              key: i,
+                              label: <Text strong style={{ fontSize: 13 }}>{c.name}</Text>,
+                              children: (
+                                <div>
+                                  {/* LLM 策略: 显示 system_prompt 和 user_message */}
+                                  {debugInfo.strategy === 'llm' && (c.llm_system_prompt || c.llm_user_message || c.llm_system_prompt_segments || c.llm_user_message_segments) && (
+                                    <div style={{ marginBottom: 12 }}>
+                                      {/* System Prompt */}
+                                      {(c.llm_system_prompt_segments || c.llm_system_prompt) && (
+                                        <div style={{ marginBottom: 8 }}>
+                                          <Text type="secondary" style={{ fontSize: 12 }}>{t('logs.systemPromptLabel')}:</Text>
+                                          <div
+                                            style={{
+                                              background: '#fafafa',
+                                              padding: 8,
+                                              borderRadius: 4,
+                                              margin: '4px 0 0 0',
+                                              maxHeight: 200,
+                                              overflow: 'auto',
+                                              border: '1px solid #e8e8e8',
+                                            }}
+                                          >
+                                            {c.llm_system_prompt_segments ? (
+                                              <SegmentedPromptRenderer segments={c.llm_system_prompt_segments} />
+                                            ) : (
+                                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12 }}>{c.llm_system_prompt}</pre>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {/* User Message */}
+                                      {(c.llm_user_message_segments || c.llm_user_message) && (
+                                        <div>
+                                          <Text type="secondary" style={{ fontSize: 12 }}>{t('logs.userPromptLabel')}:</Text>
+                                          <div
+                                            style={{
+                                              background: '#fafafa',
+                                              padding: 8,
+                                              borderRadius: 4,
+                                              margin: '4px 0 0 0',
+                                              maxHeight: 200,
+                                              overflow: 'auto',
+                                              border: '1px solid #e8e8e8',
+                                            }}
+                                          >
+                                            {c.llm_user_message_segments ? (
+                                              <SegmentedPromptRenderer segments={c.llm_user_message_segments} />
+                                            ) : (
+                                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12 }}>{c.llm_user_message}</pre>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {/* 如果有分段数据，显示图例 */}
+                                      {(c.llm_system_prompt_segments || c.llm_user_message_segments) && (
+                                        <PromptLegend />
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* 关键词 */}
+                                  {c.trigger_keywords && c.trigger_keywords.length > 0 && (
+                                    <div style={{ marginBottom: 8 }}>
+                                      <Text type="secondary" style={{ fontSize: 12 }}>{t('common.keywords')}: </Text>
+                                      {c.trigger_keywords.map((kw, j) => (
+                                        <Tag key={j} style={{ fontSize: 11 }}>{kw}</Tag>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* 语义摘要 */}
+                                  {c.trigger_semantic_summary && (
+                                    <div>
+                                      <Text type="secondary" style={{ fontSize: 12 }}>
+                                        {t('logs.semanticSummary')}: {c.trigger_semantic_summary}
+                                      </Text>
+                                    </div>
+                                  )}
+                                </div>
+                              ),
+                            }))}
+                          />
+                        </div>
+                      )}
+
+                      {/* Match Results */}
+                      {log.matched_clues && log.matched_clues.length > 0 && (
+                        <div>
+                          <Text strong style={{ fontSize: 13 }}>
+                            {t('logs.matchDetails')} ({log.matched_clues.filter(mc => mc.is_triggered).length}/{log.matched_clues.length} {t('logs.triggeredClues').toLowerCase()})
+                          </Text>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                            {log.matched_clues.map((mc, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  padding: 8,
+                                  background: mc.is_triggered ? '#f6ffed' : '#fff',
+                                  borderRadius: 6,
+                                  border: mc.is_triggered ? '1px solid #52c41a' : '1px solid #d9d9d9',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  {mc.is_triggered ? (
+                                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                                  ) : (
+                                    <CloseCircleOutlined style={{ color: '#999' }} />
+                                  )}
+                                  <Text strong style={{ fontSize: 13 }}>{mc.name || mc.clue_id}</Text>
+                                  <Tag color={mc.is_triggered ? 'green' : 'default'}>
+                                    {(mc.score * 100).toFixed(0)}%
+                                  </Tag>
+                                  {mc.embedding_similarity != null && (
+                                    <Tag color="purple">
+                                      {t('debug.similarity')}: {(mc.embedding_similarity * 100).toFixed(0)}%
+                                    </Tag>
+                                  )}
+                                  {mc.clue_type && <Tag>{mc.clue_type}</Tag>}
+                                </div>
+                                {mc.match_reasons && mc.match_reasons.length > 0 && (
+                                  <div style={{ marginTop: 6 }}>
+                                    <Space size={4} wrap>
+                                      {mc.match_reasons.map((r, j) => (
+                                        <Tag
+                                          key={j}
+                                          color={r.includes('keyword') ? 'blue' : r.includes('LLM') ? 'purple' : 'cyan'}
+                                          style={{ fontSize: 11 }}
+                                        >
+                                          {r}
+                                        </Tag>
+                                      ))}
+                                    </Space>
+                                  </div>
+                                )}
+                                {mc.keyword_matches && mc.keyword_matches.length > 0 && (
+                                  <div style={{ marginTop: 4 }}>
+                                    <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.keywords')}: </Text>
+                                    {mc.keyword_matches.map((kw, j) => (
+                                      <Tag key={j} color="blue" style={{ fontSize: 11 }}>{kw}</Tag>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+
+          {/* NPC Response - Left aligned, white */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div
+              style={{
+                maxWidth: '85%',
+                padding: 12,
+                background: '#fff',
+                border: '1px solid #e8e8e8',
+                borderRadius: '12px 12px 12px 4px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              }}
+            >
+              <div style={{ fontSize: 12, marginBottom: 4, color: '#666' }}>
+                <RobotOutlined style={{ marginRight: 4 }} />
+                {t('logs.npcResponse')}
+              </div>
+              <Paragraph copyable style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                {log.npc_response}
+              </Paragraph>
+            </div>
+          </div>
+
+          {/* AI Messages History - Collapsible */}
+          {promptInfo?.messages && promptInfo.messages.length > 0 && (
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'messages',
+                  label: (
+                    <span style={{ color: '#52c41a' }}>
+                      <MessageOutlined style={{ marginRight: 6 }} />
+                      {t('logs.aiMessages')} ({promptInfo.messages.length})
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {promptInfo.messages.map((msg, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            background:
+                              msg.role === 'system' ? '#f5f5f5' :
+                              msg.role === 'user' ? '#e6f7ff' : '#f6ffed',
+                            border:
+                              msg.role === 'system' ? '1px solid #d9d9d9' :
+                              msg.role === 'user' ? '1px solid #91d5ff' : '1px solid #b7eb8f',
+                          }}
+                        >
+                          <Tag
+                            color={
+                              msg.role === 'system' ? 'default' :
+                              msg.role === 'user' ? 'blue' : 'green'
+                            }
+                            style={{ marginBottom: 4 }}
+                          >
+                            {msg.role}
+                          </Tag>
+                          <Paragraph
+                            copyable
+                            style={{
+                              margin: 0,
+                              whiteSpace: 'pre-wrap',
+                              fontSize: 13,
+                              maxHeight: 200,
+                              overflow: 'auto',
+                            }}
+                          >
+                            {msg.content}
+                          </Paragraph>
+                        </div>
+                      ))}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Render Tab 2: Match Configuration
   const renderConfigTab = (log: DialogueLog) => {
@@ -883,6 +1318,7 @@ export default function DialogueLogs() {
           dataSource={sessionGroups}
           rowKey="session_id"
           loading={loading}
+          fixFirstColumn={false}
           expandable={{
             expandedRowRender: renderSessionDetail,
             rowExpandable: () => true,
@@ -902,6 +1338,7 @@ export default function DialogueLogs() {
           dataSource={logs}
           rowKey="id"
           loading={loading}
+          fixFirstColumn={false}
           pagination={{
             current: filters.page,
             pageSize: filters.page_size,
@@ -922,8 +1359,18 @@ export default function DialogueLogs() {
       >
         {selectedLog && (
           <Tabs
-            defaultActiveKey="dialogue"
+            defaultActiveKey="conversation"
             items={[
+              {
+                key: 'conversation',
+                label: (
+                  <span>
+                    <CommentOutlined />
+                    {t('logs.conversationFlow')}
+                  </span>
+                ),
+                children: renderConversationTab(selectedLog),
+              },
               {
                 key: 'dialogue',
                 label: (

@@ -140,11 +140,23 @@ export interface DialogueLogContext {
   npc_chat_config_id?: string | null;
 }
 
+// 提示词分段信息 - 用于颜色区分显示
+export interface PromptSegment {
+  type: 'system' | 'template' | 'variable';  // 来源类型
+  content: string;                           // 内容
+  variable_name?: string;                    // 如果是变量，变量名
+}
+
 export interface CandidateClueDetail {
   clue_id: string;
   name: string;
   trigger_keywords: string[];
   trigger_semantic_summary: string;
+  match_prompt?: string;  // LLM 策略使用的匹配提示词 (legacy)
+  llm_system_prompt?: string;  // LLM 匹配时的 system prompt
+  llm_user_message?: string;   // LLM 匹配时的 user message
+  llm_system_prompt_segments?: PromptSegment[];  // 分段的 system prompt
+  llm_user_message_segments?: PromptSegment[];   // 分段的 user message
 }
 
 export interface PromptMessage {

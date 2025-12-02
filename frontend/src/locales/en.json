@@ -412,6 +412,9 @@
     "player": "Player",
     "totalLogs": "{{total}} logs total",
     "dialogueContent": "Dialogue",
+    "conversationFlow": "Conversation",
+    "systemPromptLabel": "System Prompt",
+    "matchDetails": "Match Details",
     "matchConfig": "Configuration",
     "algorithmFlow": "Algorithm Flow",
     "triggeredClues": "Triggered Clues",
@@ -448,7 +451,16 @@
     "noPromptInfo": "No prompt info for this log",
     "fullMessages": "Full Messages",
     "messageRole": "Role",
-    "messageContent": "Content"
+    "messageContent": "Content",
+    "retrievalProcess": "Matching Process",
+    "candidateClues": "Candidate Clues",
+    "userPromptLabel": "User Prompt",
+    "aiMessages": "AI Messages",
+    "semanticSummary": "Semantic Summary",
+    "embeddingSimilarity": "Embedding Similarity",
+    "keywordMatches": "Keyword Matches",
+    "matchScore": "Match Score",
+    "matchPrompt": "Match Prompt"
   },
   "template": {
     "title": "Prompt Templates",

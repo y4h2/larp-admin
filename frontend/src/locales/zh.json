@@ -412,6 +412,9 @@
     "player": "玩家",
     "totalLogs": "共 {{total}} 条日志",
     "dialogueContent": "对话内容",
+    "conversationFlow": "对话流程",
+    "systemPromptLabel": "系统提示词",
+    "matchDetails": "匹配详情",
     "matchConfig": "匹配配置",
     "algorithmFlow": "算法流程",
     "triggeredClues": "触发线索",
@@ -448,7 +451,16 @@
     "noPromptInfo": "此日志无提示词信息",
     "fullMessages": "完整消息列表",
     "messageRole": "角色",
-    "messageContent": "内容"
+    "messageContent": "内容",
+    "retrievalProcess": "匹配过程",
+    "candidateClues": "候选线索",
+    "userPromptLabel": "用户提示词",
+    "aiMessages": "AI 消息历史",
+    "semanticSummary": "语义摘要",
+    "embeddingSimilarity": "向量相似度",
+    "keywordMatches": "关键词匹配",
+    "matchScore": "匹配分数",
+    "matchPrompt": "匹配提示词"
   },
   "template": {
     "title": "提示词模板",
