@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.services.ai_enhancement import AIEnhancementService
+from app.services.enhancement import AIEnhancementService
 
 router = APIRouter()
 

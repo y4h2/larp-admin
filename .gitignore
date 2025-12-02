@@ -9,3 +9,4 @@ infra/supabase/volumes/storage
 .DS_Store
 .env.production
 *.zip
+*.bak

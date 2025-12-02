@@ -18,7 +18,7 @@ from app.schemas.ai_assistant import (
     StoryDraft,
     TruthOptionsResponse,
 )
-from app.services.ai_story_assistant import AIStoryAssistantService
+from app.services.story_assistant import AIStoryAssistantService, ClueChainGenerator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -249,11 +249,8 @@ async def validate_clue_chain(
     Returns:
         Validation results.
     """
-    from app.services.ai_story_assistant import AIStoryAssistantService
-
     # Use static method for validation (no DB needed)
-    validation = AIStoryAssistantService._validate_clue_chain(
-        None,  # self not needed for this method
+    validation = ClueChainGenerator.validate(
         request.nodes,
         request.edges,
     )

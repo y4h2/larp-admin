@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clue import Clue
 from app.models.llm_config import LLMConfig
-from app.services.template_renderer import template_renderer
+from app.services.template import template_renderer
 
 logger = logging.getLogger(__name__)
 

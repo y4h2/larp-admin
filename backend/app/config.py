@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     # LLM Timeout (seconds)
     llm_timeout: float = 60.0  # Default timeout for LLM calls
     llm_long_timeout: float = 120.0  # Timeout for long LLM calls (chat, JSON response)
+    llm_stream_timeout: float = 300.0  # Timeout for streaming LLM calls
+
+    # LLM Temperature settings
+    llm_default_temperature: float = 0.7  # Default temperature for LLM calls
+    llm_matching_temperature: float = 0.1  # Temperature for matching/analysis tasks
+
+    # Dialogue settings
+    dialogue_history_limit: int = 4  # Max dialogue history entries to include
 
 
 @lru_cache

@@ -58,6 +58,24 @@ class TemplateUpdate(BaseModel):
 
 # Render-related schemas
 
+
+class PromptSegment(BaseModel):
+    """Segment of rendered template for color-coded display."""
+
+    type: Literal["template", "variable"] = Field(
+        ...,
+        description="Segment type: 'template' for static content, 'variable' for substituted values",
+    )
+    content: str = Field(
+        ...,
+        description="The segment content",
+    )
+    variable_name: str | None = Field(
+        None,
+        description="Variable name if type is 'variable' (e.g., 'clue.name')",
+    )
+
+
 class TemplateRenderRequest(BaseModel):
     """Request schema for rendering a template."""
 
@@ -89,6 +107,10 @@ class TemplateRenderResponse(BaseModel):
     unresolved_variables: list[str] = Field(
         default_factory=list,
         description="List of unresolved variable names",
+    )
+    segments: list[PromptSegment] = Field(
+        default_factory=list,
+        description="Segments of rendered content for color-coded display",
     )
 
 

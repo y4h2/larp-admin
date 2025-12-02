@@ -157,6 +157,8 @@ export interface CandidateClueDetail {
   llm_user_message?: string;   // LLM 匹配时的 user message
   llm_system_prompt_segments?: PromptSegment[];  // 分段的 system prompt
   llm_user_message_segments?: PromptSegment[];   // 分段的 user message
+  embedding_rendered_content?: string;  // embedding 策略使用的渲染内容
+  embedding_rendered_segments?: PromptSegment[];  // embedding 策略使用的渲染分段 - 用于颜色区分显示
 }
 
 export interface PromptMessage {

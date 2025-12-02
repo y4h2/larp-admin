@@ -18,7 +18,7 @@ from app.schemas.prompt_template import (
     TemplateResponse,
     TemplateUpdate,
 )
-from app.services.template_renderer import template_renderer
+from app.services.template import template_renderer
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/templates", tags=["templates"])

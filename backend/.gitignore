@@ -144,3 +144,6 @@ pyrightconfig.json
 
 # Frontend build output
 static/
+
+# Backup files
+*.bak
