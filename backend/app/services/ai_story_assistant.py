@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.clue import Clue, ClueType
 from app.models.llm_config import LLMConfig, LLMConfigType
 from app.models.npc import NPC
@@ -776,7 +777,7 @@ Generate the detailed content now."""
         user_prompt: str,
     ) -> dict:
         """Call LLM and parse JSON response."""
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=settings.llm_long_timeout) as client:
             response = await client.post(
                 f"{config.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.api_key}"},

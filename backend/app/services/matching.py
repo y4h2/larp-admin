@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.clue import Clue
 from app.models.llm_config import LLMConfig, LLMConfigType
 from app.models.log import DialogueLog
@@ -689,7 +690,7 @@ class MatchingService:
         self, config: LLMConfig, system_prompt: str, user_message: str
     ) -> str:
         """Call LLM with system prompt and user message."""
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=settings.llm_timeout) as client:
             response = await client.post(
                 f"{config.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.api_key}"},
@@ -753,7 +754,7 @@ class MatchingService:
             },
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=settings.llm_timeout) as client:
             response = await client.post(
                 f"{config.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.api_key}"},
@@ -1005,7 +1006,8 @@ class MatchingService:
         if max_tokens is not None:
             request_body["max_tokens"] = max_tokens
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # NPC response generation may take longer due to context length
+        async with httpx.AsyncClient(timeout=settings.llm_long_timeout) as client:
             response = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {config.api_key}"},

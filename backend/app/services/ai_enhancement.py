@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.llm_config import LLMConfig, LLMConfigType
 
 
@@ -347,7 +348,7 @@ NPC名称：{npc_name}
         user_prompt: str,
     ) -> str:
         """Call LLM and return text response."""
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=settings.llm_timeout) as client:
             response = await client.post(
                 f"{config.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.api_key}"},
@@ -482,7 +483,7 @@ NPC名称：{npc_name}
         user_prompt: str,
     ) -> dict:
         """Call LLM and parse JSON response."""
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=settings.llm_long_timeout) as client:
             response = await client.post(
                 f"{config.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {config.api_key}"},

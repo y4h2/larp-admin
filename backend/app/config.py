@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     default_page_size: int = 20
     max_page_size: int = 500
 
+    # LLM Timeout (seconds)
+    llm_timeout: float = 60.0  # Default timeout for LLM calls
+    llm_long_timeout: float = 120.0  # Timeout for long LLM calls (chat, JSON response)
+
 
 @lru_cache
 def get_settings() -> Settings:

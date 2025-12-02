@@ -3,6 +3,7 @@
 import logging
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
@@ -62,7 +63,26 @@ async def simulate_dialogue(
 
     # Run simulation
     service = MatchingService(db)
-    result = await service.simulate(request)
+    try:
+        result = await service.simulate(request)
+    except httpx.TimeoutException as e:
+        logger.error(f"LLM request timeout: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="LLM 响应超时，请稍后重试或检查 LLM 服务状态",
+        )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"LLM HTTP error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"LLM 服务返回错误: {e.response.status_code}",
+        )
+    except Exception as e:
+        logger.error(f"Simulation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"模拟对话失败: {str(e)}",
+        )
 
     logger.info(
         f"Simulation completed: {len(result.matched_clues)} matched, "
