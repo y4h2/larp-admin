@@ -78,7 +78,11 @@ export default function ScriptDetail() {
   // Set form values after loading completes and Form is mounted
   useEffect(() => {
     if (!loading && initialScript) {
-      form.setFieldsValue(initialScript);
+      // Use setTimeout to ensure Form is mounted before setting values
+      const timer = setTimeout(() => {
+        form.setFieldsValue(initialScript);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [loading, initialScript, form]);
 

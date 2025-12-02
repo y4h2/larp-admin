@@ -24,6 +24,8 @@ export interface StoredConfig {
   // LLM matching options
   llmReturnAllScores: boolean;
   llmScoreThreshold: number | undefined;
+  // User info
+  username: string | undefined;
 }
 
 export interface ChatMessage {

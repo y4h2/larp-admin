@@ -16,13 +16,21 @@ tasks:
     desc: Run backend dev server
     dir: backend
     cmds:
-      - uvicorn app.main:app --reload --port 8001
+      - uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   dev:frontend:
     desc: Run frontend dev server
     dir: frontend
     cmds:
       - npm run dev
+
+  dev:backend:production:
+    deps:
+      - build
+    desc: Run backend dev server in production mode
+    dir: backend
+    cmds:
+      - ENVIRONMENT=production gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001
 
   migrate:
     desc: Run database migrations

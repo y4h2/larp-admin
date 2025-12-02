@@ -17,11 +17,13 @@ export function useTemplates() {
     setLoading(true);
     try {
       const response = await templateApi.list(params);
-      setTemplates(response.items);
-      setTotal(response.total);
+      setTemplates(response?.items ?? []);
+      setTotal(response?.total ?? 0);
       return response;
     } catch (error) {
       message.error('Failed to fetch templates');
+      setTemplates([]);
+      setTotal(0);
       throw error;
     } finally {
       setLoading(false);

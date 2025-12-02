@@ -46,6 +46,7 @@ export default function ScriptList() {
   } = useScripts();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [filters, setFilters] = useState<{
     difficulty?: Script['difficulty'];
     search?: string;
@@ -103,6 +104,8 @@ export default function ScriptList() {
   };
 
   const handleCreate = async (values: Partial<Script>) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const script = await createScript(values);
       setModalVisible(false);
@@ -111,6 +114,8 @@ export default function ScriptList() {
       navigate(`/scripts/${script.id}`);
     } catch {
       // Error already handled in hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -329,10 +334,10 @@ export default function ScriptList() {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
                 {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button onClick={() => setModalVisible(false)} disabled={submitting}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

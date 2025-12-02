@@ -58,6 +58,7 @@ export default function TemplateList() {
   } = useTemplates();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [availableVariables, setAvailableVariables] = useState<VariableCategory[]>([]);
   const [templateContent, setTemplateContent] = useState('');
   const [importing, setImporting] = useState(false);
@@ -92,6 +93,8 @@ export default function TemplateList() {
   };
 
   const handleCreate = async (values: TemplateCreateData) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const template = await createTemplate(values);
       setModalVisible(false);
@@ -101,6 +104,8 @@ export default function TemplateList() {
       navigate(`/settings/templates/${template.id}`);
     } catch {
       // Error already handled in hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -533,10 +538,10 @@ export default function TemplateList() {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
                 {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button onClick={() => setModalVisible(false)} disabled={submitting}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

@@ -1,8 +1,4 @@
-"""Script schemas - export/import only.
-
-CRUD schemas removed - now handled via Supabase PostgREST.
-Only export/import and response schemas are kept here.
-"""
+"""Script schemas for API endpoints."""
 
 from datetime import datetime
 from typing import Any, Literal
@@ -11,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScriptResponse(BaseModel):
-    """Schema for Script response (used by copy/import endpoints)."""
+    """Schema for Script response."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,6 +20,26 @@ class ScriptResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+
+
+class ScriptCreate(BaseModel):
+    """Schema for creating a script."""
+
+    title: str = Field(..., min_length=1, max_length=255)
+    summary: str | None = None
+    background: str | None = None
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    truth: dict[str, Any] | None = Field(default_factory=dict)
+
+
+class ScriptUpdate(BaseModel):
+    """Schema for updating a script."""
+
+    title: str | None = Field(None, min_length=1, max_length=255)
+    summary: str | None = None
+    background: str | None = None
+    difficulty: Literal["easy", "medium", "hard"] | None = None
+    truth: dict[str, Any] | None = None
 
 
 # Export/Import schemas

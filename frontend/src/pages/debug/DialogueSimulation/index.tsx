@@ -21,6 +21,7 @@ import {
   Tabs,
   Button,
   Slider,
+  Input,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -35,6 +36,7 @@ import {
   AimOutlined,
 } from '@ant-design/icons';
 import { PageHeader, ClueTypeTag } from '@/components/common';
+import { useAuth } from '@/contexts/AuthContext';
 import { simulationApi, clueApi } from '@/api';
 import { templateApi, type PromptTemplate, type TemplateRenderResponse } from '@/api/templates';
 import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
@@ -56,6 +58,7 @@ const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React
 
 export default function DialogueSimulation() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { scripts, fetchScripts } = useScripts();
   const { npcs, fetchNpcs } = useNpcs();
   const {
@@ -132,6 +135,8 @@ export default function DialogueSimulation() {
   const [llmScoreThreshold, setLlmScoreThreshold] = useState<number | undefined>(
     storedConfig.llmScoreThreshold
   );
+  // Username from current user
+  const username = user?.email || '';
 
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
@@ -307,9 +312,21 @@ export default function DialogueSimulation() {
   // Effects
   useEffect(() => {
     fetchScripts();
-    templateApi.list({ page_size: 100 }).then((res) => setTemplates(res.items));
-    llmConfigApi.list({ type: 'embedding', page_size: 100 }).then((res) => setEmbeddingConfigs(res.items));
-    llmConfigApi.list({ type: 'chat', page_size: 100 }).then((res) => setChatConfigs(res.items));
+    templateApi.list({ page_size: 100 }).then((res) => {
+      setTemplates(res?.items ?? []);
+    }).catch(() => {
+      setTemplates([]);
+    });
+    llmConfigApi.list({ type: 'embedding', page_size: 100 }).then((res) => {
+      setEmbeddingConfigs(res?.items ?? []);
+    }).catch(() => {
+      setEmbeddingConfigs([]);
+    });
+    llmConfigApi.list({ type: 'chat', page_size: 100 }).then((res) => {
+      setChatConfigs(res?.items ?? []);
+    }).catch(() => {
+      setChatConfigs([]);
+    });
   }, [fetchScripts]);
 
   useEffect(() => {
@@ -340,7 +357,7 @@ export default function DialogueSimulation() {
   useEffect(() => {
     if (selectedScriptId) {
       fetchNpcs({ script_id: selectedScriptId });
-      clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => setClues(res.items));
+      clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => setClues(res?.items ?? [])).catch(() => setClues([]));
     }
   }, [selectedScriptId, fetchNpcs]);
 
@@ -408,6 +425,7 @@ export default function DialogueSimulation() {
         npc_no_clue_template_id: enableNpcReply ? npcNoClueTemplateId : undefined,
         npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
         session_id: sessionIdRef.current,
+        username: username || undefined,
         save_log: true,
         embedding_options_override: (overrideSimilarityThreshold !== undefined || overrideVectorBackend !== undefined)
           ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
@@ -643,7 +661,7 @@ export default function DialogueSimulation() {
                   key: 'basic',
                   label: <span><SettingOutlined /><span style={{ marginLeft: 4 }}>{t('debug.basicConfig')}</span></span>,
                   children: (
-                    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
                       <div>
                         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.selectScript')}</div>
                         <Select
@@ -695,7 +713,7 @@ export default function DialogueSimulation() {
                           ))}
                         </Select>
                       </div>
-                    </Space>
+                    </div>
                   ),
                 },
                 {
@@ -969,7 +987,7 @@ export default function DialogueSimulation() {
             <Card title={t('debug.matchResults')} size="small" style={{ marginBottom: 16 }}>
               {lastDebugInfo && (
                 <Alert
-                  message={t('debug.debugSummary')}
+                  title={t('debug.debugSummary')}
                   description={
                     <Space orientation="vertical" size={0}>
                       <Text>{t('debug.totalCandidates')}: {String(lastDebugInfo.total_candidates ?? 0)}</Text>

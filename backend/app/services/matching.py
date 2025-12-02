@@ -82,6 +82,16 @@ class MatchResult:
     is_triggered: bool = False
 
 
+@dataclass
+class NpcResponseResult:
+    """Result of NPC response generation with prompt info."""
+
+    response: str | None = None
+    system_prompt: str | None = None
+    user_prompt: str | None = None
+    messages: list[dict] | None = None
+
+
 class MatchingService:
     """
     Service for matching player messages to clues.
@@ -241,7 +251,7 @@ class MatchingService:
             })
 
         # Generate NPC response if templates are provided
-        npc_response = None
+        npc_result = NpcResponseResult()
         has_clue_template = context.npc_clue_template_id is not None
         has_no_clue_template = context.npc_no_clue_template_id is not None
         has_chat_config = context.npc_chat_config_id is not None
@@ -255,7 +265,7 @@ class MatchingService:
             )
             # Need at least one template and chat config
             if (has_clue_template or has_no_clue_template) and has_chat_config:
-                npc_response = await self._generate_npc_response(
+                npc_result = await self._generate_npc_response(
                     context=context,
                     triggered_clues=triggered,
                     player_message=request.player_message,
@@ -265,10 +275,19 @@ class MatchingService:
                     "NPC reply skipped: at least one template and chat_config_id are required"
                 )
 
+        # Build prompt_info for debug
+        prompt_info = None
+        if npc_result.system_prompt or npc_result.user_prompt:
+            prompt_info = {
+                "system_prompt": npc_result.system_prompt,
+                "user_prompt": npc_result.user_prompt,
+                "messages": npc_result.messages,
+            }
+
         return SimulateResponse(
             matched_clues=matched_clues,
             triggered_clues=triggered_clues,
-            npc_response=npc_response,
+            npc_response=npc_result.response,
             debug_info={
                 "total_clues": len(all_clues),
                 "total_candidates": len(eligible_clues),
@@ -279,6 +298,7 @@ class MatchingService:
                 "strategy": request.matching_strategy.value,
                 "candidates": candidate_details,
                 "excluded": excluded_clues,
+                "prompt_info": prompt_info,
             },
         )
 
@@ -793,7 +813,7 @@ class MatchingService:
         context: MatchContext,
         triggered_clues: list[MatchResult],
         player_message: str,
-    ) -> str | None:
+    ) -> NpcResponseResult:
         """
         Generate NPC response using LLM with dialogue history.
 
@@ -810,7 +830,7 @@ class MatchingService:
             player_message: Original player message
 
         Returns:
-            NPC response string or None if generation fails
+            NpcResponseResult with response and prompt info
         """
         try:
             logger.info(f"Generating NPC response for NPC={context.npc_id}")
@@ -819,7 +839,7 @@ class MatchingService:
             chat_config = await self._get_llm_config_by_id(context.npc_chat_config_id)
             if not chat_config:
                 logger.warning(f"NPC chat config not found: {context.npc_chat_config_id}")
-                return None
+                return NpcResponseResult()
 
             logger.info(f"Using chat config: {chat_config.name} ({chat_config.model})")
 
@@ -828,7 +848,7 @@ class MatchingService:
             script = await self._get_script(context.script_id)
             if not npc:
                 logger.warning(f"NPC not found: {context.npc_id}")
-                return None
+                return NpcResponseResult()
 
             # Determine if we have triggered clues with actual guidance
             has_clue_guidance = False
@@ -921,11 +941,18 @@ class MatchingService:
                 chat_config, messages, context.chat_options_override
             )
             logger.info(f"NPC response generated: {len(response)} chars")
-            return response
+
+            # Return result with prompts
+            return NpcResponseResult(
+                response=response,
+                system_prompt=system_prompt,
+                user_prompt=user_content,
+                messages=messages,
+            )
 
         except Exception as e:
             logger.error(f"Failed to generate NPC response: {e}", exc_info=True)
-            return None
+            return NpcResponseResult()
 
     async def _get_llm_config_by_id(self, config_id: str | None) -> LLMConfig | None:
         """Get LLM config by ID."""

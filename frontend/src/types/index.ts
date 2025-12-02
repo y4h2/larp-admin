@@ -108,6 +108,7 @@ export interface SimulationRequest {
   npc_chat_config_id?: string;
   // Session tracking
   session_id?: string;
+  username?: string;
   save_log?: boolean;
   // Runtime options override (for debugging/testing)
   embedding_options_override?: EmbeddingOptionsOverride;
@@ -129,14 +130,59 @@ export interface SimulationResult {
 }
 
 // Dialogue Log types
+export interface DialogueLogContext {
+  unlocked_clue_ids: string[];
+  matching_strategy: string;
+  template_id?: string | null;
+  llm_config_id?: string | null;
+  npc_clue_template_id?: string | null;
+  npc_no_clue_template_id?: string | null;
+  npc_chat_config_id?: string | null;
+}
+
+export interface CandidateClueDetail {
+  clue_id: string;
+  name: string;
+  trigger_keywords: string[];
+  trigger_semantic_summary: string;
+}
+
+export interface PromptMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface PromptInfo {
+  system_prompt?: string | null;
+  user_prompt?: string | null;
+  messages?: PromptMessage[] | null;
+}
+
+export interface DialogueLogDebugInfo {
+  total_clues?: number;
+  total_candidates?: number;
+  total_excluded?: number;
+  total_matched?: number;
+  total_triggered?: number;
+  threshold?: number;
+  strategy?: string;
+  candidates?: CandidateClueDetail[];
+  excluded?: string[];
+  prompt_info?: PromptInfo | null;
+}
+
 export interface DialogueLog {
   id: string;
   session_id: string;
+  username?: string | null;
   script_id: string;
   npc_id: string;
   player_message: string;
   npc_response: string;
+  context: DialogueLogContext;
   matched_clues: MatchedClue[];
+  triggered_clues: string[];
+  debug_info: DialogueLogDebugInfo;
   created_at: string;
 }
 

@@ -54,7 +54,7 @@ export default function Login() {
           boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
         }}
       >
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
             <Title level={2} style={{ marginBottom: 8 }}>
               {t('app.title')}
@@ -110,7 +110,7 @@ export default function Login() {
               </Button>
             </Form.Item>
           </Form>
-        </Space>
+        </div>
       </Card>
     </div>
   );

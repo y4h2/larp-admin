@@ -13,6 +13,7 @@ class DialogueLogResponse(BaseModel):
 
     id: str
     session_id: str
+    username: str | None = None
     script_id: str
     npc_id: str
     player_message: str
@@ -20,6 +21,7 @@ class DialogueLogResponse(BaseModel):
     context: dict[str, Any]
     matched_clues: dict[str, Any] | list[dict[str, Any]]
     triggered_clues: list[str]
+    debug_info: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
 

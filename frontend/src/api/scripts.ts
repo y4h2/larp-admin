@@ -1,18 +1,27 @@
-import { supabase } from '@/lib/supabase';
-import type { Database } from '@/lib/database.types';
 import type { Script, PaginatedResponse } from '@/types';
-import { generateScriptId } from '@/utils/idGenerator';
 import client from './client';
-
-type ScriptRow = Database['public']['Tables']['scripts']['Row'];
-type ScriptInsert = Database['public']['Tables']['scripts']['Insert'];
-type ScriptUpdate = Database['public']['Tables']['scripts']['Update'];
 
 export interface ScriptQueryParams {
   page?: number;
   page_size?: number;
   difficulty?: Script['difficulty'];
   search?: string;
+}
+
+export interface ScriptCreateData {
+  title: string;
+  summary?: string | null;
+  background?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  truth?: Record<string, unknown>;
+}
+
+export interface ScriptUpdateData {
+  title?: string;
+  summary?: string | null;
+  background?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  truth?: Record<string, unknown>;
 }
 
 // Export/Import types (kept for backend endpoints)
@@ -48,123 +57,32 @@ export interface ScriptExportData {
   clues: ClueExportData[];
 }
 
-// Transform database row to API response format
-function transformRow(row: ScriptRow): Script {
-  return {
-    id: row.id,
-    title: row.title,
-    summary: row.summary,
-    background: row.background,
-    difficulty: row.difficulty as Script['difficulty'],
-    truth: row.truth as Record<string, unknown> | null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    deleted_at: row.deleted_at,
-  };
-}
-
 // Script APIs
 export const scriptApi = {
   list: async (params: ScriptQueryParams = {}): Promise<PaginatedResponse<Script>> => {
-    const { page = 1, page_size = 20, difficulty, search } = params;
-    const from = (page - 1) * page_size;
-    const to = from + page_size - 1;
-
-    let query = supabase
-      .from('scripts')
-      .select('*', { count: 'exact' })
-      .is('deleted_at', null)  // 过滤软删除的记录
-      .order('updated_at', { ascending: false })
-      .range(from, to);
-
-    if (difficulty) {
-      query = query.eq('difficulty', difficulty);
-    }
-
-    if (search) {
-      query = query.ilike('title', `%${search}%`);
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) throw new Error(error.message);
-
-    const total = count ?? 0;
-    const items = (data ?? []).map(transformRow);
-
-    return {
-      items,
-      total,
-      page,
-      page_size,
-      total_pages: Math.ceil(total / page_size),
-    };
+    const response = await client.get('/scripts', { params });
+    return response.data;
   },
 
   get: async (id: string): Promise<Script> => {
-    const { data, error } = await supabase
-      .from('scripts')
-      .select('*')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single();
-
-    if (error) throw new Error(error.message);
-    if (!data) throw new Error('Script not found');
-
-    return transformRow(data);
+    const response = await client.get(`/scripts/${id}`);
+    return response.data;
   },
 
-  create: async (createData: Partial<Script>): Promise<Script> => {
-    const insertData: ScriptInsert = {
-      id: generateScriptId(),
-      title: createData.title ?? 'Untitled Script',
-      summary: createData.summary ?? null,
-      background: createData.background ?? null,
-      difficulty: createData.difficulty ?? 'medium',
-      truth: createData.truth ?? {},  // 默认空对象，数据库要求 NOT NULL
-    };
-
-    const { data, error } = await supabase
-      .from('scripts')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return transformRow(data);
+  create: async (createData: ScriptCreateData): Promise<Script> => {
+    const response = await client.post('/scripts', createData);
+    return response.data;
   },
 
-  update: async (id: string, updateData: Partial<Script>): Promise<Script> => {
-    const dbUpdate: ScriptUpdate = {};
-    if (updateData.title !== undefined) dbUpdate.title = updateData.title;
-    if (updateData.summary !== undefined) dbUpdate.summary = updateData.summary;
-    if (updateData.background !== undefined) dbUpdate.background = updateData.background;
-    if (updateData.difficulty !== undefined) dbUpdate.difficulty = updateData.difficulty;
-    if (updateData.truth !== undefined) dbUpdate.truth = updateData.truth;
-
-    const { data, error } = await supabase
-      .from('scripts')
-      .update(dbUpdate)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return transformRow(data);
+  update: async (id: string, updateData: ScriptUpdateData): Promise<Script> => {
+    const response = await client.put(`/scripts/${id}`, updateData);
+    return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    // Soft delete
-    const { error } = await supabase
-      .from('scripts')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await client.delete(`/scripts/${id}`);
   },
 
-  // These endpoints stay on the backend (require server-side logic for complex operations)
   copy: async (id: string): Promise<Script> => {
     const response = await client.post(`/scripts/${id}/copy`);
     return response.data;

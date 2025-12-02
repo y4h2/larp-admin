@@ -19,11 +19,13 @@ export function useLLMConfigs() {
     setLoading(true);
     try {
       const response = await llmConfigApi.list(params);
-      setConfigs(response.items);
-      setTotal(response.total);
+      setConfigs(response?.items ?? []);
+      setTotal(response?.total ?? 0);
       return response;
     } catch (error) {
       message.error(t('llmConfig.loadFailed'));
+      setConfigs([]);
+      setTotal(0);
       throw error;
     } finally {
       setLoading(false);

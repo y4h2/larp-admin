@@ -95,6 +95,7 @@ async def simulate_dialogue(
         session_id = request.session_id or str(uuid4())
         log = DialogueLog(
             session_id=session_id,
+            username=request.username,
             script_id=request.script_id,
             npc_id=request.npc_id,
             player_message=request.player_message,
@@ -110,6 +111,7 @@ async def simulate_dialogue(
             },
             matched_clues=[mc.model_dump() for mc in result.matched_clues],
             triggered_clues=[mc.clue_id for mc in result.triggered_clues],
+            debug_info=result.debug_info,
         )
         db.add(log)
         await db.commit()

@@ -78,6 +78,7 @@ export default function LLMConfigList() {
   } = useLLMConfigs();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editingConfig, setEditingConfig] = useState<LLMConfig | null>(null);
   const [importing, setImporting] = useState(false);
   const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
@@ -103,6 +104,8 @@ export default function LLMConfigList() {
   }, [filters, fetchConfigs]);
 
   const handleCreate = async (values: LLMConfigFormValues) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       // Build options based on type
       const options: EmbeddingOptions | ChatOptions = {};
@@ -153,6 +156,8 @@ export default function LLMConfigList() {
       fetchConfigs(filters);
     } catch {
       // Error already handled in hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -725,10 +730,10 @@ export default function LLMConfigList() {
 
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
                 {editingConfig ? t('common.save') : t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button onClick={() => setModalVisible(false)} disabled={submitting}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

@@ -1,13 +1,62 @@
-"""PromptTemplate schemas for template rendering.
+"""PromptTemplate schemas for API endpoints."""
 
-CRUD operations are now handled via Supabase PostgREST.
-Only render-related schemas are kept here.
-"""
+import re
+from datetime import datetime
+from typing import Any, Literal
 
-from typing import Any
+from pydantic import BaseModel, ConfigDict, Field
 
-from pydantic import BaseModel, Field
 
+class TemplateResponse(BaseModel):
+    """Schema for PromptTemplate response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: str | None = None
+    type: str
+    content: str
+    is_default: bool
+    variables: list[str]
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None = None
+
+
+class TemplateCreate(BaseModel):
+    """Schema for creating a template."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    type: Literal["clue_embedding", "npc_system_prompt", "clue_reveal", "custom"]
+    content: str
+    is_default: bool = False
+
+    def extract_variables(self) -> list[str]:
+        """Extract variables from template content."""
+        regex = r"\{([^}]+)\}"
+        return list(set(re.findall(regex, self.content)))
+
+
+class TemplateUpdate(BaseModel):
+    """Schema for updating a template."""
+
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    type: Literal["clue_embedding", "npc_system_prompt", "clue_reveal", "custom"] | None = None
+    content: str | None = None
+    is_default: bool | None = None
+
+    def extract_variables(self) -> list[str] | None:
+        """Extract variables from template content if provided."""
+        if self.content is None:
+            return None
+        regex = r"\{([^}]+)\}"
+        return list(set(re.findall(regex, self.content)))
+
+
+# Render-related schemas
 
 class TemplateRenderRequest(BaseModel):
     """Request schema for rendering a template."""

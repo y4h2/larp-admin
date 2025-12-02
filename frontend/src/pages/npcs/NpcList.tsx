@@ -32,6 +32,7 @@ export default function NpcList() {
   const { scripts, fetchScripts } = useScripts();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [filters, setFilters] = useState<{
     script_id?: string;
     search?: string;
@@ -52,6 +53,8 @@ export default function NpcList() {
   }, [filters, fetchNpcs]);
 
   const handleCreate = async (values: Partial<NPC>) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const npc = await createNpc({
         ...values,
@@ -62,6 +65,8 @@ export default function NpcList() {
       navigate(`/npcs/${npc.id}`);
     } catch {
       // Error handled in hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -226,10 +231,12 @@ export default function NpcList() {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
                 {t('common.create')}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>{t('common.cancel')}</Button>
+              <Button onClick={() => setModalVisible(false)} disabled={submitting}>
+                {t('common.cancel')}
+              </Button>
             </Space>
           </Form.Item>
         </Form>

@@ -32,6 +32,12 @@ class DialogueLog(Base):
         index=True,
         comment="Session identifier for grouping related dialogue logs",
     )
+    username: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="Username of who initiated the dialogue",
+    )
     script_id: Mapped[str] = mapped_column(
         String(20),
         ForeignKey("scripts.id", ondelete="CASCADE"),
@@ -67,6 +73,12 @@ class DialogueLog(Base):
         default=list,
         nullable=False,
         comment="Final triggered clue IDs",
+    )
+    debug_info: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="Algorithm debug information (threshold, candidates, excluded, etc.)",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

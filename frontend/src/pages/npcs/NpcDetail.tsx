@@ -78,23 +78,13 @@ export default function NpcDetail() {
       ]);
       setInitialNpc(npcData);
       setRelatedClues(cluesData.items);
-      // Ensure knowledge_scope has default values
-      const formData = {
-        ...npcData,
-        knowledge_scope: {
-          knows: npcData.knowledge_scope?.knows || [],
-          does_not_know: npcData.knowledge_scope?.does_not_know || [],
-          world_model_limits: npcData.knowledge_scope?.world_model_limits || [],
-        },
-      };
-      form.setFieldsValue(formData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/npcs');
     } finally {
       setLoading(false);
     }
-  }, [id, form, navigate, t]);
+  }, [id, navigate, t]);
 
   useEffect(() => {
     fetchScripts();
@@ -103,6 +93,25 @@ export default function NpcDetail() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Set form values after loading completes and Form is mounted
+  useEffect(() => {
+    if (!loading && initialNpc) {
+      // Use setTimeout to ensure Form is mounted before setting values
+      const timer = setTimeout(() => {
+        const formData = {
+          ...initialNpc,
+          knowledge_scope: {
+            knows: initialNpc.knowledge_scope?.knows || [],
+            does_not_know: initialNpc.knowledge_scope?.does_not_know || [],
+            world_model_limits: initialNpc.knowledge_scope?.world_model_limits || [],
+          },
+        };
+        form.setFieldsValue(formData);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, initialNpc, form]);
 
   // Track editing presence
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import { clueApi, type ClueQueryParams, type ClueTreeData } from '@/api/clues';
+import { clueApi, type ClueQueryParams, type ClueCreateData, type ClueUpdateData, type ClueTreeData } from '@/api/clues';
 import type { Clue } from '@/types';
 import { useAppStore } from '@/store';
 
@@ -14,12 +14,15 @@ export function useClues() {
     setLoading(true);
     try {
       const response = await clueApi.list(params);
-      setClues(response.items);
-      setTotal(response.total);
-      setGlobalClues(response.items);
+      const items = response?.items ?? [];
+      setClues(items);
+      setTotal(response?.total ?? 0);
+      setGlobalClues(items);
       return response;
     } catch (error) {
       message.error('Failed to fetch clues');
+      setClues([]);
+      setTotal(0);
       throw error;
     } finally {
       setLoading(false);
@@ -39,7 +42,7 @@ export function useClues() {
     }
   }, []);
 
-  const createClue = useCallback(async (data: Partial<Clue>) => {
+  const createClue = useCallback(async (data: ClueCreateData) => {
     try {
       const clue = await clueApi.create(data);
       message.success('Clue created successfully');
@@ -50,7 +53,7 @@ export function useClues() {
     }
   }, []);
 
-  const updateClue = useCallback(async (id: string, data: Partial<Clue>) => {
+  const updateClue = useCallback(async (id: string, data: ClueUpdateData) => {
     try {
       const clue = await clueApi.update(id, data);
       message.success('Clue updated successfully');

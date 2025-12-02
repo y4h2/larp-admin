@@ -99,6 +99,11 @@ class SimulateRequest(BaseModel):
         default=None,
         description="Session ID for grouping dialogue logs",
     )
+    username: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Username of who initiated the dialogue",
+    )
     save_log: bool = Field(
         default=True,
         description="Whether to save this dialogue to logs",

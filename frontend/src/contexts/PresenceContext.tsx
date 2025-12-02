@@ -11,6 +11,14 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 
+// Debug flag - set to true to enable presence logs
+const PRESENCE_DEBUG = false;
+const logPresence = (...args: unknown[]) => {
+  if (PRESENCE_DEBUG) {
+    console.log('[Presence]', ...args);
+  }
+};
+
 // Types
 export interface EditingState {
   type: 'script' | 'npc' | 'clue';
@@ -86,7 +94,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('[Presence] Initializing channel for user:', user.id);
+    logPresence('Initializing channel for user:', user.id);
 
     const channel = supabase.channel(CHANNEL_NAME, {
       config: {
@@ -101,7 +109,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
     // Handle presence sync
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState<UserPresence>();
-      console.log('[Presence] Sync event, state:', state);
+      logPresence('Sync event, state:', state);
       const users: UserPresence[] = [];
 
       Object.values(state).forEach((presences) => {
@@ -116,7 +124,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      console.log('[Presence] Parsed users:', users);
+      logPresence('Parsed users:', users);
       // Include all users (including current user)
       setOnlineUsers(users);
       const self = users.find((u) => u.id === user.id);
@@ -127,19 +135,19 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
 
     // Handle user join
     channel.on('presence', { event: 'join' }, ({ newPresences }) => {
-      console.log('[Presence] User joined:', newPresences);
+      logPresence('User joined:', newPresences);
     });
 
     // Handle user leave
     channel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
-      console.log('[Presence] User left:', leftPresences);
+      logPresence('User left:', leftPresences);
     });
 
     // Subscribe and track initial presence
     channel.subscribe(async (status) => {
-      console.log('[Presence] Channel status:', status, typeof status);
+      logPresence('Channel status:', status, typeof status);
       if (status === 'SUBSCRIBED') {
-        console.log('[Presence] Successfully subscribed, tracking user...');
+        logPresence('Successfully subscribed, tracking user...');
         setIsConnected(true);
         // Create initial state inline to avoid dependency issues
         const initialState: UserPresence = {
@@ -149,7 +157,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
           editing: null,
           lastSeen: new Date().toISOString(),
         };
-        console.log('[Presence] Tracking initial state:', initialState);
+        logPresence('Tracking initial state:', initialState);
         try {
           await channel.track(initialState);
           setCurrentUser(initialState);
@@ -163,13 +171,13 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
           console.error('[Presence] Track error:', trackError);
         }
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        console.log('[Presence] Channel closed or error');
+        logPresence('Channel closed or error');
         setIsConnected(false);
       }
     });
 
     return () => {
-      console.log('[Presence] Cleaning up channel');
+      logPresence('Cleaning up channel');
       channel.unsubscribe();
       channelRef.current = null;
       setIsConnected(false);

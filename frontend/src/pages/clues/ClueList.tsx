@@ -35,6 +35,7 @@ export default function ClueList() {
   const { npcs, fetchNpcs } = useNpcs();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [filters, setFilters] = useState<{
     script_id?: string;
     npc_id?: string;
@@ -75,6 +76,8 @@ export default function ClueList() {
   }, [filters, fetchClues]);
 
   const handleCreate = async (values: Partial<Clue>) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const clue = await createClue(values);
       setModalVisible(false);
@@ -83,6 +86,8 @@ export default function ClueList() {
       navigate(`/clues/${clue.id}`);
     } catch {
       // Error handled in hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -363,14 +368,14 @@ export default function ClueList() {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
                 {t('common.create')}
               </Button>
               <Button onClick={() => {
                 setModalVisible(false);
                 setModalScriptId(undefined);
                 form.resetFields();
-              }}>{t('common.cancel')}</Button>
+              }} disabled={submitting}>{t('common.cancel')}</Button>
             </Space>
           </Form.Item>
         </Form>

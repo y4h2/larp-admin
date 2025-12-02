@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import { npcApi, type NPCQueryParams } from '@/api/npcs';
+import { npcApi, type NPCQueryParams, type NPCCreateData, type NPCUpdateData } from '@/api/npcs';
 import type { NPC } from '@/types';
 import { useAppStore } from '@/store';
 
@@ -14,12 +14,15 @@ export function useNpcs() {
     setLoading(true);
     try {
       const response = await npcApi.list(params);
-      setNpcs(response.items);
-      setTotal(response.total);
-      setGlobalNpcs(response.items);
+      const items = response?.items ?? [];
+      setNpcs(items);
+      setTotal(response?.total ?? 0);
+      setGlobalNpcs(items);
       return response;
     } catch (error) {
       message.error('Failed to fetch NPCs');
+      setNpcs([]);
+      setTotal(0);
       throw error;
     } finally {
       setLoading(false);
@@ -39,7 +42,7 @@ export function useNpcs() {
     }
   }, []);
 
-  const createNpc = useCallback(async (data: Partial<NPC>) => {
+  const createNpc = useCallback(async (data: NPCCreateData) => {
     try {
       const npc = await npcApi.create(data);
       message.success('NPC created successfully');
@@ -50,7 +53,7 @@ export function useNpcs() {
     }
   }, []);
 
-  const updateNpc = useCallback(async (id: string, data: Partial<NPC>) => {
+  const updateNpc = useCallback(async (id: string, data: NPCUpdateData) => {
     try {
       const npc = await npcApi.update(id, data);
       message.success('NPC updated successfully');

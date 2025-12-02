@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { message } from 'antd';
-import { scriptApi, type ScriptQueryParams } from '@/api/scripts';
+import { scriptApi, type ScriptQueryParams, type ScriptCreateData, type ScriptUpdateData } from '@/api/scripts';
 import type { Script } from '@/types';
 
 export function useScripts() {
@@ -12,18 +12,20 @@ export function useScripts() {
     setLoading(true);
     try {
       const response = await scriptApi.list(params);
-      setScripts(response.items);
-      setTotal(response.total);
+      setScripts(response?.items ?? []);
+      setTotal(response?.total ?? 0);
       return response;
     } catch (error) {
       message.error('Failed to fetch scripts');
+      setScripts([]);
+      setTotal(0);
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const createScript = useCallback(async (data: Partial<Script>) => {
+  const createScript = useCallback(async (data: ScriptCreateData) => {
     try {
       const script = await scriptApi.create(data);
       message.success('Script created successfully');
@@ -34,7 +36,7 @@ export function useScripts() {
     }
   }, []);
 
-  const updateScript = useCallback(async (id: string, data: Partial<Script>) => {
+  const updateScript = useCallback(async (id: string, data: ScriptUpdateData) => {
     try {
       const script = await scriptApi.update(id, data);
       message.success('Script updated successfully');

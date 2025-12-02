@@ -1,11 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import type { Database } from '@/lib/database.types';
 import type { NPC, PaginatedResponse } from '@/types';
-import { generateNpcId } from '@/utils/idGenerator';
-
-type NPCRow = Database['public']['Tables']['npcs']['Row'];
-type NPCInsert = Database['public']['Tables']['npcs']['Insert'];
-type NPCUpdate = Database['public']['Tables']['npcs']['Update'];
+import client from './client';
 
 export interface NPCQueryParams {
   page?: number;
@@ -14,120 +8,45 @@ export interface NPCQueryParams {
   search?: string;
 }
 
-// Transform database row to API response format
-function transformRow(row: NPCRow): NPC {
-  return {
-    id: row.id,
-    script_id: row.script_id,
-    name: row.name,
-    age: row.age,
-    background: row.background,
-    personality: row.personality,
-    knowledge_scope: row.knowledge_scope as Record<string, unknown> | null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  };
+export interface NPCCreateData {
+  script_id: string;
+  name: string;
+  age?: number | null;
+  background?: string | null;
+  personality?: string | null;
+  knowledge_scope?: Record<string, unknown>;
+}
+
+export interface NPCUpdateData {
+  name?: string;
+  age?: number | null;
+  background?: string | null;
+  personality?: string | null;
+  knowledge_scope?: Record<string, unknown>;
 }
 
 export const npcApi = {
   list: async (params: NPCQueryParams = {}): Promise<PaginatedResponse<NPC>> => {
-    const { page = 1, page_size = 20, script_id, search } = params;
-    const from = (page - 1) * page_size;
-    const to = from + page_size - 1;
-
-    let query = supabase
-      .from('npcs')
-      .select('*', { count: 'exact' })
-      .order('updated_at', { ascending: false })
-      .range(from, to);
-
-    if (script_id) {
-      query = query.eq('script_id', script_id);
-    }
-
-    if (search) {
-      query = query.ilike('name', `%${search}%`);
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) throw new Error(error.message);
-
-    const total = count ?? 0;
-    const items = (data ?? []).map(transformRow);
-
-    return {
-      items,
-      total,
-      page,
-      page_size,
-      total_pages: Math.ceil(total / page_size),
-    };
+    const response = await client.get('/npcs', { params });
+    return response.data;
   },
 
   get: async (id: string): Promise<NPC> => {
-    const { data, error } = await supabase
-      .from('npcs')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw new Error(error.message);
-    if (!data) throw new Error('NPC not found');
-
-    return transformRow(data);
+    const response = await client.get(`/npcs/${id}`);
+    return response.data;
   },
 
-  create: async (createData: Partial<NPC>): Promise<NPC> => {
-    if (!createData.script_id) {
-      throw new Error('script_id is required');
-    }
-
-    const insertData: NPCInsert = {
-      id: generateNpcId(),
-      script_id: createData.script_id,
-      name: createData.name ?? 'Unnamed NPC',
-      age: createData.age ?? null,
-      background: createData.background ?? null,
-      personality: createData.personality ?? null,
-      knowledge_scope: createData.knowledge_scope ?? {},  // 默认空对象，数据库要求 NOT NULL
-    };
-
-    const { data, error } = await supabase
-      .from('npcs')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return transformRow(data);
+  create: async (createData: NPCCreateData): Promise<NPC> => {
+    const response = await client.post('/npcs', createData);
+    return response.data;
   },
 
-  update: async (id: string, updateData: Partial<NPC>): Promise<NPC> => {
-    const dbUpdate: NPCUpdate = {};
-    if (updateData.name !== undefined) dbUpdate.name = updateData.name;
-    if (updateData.age !== undefined) dbUpdate.age = updateData.age;
-    if (updateData.background !== undefined) dbUpdate.background = updateData.background;
-    if (updateData.personality !== undefined) dbUpdate.personality = updateData.personality;
-    if (updateData.knowledge_scope !== undefined) dbUpdate.knowledge_scope = updateData.knowledge_scope;
-
-    const { data, error } = await supabase
-      .from('npcs')
-      .update(dbUpdate)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return transformRow(data);
+  update: async (id: string, updateData: NPCUpdateData): Promise<NPC> => {
+    const response = await client.put(`/npcs/${id}`, updateData);
+    return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('npcs')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await client.delete(`/npcs/${id}`);
   },
 };
