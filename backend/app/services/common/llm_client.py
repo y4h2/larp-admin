@@ -220,6 +220,55 @@ class LLMClient:
                         continue
 
     @classmethod
+    async def call_stream_with_messages(
+        cls,
+        config: LLMConfig,
+        messages: list[dict],
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Call LLM with streaming response using full messages array.
+
+        Args:
+            config: LLM configuration
+            messages: Full messages array including history
+            temperature: Sampling temperature
+            max_tokens: Optional max tokens limit
+
+        Yields:
+            Text chunks from streaming response
+        """
+        client = await cls.get_stream_client()
+        request_body: dict[str, Any] = {
+            "model": config.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        if max_tokens is not None:
+            request_body["max_tokens"] = max_tokens
+
+        async with client.stream(
+            "POST",
+            f"{config.base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {config.api_key}"},
+            json=request_body,
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(data_str)
+                        content = data["choices"][0]["delta"].get("content", "")
+                        if content:
+                            yield content
+                    except json.JSONDecodeError:
+                        continue
+
+    @classmethod
     async def call_json(
         cls,
         config: LLMConfig,

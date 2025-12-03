@@ -103,6 +103,8 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [playerMessage, setPlayerMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamingNpcResponse, setStreamingNpcResponse] = useState<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Favorite modal state
   const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
@@ -330,6 +332,12 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
   }, [matchingTemplateId, selectedNpcId]);
 
   // Handlers
+  const handleAbort = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setLoading(false);
+    setStreamingNpcResponse('');
+  }, []);
+
   const handleSend = useCallback(async () => {
     if (!selectedScriptId || !selectedNpcId || !playerMessage.trim()) {
       message.warning(t('debug.fillAllFields'));
@@ -338,61 +346,92 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
 
     addToHistory(getCurrentConfig(), getPresetDisplayName());
 
-    const newPlayerMessage: ChatMessage = { role: 'player', content: playerMessage, timestamp: Date.now() };
+    const currentMessage = playerMessage;
+    const newPlayerMessage: ChatMessage = { role: 'player', content: currentMessage, timestamp: Date.now() };
     setChatHistory((prev) => [...prev, newPlayerMessage]);
     setPlayerMessage('');
     setLoading(true);
+    setStreamingNpcResponse('');
     setLastMatchResults(null);
     setLastDebugInfo(null);
 
+    // Create abort controller for cancellation
+    abortControllerRef.current = new AbortController();
+
     try {
-      const result = await simulationApi.run({
-        script_id: selectedScriptId,
-        npc_id: selectedNpcId,
-        unlocked_clue_ids: unlockedClueIds,
-        player_message: playerMessage,
-        matching_strategy: matchingStrategy,
-        template_id: matchingTemplateId,
-        llm_config_id: matchingLlmConfigId,
-        npc_clue_template_id: enableNpcReply ? npcClueTemplateId : undefined,
-        npc_no_clue_template_id: enableNpcReply ? npcNoClueTemplateId : undefined,
-        npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
-        session_id: sessionIdRef.current,
-        username: username || undefined,
-        save_log: true,
-        embedding_options_override: (overrideSimilarityThreshold !== undefined || overrideVectorBackend !== undefined)
-          ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
-        chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined || llmScoreThreshold !== undefined)
-          ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens, score_threshold: llmScoreThreshold } : undefined,
-        llm_return_all_scores: llmReturnAllScores,
-      });
+      let triggeredCount = 0;
 
-      setLastMatchResults(result.matched_clues);
-      setLastDebugInfo(result.debug_info);
+      await simulationApi.runStream(
+        {
+          script_id: selectedScriptId,
+          npc_id: selectedNpcId,
+          unlocked_clue_ids: unlockedClueIds,
+          player_message: currentMessage,
+          matching_strategy: matchingStrategy,
+          template_id: matchingTemplateId,
+          llm_config_id: matchingLlmConfigId,
+          npc_clue_template_id: enableNpcReply ? npcClueTemplateId : undefined,
+          npc_no_clue_template_id: enableNpcReply ? npcNoClueTemplateId : undefined,
+          npc_chat_config_id: enableNpcReply ? npcChatConfigId : undefined,
+          session_id: sessionIdRef.current,
+          username: username || undefined,
+          save_log: true,
+          embedding_options_override: (overrideSimilarityThreshold !== undefined || overrideVectorBackend !== undefined)
+            ? { similarity_threshold: overrideSimilarityThreshold, vector_backend: overrideVectorBackend } : undefined,
+          chat_options_override: (overrideTemperature !== undefined || overrideMaxTokens !== undefined || llmScoreThreshold !== undefined)
+            ? { temperature: overrideTemperature, max_tokens: overrideMaxTokens, score_threshold: llmScoreThreshold } : undefined,
+          llm_return_all_scores: llmReturnAllScores,
+        },
+        {
+          onMatchResult: (data) => {
+            triggeredCount = data.triggered_clues.length;
+            setLastMatchResults(data.matched_clues);
+            setLastDebugInfo(data.debug_info);
 
-      const systemMessage: ChatMessage = {
-        role: 'system',
-        content: `${t('debug.cluesTriggered', { count: result.triggered_clues.length })}`,
-        result,
-        timestamp: Date.now(),
-      };
-      setChatHistory((prev) => [...prev, systemMessage]);
-
-      if (enableNpcReply && result.npc_response) {
-        const triggeredCount = result.triggered_clues.length;
-        const npcMessage: ChatMessage = {
-          role: 'npc',
-          content: result.npc_response,
-          hasTriggeredClues: triggeredCount > 0,
-          triggeredClueCount: triggeredCount,
-          timestamp: Date.now(),
-        };
-        setChatHistory((prev) => [...prev, npcMessage]);
+            // Add system message for match results
+            const systemMessage: ChatMessage = {
+              role: 'system',
+              content: `${t('debug.cluesTriggered', { count: triggeredCount })}`,
+              result: {
+                matched_clues: data.matched_clues,
+                triggered_clues: data.triggered_clues,
+                debug_info: data.debug_info,
+              },
+              timestamp: Date.now(),
+            };
+            setChatHistory((prev) => [...prev, systemMessage]);
+          },
+          onNpcChunk: (chunk) => {
+            setStreamingNpcResponse((prev) => prev + chunk);
+          },
+          onComplete: (data) => {
+            // Replace streaming with final NPC message
+            if (enableNpcReply && data.npc_response) {
+              const npcMessage: ChatMessage = {
+                role: 'npc',
+                content: data.npc_response,
+                hasTriggeredClues: triggeredCount > 0,
+                triggeredClueCount: triggeredCount,
+                timestamp: Date.now(),
+              };
+              setChatHistory((prev) => [...prev, npcMessage]);
+            }
+            setStreamingNpcResponse('');
+          },
+          onError: (error) => {
+            message.error(error.error || t('debug.simulationFailed'));
+            setStreamingNpcResponse('');
+          },
+        },
+        abortControllerRef.current.signal,
+      );
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        message.error(t('debug.simulationFailed'));
       }
-    } catch {
-      message.error(t('debug.simulationFailed'));
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   }, [
     t, selectedScriptId, selectedNpcId, playerMessage, unlockedClueIds, matchingStrategy,
@@ -592,6 +631,7 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
     playerMessage,
     setPlayerMessage,
     loading,
+    streamingNpcResponse,
 
     // Clues
     npcClues,
@@ -629,6 +669,7 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
     handleSaveToFavorites,
     handleEditFavorite,
     handleSend,
+    handleAbort,
     handleClear,
     handleRenderClue,
     handleRenderNpcClueTemplate,

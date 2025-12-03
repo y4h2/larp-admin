@@ -288,6 +288,8 @@
     "selectClueAndMessage": "Select a clue and enter a message to debug",
     "fillAllFields": "Please fill in all required fields",
     "simulationFailed": "Simulation failed",
+    "stopGeneration": "Stop generation",
+    "generating": "Generating",
     "selectClueAndEnterMessage": "Please select a clue and enter a message",
     "debugFailed": "Debug failed",
     "matchingConfig": "Matching Configuration",

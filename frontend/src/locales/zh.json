@@ -288,6 +288,8 @@
     "selectClueAndMessage": "选择线索并输入消息进行调试",
     "fillAllFields": "请填写所有必填项",
     "simulationFailed": "模拟失败",
+    "stopGeneration": "停止生成",
+    "generating": "生成中",
     "selectClueAndEnterMessage": "请选择线索并输入消息",
     "debugFailed": "调试失败",
     "matchingConfig": "匹配配置",

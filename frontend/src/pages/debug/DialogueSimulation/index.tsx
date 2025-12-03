@@ -237,10 +237,12 @@ export default function DialogueSimulation() {
             chatHistory={simulation.chatHistory}
             playerMessage={simulation.playerMessage}
             loading={simulation.loading}
+            streamingNpcResponse={simulation.streamingNpcResponse}
             canSend={!!simulation.selectedScriptId && !!simulation.selectedNpcId}
             t={t}
             onMessageChange={simulation.setPlayerMessage}
             onSend={simulation.handleSend}
+            onAbort={simulation.handleAbort}
             onClear={simulation.handleClear}
           />
         </Col>

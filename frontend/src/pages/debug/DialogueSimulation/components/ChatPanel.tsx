@@ -20,6 +20,8 @@ import {
   CopyOutlined,
   InfoCircleOutlined,
   DownloadOutlined,
+  StopOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import type { ChatMessage } from '../types';
 import type { MatchedClue } from '@/types';
@@ -31,10 +33,12 @@ interface ChatPanelProps {
   chatHistory: ChatMessage[];
   playerMessage: string;
   loading: boolean;
+  streamingNpcResponse: string;
   canSend: boolean;
   t: TFunction;
   onMessageChange: (value: string) => void;
   onSend: () => void;
+  onAbort: () => void;
   onClear: () => void;
 }
 
@@ -42,20 +46,22 @@ const ChatPanel = memo(function ChatPanel({
   chatHistory,
   playerMessage,
   loading,
+  streamingNpcResponse,
   canSend,
   t,
   onMessageChange,
   onSend,
+  onAbort,
   onClear,
 }: ChatPanelProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or streaming updates
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatHistory, loading]);
+  }, [chatHistory, loading, streamingNpcResponse]);
 
   // Format timestamp
   const formatTime = (timestamp?: number): string => {
@@ -123,6 +129,17 @@ const ChatPanel = memo(function ChatPanel({
       size="small"
       extra={
         <Space size={4}>
+          {/* Stop button when streaming */}
+          {loading && (
+            <Tooltip title={t('debug.stopGeneration')}>
+              <Button
+                icon={<StopOutlined />}
+                onClick={onAbort}
+                size="small"
+                danger
+              />
+            </Tooltip>
+          )}
           <Tooltip title={t('debug.exportChat')}>
             <Button
               icon={<DownloadOutlined />}
@@ -272,8 +289,51 @@ const ChatPanel = memo(function ChatPanel({
                 </div>
               </div>
             ))}
-            {/* Loading skeleton when waiting for response */}
-            {loading && (
+            {/* Show streaming NPC response */}
+            {loading && streamingNpcResponse && (
+              <div style={{ marginBottom: 16, textAlign: 'left' }}>
+                <Space size={4} style={{ marginBottom: 2 }}>
+                  <Tag color="purple">{t('common.npc')}</Tag>
+                  <Tag icon={<LoadingOutlined spin />} color="processing">
+                    {t('debug.generating')}
+                  </Tag>
+                </Space>
+                <div
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: '80%',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: '#fff7e6',
+                    marginTop: 4,
+                    border: '1px solid #ffd591',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {streamingNpcResponse}
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 2,
+                      height: '1em',
+                      background: '#1890ff',
+                      marginLeft: 2,
+                      animation: 'blink 1s infinite',
+                      verticalAlign: 'text-bottom',
+                    }}
+                  />
+                </div>
+                <style>{`
+                  @keyframes blink {
+                    0%, 50% { opacity: 1; }
+                    51%, 100% { opacity: 0; }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {/* Loading skeleton when waiting for first response */}
+            {loading && !streamingNpcResponse && (
               <div style={{ marginBottom: 16, textAlign: 'left' }}>
                 <Tag color="purple">{t('common.npc')}</Tag>
                 <div

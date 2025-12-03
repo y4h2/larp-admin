@@ -1,10 +1,13 @@
 """Simulation API endpoints."""
 
+import json
 import logging
+from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app.database import DBSession
@@ -127,3 +130,125 @@ async def simulate_dialogue(
     result.log_id = log_id
 
     return result
+
+
+@router.post("/stream")
+async def simulate_dialogue_stream(
+    db: DBSession,
+    request: SimulateRequest,
+) -> StreamingResponse:
+    """
+    Simulate dialogue matching with streaming NPC response.
+
+    Returns Server-Sent Events:
+    - event: match_result - Clue matching results
+    - event: npc_chunk - NPC response token
+    - event: complete - Final data with log_id
+    - event: error - Error information
+    """
+    # Verify script exists
+    script_result = await db.execute(
+        select(Script)
+        .where(Script.id == request.script_id)
+        .where(Script.deleted_at.is_(None))
+    )
+    if not script_result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Script with id {request.script_id} not found",
+        )
+
+    # Verify NPC exists
+    npc_result = await db.execute(
+        select(NPC).where(NPC.id == request.npc_id)
+    )
+    if not npc_result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"NPC with id {request.npc_id} not found",
+        )
+
+    service = MatchingService(db)
+
+    async def generate() -> AsyncGenerator[str, None]:
+        log_id = None
+        full_npc_response = None
+        match_result_data = None
+        prompt_info = None
+
+        try:
+            async for event in service.simulate_stream(request):
+                event_type = event["event"]
+                data = event["data"]
+
+                if event_type == "match_result":
+                    match_result_data = data
+                    yield f"event: match_result\ndata: {json.dumps(data)}\n\n"
+
+                elif event_type == "npc_chunk":
+                    yield f"event: npc_chunk\ndata: {json.dumps(data)}\n\n"
+
+                elif event_type == "complete":
+                    full_npc_response = data.get("npc_response")
+                    prompt_info = data.get("prompt_info")
+
+                    # Save dialogue log if requested
+                    if request.save_log and match_result_data:
+                        session_id = request.session_id or str(uuid4())
+                        debug_info_to_save = match_result_data.get("debug_info", {}).copy()
+                        debug_info_to_save["prompt_info"] = prompt_info
+                        if match_result_data.get("matching_llm_usage"):
+                            debug_info_to_save["llm_usage"] = {
+                                "matching_tokens": match_result_data["matching_llm_usage"].get("matching_tokens"),
+                                "matching_latency_ms": match_result_data["matching_llm_usage"].get("matching_latency_ms"),
+                                "matching_model": match_result_data["matching_llm_usage"].get("matching_model"),
+                            }
+
+                        log = DialogueLog(
+                            session_id=session_id,
+                            username=request.username,
+                            script_id=request.script_id,
+                            npc_id=request.npc_id,
+                            player_message=request.player_message,
+                            npc_response=full_npc_response,
+                            context={
+                                "unlocked_clue_ids": request.unlocked_clue_ids,
+                                "matching_strategy": request.matching_strategy.value,
+                                "template_id": request.template_id,
+                                "llm_config_id": request.llm_config_id,
+                                "npc_clue_template_id": request.npc_clue_template_id,
+                                "npc_no_clue_template_id": request.npc_no_clue_template_id,
+                                "npc_chat_config_id": request.npc_chat_config_id,
+                            },
+                            matched_clues=match_result_data.get("matched_clues", []),
+                            triggered_clues=[tc["clue_id"] for tc in match_result_data.get("triggered_clues", [])],
+                            debug_info=debug_info_to_save,
+                        )
+                        db.add(log)
+                        await db.commit()
+                        await db.refresh(log)
+                        log_id = log.id
+                        logger.info(f"Saved streaming dialogue log: {log_id}")
+
+                    data["log_id"] = log_id
+                    yield f"event: complete\ndata: {json.dumps(data)}\n\n"
+
+        except httpx.TimeoutException as e:
+            logger.error(f"LLM request timeout: {e}")
+            yield f"event: error\ndata: {json.dumps({'error': 'LLM 响应超时', 'code': 'TIMEOUT'})}\n\n"
+        except httpx.HTTPStatusError as e:
+            logger.error(f"LLM HTTP error: {e}")
+            yield f"event: error\ndata: {json.dumps({'error': f'LLM 服务错误: {e.response.status_code}', 'code': 'LLM_ERROR'})}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming simulation failed: {e}", exc_info=True)
+            yield f"event: error\ndata: {json.dumps({'error': str(e), 'code': 'INTERNAL_ERROR'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

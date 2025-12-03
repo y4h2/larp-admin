@@ -171,6 +171,157 @@ class MatchingService:
             llm_usage=llm_usage,
         )
 
+    async def simulate_stream(self, request: SimulateRequest):
+        """
+        Simulate dialogue matching with streaming NPC response.
+
+        Args:
+            request: The simulation request with context and message.
+
+        Yields:
+            Dict events: match_result, npc_chunk, complete
+        """
+        from collections.abc import AsyncGenerator
+
+        logger.debug(
+            f"Starting streaming simulate: script_id={request.script_id}, npc_id={request.npc_id}, "
+            f"strategy={request.matching_strategy.value}"
+        )
+
+        # Build match context
+        context = MatchContext(
+            player_message=request.player_message.lower(),
+            unlocked_clue_ids=set(request.unlocked_clue_ids),
+            npc_id=request.npc_id,
+            script_id=request.script_id,
+            matching_strategy=request.matching_strategy,
+            template_id=request.template_id,
+            llm_config_id=request.llm_config_id,
+            npc_clue_template_id=request.npc_clue_template_id,
+            npc_no_clue_template_id=request.npc_no_clue_template_id,
+            npc_chat_config_id=request.npc_chat_config_id,
+            session_id=request.session_id,
+            embedding_options_override=request.embedding_options_override,
+            chat_options_override=request.chat_options_override,
+            llm_return_all_scores=request.llm_return_all_scores,
+        )
+
+        # Get all clues for this NPC
+        all_clues = await self._get_candidate_clues(
+            script_id=request.script_id,
+            npc_id=request.npc_id,
+        )
+
+        # Categorize clues by prerequisites
+        eligible_clues, excluded_clues = self._filter_by_prerequisites(
+            all_clues, context
+        )
+
+        # Match clues using selected strategy
+        results, strategy_debug = await self._match_with_strategy(
+            eligible_clues, context, request.matching_strategy
+        )
+
+        # Sort by score
+        results.sort(key=lambda r: r.score, reverse=True)
+
+        # Determine threshold
+        threshold = self._get_threshold(context, request.matching_strategy)
+
+        # Determine triggered clues
+        triggered = self._determine_triggered(
+            results, threshold, request.matching_strategy
+        )
+
+        # Build response schemas
+        matched_clues = [self._result_to_schema(r) for r in results]
+        triggered_clues = [self._result_to_schema(r) for r in triggered]
+
+        # Build candidate details for debug
+        candidate_details = self._build_candidate_details(
+            eligible_clues, results, strategy_debug
+        )
+
+        # Build matching LLM usage info
+        matching_llm_usage = None
+        if isinstance(strategy_debug, LLMMatchPrompts) and strategy_debug.metrics:
+            metrics = strategy_debug.metrics
+            matching_llm_usage = {
+                "matching_tokens": {
+                    "prompt_tokens": metrics.prompt_tokens,
+                    "completion_tokens": metrics.completion_tokens,
+                    "total_tokens": metrics.total_tokens,
+                },
+                "matching_latency_ms": metrics.latency_ms,
+                "matching_model": metrics.model,
+            }
+
+        # Yield match result first
+        yield {
+            "event": "match_result",
+            "data": {
+                "matched_clues": [mc.model_dump() for mc in matched_clues],
+                "triggered_clues": [tc.model_dump() for tc in triggered_clues],
+                "debug_info": {
+                    "total_clues": len(all_clues),
+                    "total_candidates": len(eligible_clues),
+                    "total_excluded": len(excluded_clues),
+                    "total_matched": len(results),
+                    "total_triggered": len(triggered),
+                    "threshold": threshold,
+                    "strategy": request.matching_strategy.value,
+                    "candidates": candidate_details,
+                    "excluded": excluded_clues,
+                },
+                "matching_llm_usage": matching_llm_usage,
+            },
+        }
+
+        # Stream NPC response if configured
+        npc_result = NpcResponseResult()
+        if self._should_generate_npc(context):
+            async for chunk, final_result in self._npc_generator.generate_stream(
+                context, triggered, request.player_message
+            ):
+                if chunk:
+                    yield {"event": "npc_chunk", "data": {"chunk": chunk}}
+                if final_result:
+                    npc_result = final_result
+
+        # Build prompt_info for debug
+        prompt_info = None
+        if npc_result.system_prompt or npc_result.user_prompt:
+            prompt_info = {
+                "system_prompt": npc_result.system_prompt,
+                "user_prompt": npc_result.user_prompt,
+                "messages": npc_result.messages,
+                "has_clue": npc_result.has_clue,
+                "system_prompt_segments": [
+                    {"type": seg.type, "content": seg.content, "variable_name": seg.variable_name}
+                    for seg in npc_result.system_prompt_segments
+                ] if npc_result.system_prompt_segments else None,
+                "user_prompt_segments": [
+                    {"type": seg.type, "content": seg.content, "variable_name": seg.variable_name}
+                    for seg in npc_result.user_prompt_segments
+                ] if npc_result.user_prompt_segments else None,
+            }
+
+        # Yield complete event
+        yield {
+            "event": "complete",
+            "data": {
+                "npc_response": npc_result.response,
+                "prompt_info": prompt_info,
+            },
+        }
+
+    def _should_generate_npc(self, context: MatchContext) -> bool:
+        """Check if NPC response should be generated."""
+        has_clue_template = context.npc_clue_template_id is not None
+        has_no_clue_template = context.npc_no_clue_template_id is not None
+        has_chat_config = context.npc_chat_config_id is not None
+        return (has_clue_template or has_no_clue_template) and has_chat_config
+
     async def _get_candidate_clues(
         self,
         script_id: str,

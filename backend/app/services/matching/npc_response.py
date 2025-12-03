@@ -180,6 +180,178 @@ class NpcResponseGenerator:
             logger.error(f"Failed to generate NPC response: {e}", exc_info=True)
             return NpcResponseResult()
 
+    async def generate_stream(
+        self,
+        context: MatchContext,
+        triggered_clues: list[MatchResult],
+        player_message: str,
+    ):
+        """
+        Generate NPC response using LLM with streaming.
+
+        Args:
+            context: Match context with template and config IDs
+            triggered_clues: List of triggered clue results
+            player_message: Original player message
+
+        Yields:
+            Tuple of (chunk, final_result) where final_result is None until complete
+        """
+        from collections.abc import AsyncGenerator
+        try:
+            logger.info(f"Generating streaming NPC response for NPC={context.npc_id}")
+
+            # Get chat config
+            chat_config = await self._get_llm_config_by_id(context.npc_chat_config_id)
+            if not chat_config:
+                logger.warning(f"NPC chat config not found: {context.npc_chat_config_id}")
+                yield ("", NpcResponseResult())
+                return
+
+            logger.info(f"Using chat config: {chat_config.name} ({chat_config.model})")
+
+            # Load NPC and Script data
+            npc = await self._get_npc(context.npc_id)
+            script = await self._get_script(context.script_id)
+            if not npc:
+                logger.warning(f"NPC not found: {context.npc_id}")
+                yield ("", NpcResponseResult())
+                return
+
+            # Determine if we have triggered clues with actual guidance
+            has_clue_guidance = False
+            clue_guides = []
+            if triggered_clues:
+                for r in triggered_clues:
+                    if r.clue.detail_for_npc:
+                        clue_guides.append(r.clue.detail_for_npc)
+                has_clue_guidance = len(clue_guides) > 0
+
+            # Select appropriate template
+            template_id = self._select_template(context, has_clue_guidance)
+
+            # Load system template
+            system_template = await self._load_template_content(template_id)
+
+            # Build template context
+            template_context = {
+                "npc": {
+                    "id": npc.id,
+                    "name": npc.name,
+                    "age": npc.age,
+                    "personality": npc.personality,
+                    "background": npc.background,
+                    "knowledge_scope": npc.knowledge_scope or {},
+                },
+                "script": {
+                    "id": script.id if script else "",
+                    "title": script.title if script else "",
+                    "background": script.background if script else "",
+                } if script else {},
+                "clue_guides": clue_guides,
+                "has_clue": has_clue_guidance,
+            }
+
+            # Render system prompt
+            system_prompt_segments: list[PromptSegment] | None = None
+            if system_template:
+                render_result = template_renderer.render(system_template, template_context)
+                system_prompt = render_result.rendered_content
+                if render_result.segments:
+                    system_prompt_segments = [
+                        PromptSegment(
+                            type=seg.type,
+                            content=seg.content,
+                            variable_name=seg.variable_name,
+                        )
+                        for seg in render_result.segments
+                    ]
+            else:
+                system_prompt = f"你是{npc.name}。性格：{npc.personality or '友善'}。背景：{npc.background or '无'}。"
+
+            # Get dialogue history
+            history_messages = await self._get_dialogue_history(
+                context.session_id, limit=settings.dialogue_history_limit
+            )
+
+            # Build messages array
+            messages = [{"role": "system", "content": system_prompt}]
+
+            for log in history_messages:
+                messages.append({"role": "user", "content": log.player_message})
+                if log.npc_response:
+                    messages.append({"role": "assistant", "content": log.npc_response})
+
+            # Build user message with guide instruction
+            user_prompt_segments: list[PromptSegment] = []
+            if has_clue_guidance:
+                guide_prefix = (
+                    f"【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
+                    f"用{npc.name}的语气说出来，不要一次性讲完所有细节，"
+                    f"不要提到'线索'、'卡牌'、'ID'等元信息：\n"
+                )
+                clue_guides_text = "\n".join(clue_guides)
+                guide = guide_prefix + clue_guides_text
+                user_prompt_segments.append(PromptSegment(type="system", content=guide_prefix))
+                user_prompt_segments.append(PromptSegment(type="variable", content=clue_guides_text, variable_name="clue_guides"))
+            else:
+                guide = (
+                    f"【指引】这一次你不需要提供新的关键情报，"
+                    f"只需根据对话和人设，自然回应对方。"
+                )
+                user_prompt_segments.append(PromptSegment(type="system", content=guide))
+
+            user_prompt_segments.append(PromptSegment(type="system", content="\n玩家刚才的话是："))
+            user_prompt_segments.append(PromptSegment(type="variable", content=player_message, variable_name="player_message"))
+            user_content = f"{guide}\n玩家刚才的话是：{player_message}"
+            messages.append({"role": "user", "content": user_content})
+
+            # Get temperature and max_tokens
+            temperature = 0.7
+            max_tokens = None
+            chat_override = context.chat_options_override
+
+            if chat_override:
+                if chat_override.temperature is not None:
+                    temperature = chat_override.temperature
+                if chat_override.max_tokens is not None:
+                    max_tokens = chat_override.max_tokens
+            elif chat_config.options:
+                config_temp = chat_config.options.get("temperature")
+                if config_temp is not None:
+                    temperature = config_temp
+                config_max_tokens = chat_config.options.get("max_tokens")
+                if config_max_tokens is not None:
+                    max_tokens = config_max_tokens
+
+            # Stream LLM response
+            logger.info(f"Streaming LLM with {len(messages)} messages")
+            full_response = ""
+            async for chunk in LLMClient.call_stream_with_messages(
+                chat_config, messages, temperature, max_tokens
+            ):
+                full_response += chunk
+                yield (chunk, None)
+
+            logger.info(f"Streaming NPC response completed: {len(full_response)} chars")
+
+            # Final result with complete response
+            final_result = NpcResponseResult(
+                response=full_response,
+                system_prompt=system_prompt,
+                user_prompt=user_content,
+                messages=messages,
+                has_clue=has_clue_guidance,
+                system_prompt_segments=system_prompt_segments,
+                user_prompt_segments=user_prompt_segments if user_prompt_segments else None,
+                metrics=None,  # Usage metrics not available in streaming mode
+            )
+            yield ("", final_result)
+
+        except Exception as e:
+            logger.error(f"Failed to generate streaming NPC response: {e}", exc_info=True)
+            yield ("", NpcResponseResult())
+
     def _select_template(
         self, context: MatchContext, has_clue_guidance: bool
     ) -> str | None:
