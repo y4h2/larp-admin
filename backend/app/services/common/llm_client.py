@@ -226,7 +226,7 @@ class LLMClient:
         messages: list[dict],
         temperature: float = 0.7,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[tuple[str, dict | None], None]:
         """Call LLM with streaming response using full messages array.
 
         Args:
@@ -236,17 +236,24 @@ class LLMClient:
             max_tokens: Optional max tokens limit
 
         Yields:
-            Text chunks from streaming response
+            Tuple of (chunk, usage) where usage is None until final chunk
+            Final yield is ("", usage_dict) with token counts and model info
         """
+        import time
+        start_time = time.time()
+
         client = await cls.get_stream_client()
         request_body: dict[str, Any] = {
             "model": config.model,
             "messages": messages,
             "temperature": temperature,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         if max_tokens is not None:
             request_body["max_tokens"] = max_tokens
+
+        usage_info: dict | None = None
 
         async with client.stream(
             "POST",
@@ -262,11 +269,30 @@ class LLMClient:
                         break
                     try:
                         data = json.loads(data_str)
-                        content = data["choices"][0]["delta"].get("content", "")
-                        if content:
-                            yield content
+                        # Check for usage in final chunk
+                        if "usage" in data and data["usage"]:
+                            usage_info = {
+                                "prompt_tokens": data["usage"].get("prompt_tokens"),
+                                "completion_tokens": data["usage"].get("completion_tokens"),
+                                "total_tokens": data["usage"].get("total_tokens"),
+                                "model": config.model,
+                            }
+                        # Yield content chunk
+                        if "choices" in data and data["choices"]:
+                            content = data["choices"][0].get("delta", {}).get("content", "")
+                            if content:
+                                yield (content, None)
                     except json.JSONDecodeError:
                         continue
+
+        # Calculate latency and yield final usage
+        latency_ms = (time.time() - start_time) * 1000
+        if usage_info:
+            usage_info["latency_ms"] = latency_ms
+        else:
+            usage_info = {"latency_ms": latency_ms, "model": config.model}
+
+        yield ("", usage_info)
 
     @classmethod
     async def call_json(

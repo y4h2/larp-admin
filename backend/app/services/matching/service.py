@@ -306,12 +306,27 @@ class MatchingService:
                 ] if npc_result.user_prompt_segments else None,
             }
 
+        # Build NPC LLM usage info
+        npc_llm_usage = None
+        if npc_result.metrics:
+            metrics = npc_result.metrics
+            npc_llm_usage = {
+                "npc_tokens": {
+                    "prompt_tokens": metrics.prompt_tokens,
+                    "completion_tokens": metrics.completion_tokens,
+                    "total_tokens": metrics.total_tokens,
+                },
+                "npc_latency_ms": metrics.latency_ms,
+                "npc_model": metrics.model,
+            }
+
         # Yield complete event
         yield {
             "event": "complete",
             "data": {
                 "npc_response": npc_result.response,
                 "prompt_info": prompt_info,
+                "npc_llm_usage": npc_llm_usage,
             },
         }
 

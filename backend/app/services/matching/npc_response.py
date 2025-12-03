@@ -327,13 +327,32 @@ class NpcResponseGenerator:
             # Stream LLM response
             logger.info(f"Streaming LLM with {len(messages)} messages")
             full_response = ""
-            async for chunk in LLMClient.call_stream_with_messages(
+            usage_info: dict | None = None
+            async for chunk, usage in LLMClient.call_stream_with_messages(
                 chat_config, messages, temperature, max_tokens
             ):
-                full_response += chunk
-                yield (chunk, None)
+                if chunk:
+                    full_response += chunk
+                    yield (chunk, None)
+                if usage:
+                    usage_info = usage
 
             logger.info(f"Streaming NPC response completed: {len(full_response)} chars")
+
+            # Build metrics from streaming usage info
+            metrics = None
+            if usage_info:
+                metrics = LLMMetrics(
+                    prompt_tokens=usage_info.get("prompt_tokens"),
+                    completion_tokens=usage_info.get("completion_tokens"),
+                    total_tokens=usage_info.get("total_tokens"),
+                    latency_ms=usage_info.get("latency_ms"),
+                    model=usage_info.get("model"),
+                )
+                logger.debug(
+                    f"Streaming LLM response: latency={metrics.latency_ms}ms, "
+                    f"tokens(prompt={metrics.prompt_tokens}, completion={metrics.completion_tokens})"
+                )
 
             # Final result with complete response
             final_result = NpcResponseResult(
@@ -344,7 +363,7 @@ class NpcResponseGenerator:
                 has_clue=has_clue_guidance,
                 system_prompt_segments=system_prompt_segments,
                 user_prompt_segments=user_prompt_segments if user_prompt_segments else None,
-                metrics=None,  # Usage metrics not available in streaming mode
+                metrics=metrics,
             )
             yield ("", final_result)
 

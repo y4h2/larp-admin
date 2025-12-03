@@ -37,6 +37,15 @@ export interface StreamCompleteData {
     system_prompt_segments?: { type: string; content: string; variable_name?: string }[];
     user_prompt_segments?: { type: string; content: string; variable_name?: string }[];
   } | null;
+  npc_llm_usage?: {
+    npc_tokens?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    };
+    npc_latency_ms?: number;
+    npc_model?: string;
+  } | null;
   log_id: string | null;
 }
 

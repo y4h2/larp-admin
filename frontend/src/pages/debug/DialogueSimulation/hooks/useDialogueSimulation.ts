@@ -386,7 +386,11 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
           onMatchResult: (data) => {
             triggeredCount = data.triggered_clues.length;
             setLastMatchResults(data.matched_clues);
-            setLastDebugInfo(data.debug_info);
+            // Include matching_llm_usage in debug info
+            setLastDebugInfo({
+              ...data.debug_info,
+              matching_llm_usage: data.matching_llm_usage,
+            });
 
             // Add system message for match results
             const systemMessage: ChatMessage = {
@@ -415,6 +419,13 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
                 timestamp: Date.now(),
               };
               setChatHistory((prev) => [...prev, npcMessage]);
+            }
+            // Add NPC LLM usage to debug info
+            if (data.npc_llm_usage) {
+              setLastDebugInfo((prev) => ({
+                ...prev,
+                npc_llm_usage: data.npc_llm_usage,
+              }));
             }
             setStreamingNpcResponse('');
           },

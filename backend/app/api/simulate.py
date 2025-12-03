@@ -191,18 +191,26 @@ async def simulate_dialogue_stream(
                 elif event_type == "complete":
                     full_npc_response = data.get("npc_response")
                     prompt_info = data.get("prompt_info")
+                    npc_llm_usage = data.get("npc_llm_usage")
 
                     # Save dialogue log if requested
                     if request.save_log and match_result_data:
                         session_id = request.session_id or str(uuid4())
                         debug_info_to_save = match_result_data.get("debug_info", {}).copy()
                         debug_info_to_save["prompt_info"] = prompt_info
+
+                        # Build LLM usage info from both matching and NPC
+                        llm_usage_to_save = {}
                         if match_result_data.get("matching_llm_usage"):
-                            debug_info_to_save["llm_usage"] = {
-                                "matching_tokens": match_result_data["matching_llm_usage"].get("matching_tokens"),
-                                "matching_latency_ms": match_result_data["matching_llm_usage"].get("matching_latency_ms"),
-                                "matching_model": match_result_data["matching_llm_usage"].get("matching_model"),
-                            }
+                            llm_usage_to_save["matching_tokens"] = match_result_data["matching_llm_usage"].get("matching_tokens")
+                            llm_usage_to_save["matching_latency_ms"] = match_result_data["matching_llm_usage"].get("matching_latency_ms")
+                            llm_usage_to_save["matching_model"] = match_result_data["matching_llm_usage"].get("matching_model")
+                        if npc_llm_usage:
+                            llm_usage_to_save["npc_tokens"] = npc_llm_usage.get("npc_tokens")
+                            llm_usage_to_save["npc_latency_ms"] = npc_llm_usage.get("npc_latency_ms")
+                            llm_usage_to_save["npc_model"] = npc_llm_usage.get("npc_model")
+                        if llm_usage_to_save:
+                            debug_info_to_save["llm_usage"] = llm_usage_to_save
 
                         log = DialogueLog(
                             session_id=session_id,
