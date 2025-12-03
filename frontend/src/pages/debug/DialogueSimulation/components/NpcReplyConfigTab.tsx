@@ -45,7 +45,7 @@ export const NpcReplyConfigTab: React.FC<NpcReplyConfigTabProps> = ({
   t,
 }) => {
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
       <div style={{ padding: '8px 12px', background: enableNpcReply ? '#f6ffed' : '#fafafa', borderRadius: 6, border: enableNpcReply ? '1px solid #b7eb8f' : '1px solid #d9d9d9' }}>
         <Space>
           <Switch checked={enableNpcReply} onChange={onEnableChange} size="small" />

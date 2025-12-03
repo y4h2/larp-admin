@@ -99,3 +99,6 @@ class NpcResponseResult:
     system_prompt: str | None = None
     user_prompt: str | None = None
     messages: list[dict] | None = None
+    has_clue: bool = False  # Whether triggered clues were used
+    system_prompt_segments: list[PromptSegment] | None = None
+    user_prompt_segments: list[PromptSegment] | None = None

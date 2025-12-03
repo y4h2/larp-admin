@@ -462,7 +462,13 @@
     "embeddingSimilarity": "Embedding Similarity",
     "keywordMatches": "Keyword Matches",
     "matchScore": "Match Score",
-    "matchPrompt": "Match Prompt"
+    "matchPrompt": "Match Prompt",
+    "npcReplyPrompts": "NPC Reply Prompts",
+    "npcReplySection": "NPC Reply Generation",
+    "hasClueTemplate": "With Clue Template",
+    "noClueTemplate": "No Clue Template",
+    "chatHistory": "Chat History",
+    "rounds": "rounds"
   },
   "template": {
     "title": "Prompt Templates",

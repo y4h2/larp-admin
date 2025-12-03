@@ -170,6 +170,9 @@ export interface PromptInfo {
   system_prompt?: string | null;
   user_prompt?: string | null;
   messages?: PromptMessage[] | null;
+  has_clue?: boolean;  // Whether triggered clues were used in the prompt
+  system_prompt_segments?: PromptSegment[] | null;
+  user_prompt_segments?: PromptSegment[] | null;
 }
 
 export interface DialogueLogDebugInfo {

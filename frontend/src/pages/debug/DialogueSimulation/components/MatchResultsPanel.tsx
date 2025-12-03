@@ -44,7 +44,7 @@ export const MatchResultsPanel: React.FC<MatchResultsPanelProps> = ({
       dataIndex: 'match_reasons',
       key: 'match_reasons',
       render: (reasons: string[]) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           {reasons.map((r, i) => (
             <Text key={i} type="secondary" style={{ fontSize: 12 }}>{r}</Text>
           ))}

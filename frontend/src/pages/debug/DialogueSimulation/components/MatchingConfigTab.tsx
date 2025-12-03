@@ -59,7 +59,7 @@ export const MatchingConfigTab: React.FC<MatchingConfigTabProps> = ({
   t,
 }) => {
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
       <div>
         <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>{t('debug.matchingStrategy')}</div>
         <Select value={matchingStrategy} onChange={onStrategyChange} style={{ width: '100%' }}>

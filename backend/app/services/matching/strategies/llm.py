@@ -13,7 +13,7 @@ from app.models.prompt_template import PromptTemplate
 from app.services.common import LLMClient, LLMConfigManager
 from app.services.template import template_renderer
 
-from ..models import LLMMatchPrompts, LLMMatchResponse, MatchContext, MatchResult
+from ..models import LLMMatchPrompts, LLMMatchResponse, MatchContext, MatchResult, PromptSegment
 from .base import BaseStrategy
 from .keyword import KeywordStrategy
 
@@ -54,8 +54,8 @@ class LLMStrategy(BaseStrategy):
         if not candidates:
             return results, None
 
-        # Build system prompt
-        system_prompt = await self._build_llm_matching_prompt(
+        # Build system prompt with segments
+        system_prompt, system_segments = await self._build_llm_matching_prompt(
             context.template_id, candidates, context.llm_return_all_scores
         )
 
@@ -63,6 +63,8 @@ class LLMStrategy(BaseStrategy):
         llm_prompts = LLMMatchPrompts(
             system_prompt=system_prompt,
             user_message=context.player_message,
+            system_prompt_segments=system_segments,
+            user_message_segments=None,  # User message is plain text
         )
 
         # Call LLM
@@ -115,8 +117,14 @@ class LLMStrategy(BaseStrategy):
         template_id: str | None,
         clues: list[Clue],
         return_all_scores: bool = False,
-    ) -> str:
-        """Build the system prompt for LLM matching."""
+    ) -> tuple[str, list[PromptSegment]]:
+        """Build the system prompt for LLM matching.
+
+        Returns:
+            Tuple of (prompt string, list of segments for UI rendering)
+        """
+        segments: list[PromptSegment] = []
+
         # Build clue list
         clue_list = []
         for i, clue in enumerate(clues, 1):
@@ -132,6 +140,7 @@ class LLMStrategy(BaseStrategy):
 
         # Load matching strategy from template
         matching_strategy = None
+        matching_strategy_is_template = False
         if template_id:
             query = select(PromptTemplate).where(
                 PromptTemplate.id == template_id,
@@ -146,6 +155,7 @@ class LLMStrategy(BaseStrategy):
                     {"clues": clues_text},
                 )
                 matching_strategy = render_result.rendered_content
+                matching_strategy_is_template = True
 
         # Default matching strategy
         if not matching_strategy:
@@ -161,7 +171,31 @@ class LLMStrategy(BaseStrategy):
             output_requirements = """- 只返回匹配的线索，提供置信度分数(score: 0.0-1.0)和匹配原因(reason)
 - 如果没有匹配的线索，返回空数组"""
 
-        return f"""你是一个剧本杀线索匹配助手。根据玩家的对话内容，判断哪些线索应该被触发。
+        # Build segments for UI rendering
+        segments.append(PromptSegment(
+            type="system",
+            content="你是一个剧本杀线索匹配助手。根据玩家的对话内容，判断哪些线索应该被触发。\n\n## 可用线索列表\n"
+        ))
+        segments.append(PromptSegment(
+            type="variable",
+            content=clues_text,
+            variable_name="clues"
+        ))
+        segments.append(PromptSegment(
+            type="system",
+            content="\n\n## 匹配策略\n"
+        ))
+        segments.append(PromptSegment(
+            type="template" if matching_strategy_is_template else "system",
+            content=matching_strategy
+        ))
+        segments.append(PromptSegment(
+            type="system",
+            content="\n\n## 输出要求\n" + output_requirements
+        ))
+
+        # Build full prompt
+        full_prompt = f"""你是一个剧本杀线索匹配助手。根据玩家的对话内容，判断哪些线索应该被触发。
 
 ## 可用线索列表
 {clues_text}
@@ -171,6 +205,8 @@ class LLMStrategy(BaseStrategy):
 
 ## 输出要求
 {output_requirements}"""
+
+        return full_prompt, segments
 
     async def _call_llm_for_matching(
         self, config: LLMConfig, system_prompt: str, user_message: str

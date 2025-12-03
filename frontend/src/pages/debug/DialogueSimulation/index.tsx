@@ -161,28 +161,9 @@ export default function DialogueSimulation() {
         <Col xs={24} sm={24} md={16} lg={10} xl={10}>
           <Card size="small">
             <Tabs
-              defaultActiveKey="results"
+              defaultActiveKey="clues"
               size="small"
               items={[
-                {
-                  key: 'results',
-                  label: (
-                    <span>
-                      <SearchOutlined /> {t('debug.matchResults')}
-                      {simulation.lastMatchResults && simulation.lastMatchResults.length > 0 && (
-                        <Tag style={{ marginLeft: 8 }}>{simulation.lastMatchResults.length}</Tag>
-                      )}
-                    </span>
-                  ),
-                  children: (
-                    <MatchResultsPanel
-                      lastMatchResults={simulation.lastMatchResults}
-                      lastDebugInfo={simulation.lastDebugInfo}
-                      selectedMatchingTemplate={simulation.selectedMatchingTemplate}
-                      t={t}
-                    />
-                  ),
-                },
                 {
                   key: 'clues',
                   label: (
@@ -199,6 +180,25 @@ export default function DialogueSimulation() {
                       renderedPreviews={simulation.renderedPreviews}
                       renderingClueId={simulation.renderingClueId}
                       onRenderClue={simulation.handleRenderClue}
+                      t={t}
+                    />
+                  ),
+                },
+                {
+                  key: 'results',
+                  label: (
+                    <span>
+                      <SearchOutlined /> {t('debug.matchResults')}
+                      {simulation.lastMatchResults && simulation.lastMatchResults.length > 0 && (
+                        <Tag style={{ marginLeft: 8 }}>{simulation.lastMatchResults.length}</Tag>
+                      )}
+                    </span>
+                  ),
+                  children: (
+                    <MatchResultsPanel
+                      lastMatchResults={simulation.lastMatchResults}
+                      lastDebugInfo={simulation.lastDebugInfo}
+                      selectedMatchingTemplate={simulation.selectedMatchingTemplate}
                       t={t}
                     />
                   ),

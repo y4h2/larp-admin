@@ -15,7 +15,7 @@ from app.schemas.simulate import ChatOptionsOverride
 from app.services.common import LLMClient, LLMConfigManager
 from app.services.template import template_renderer
 
-from .models import MatchContext, MatchResult, NpcResponseResult
+from .models import MatchContext, MatchResult, NpcResponseResult, PromptSegment
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +97,20 @@ class NpcResponseGenerator:
             }
 
             # Render system prompt
+            system_prompt_segments: list[PromptSegment] | None = None
             if system_template:
                 render_result = template_renderer.render(system_template, template_context)
                 system_prompt = render_result.rendered_content
+                # Convert Pydantic segments to dataclass segments
+                if render_result.segments:
+                    system_prompt_segments = [
+                        PromptSegment(
+                            type=seg.type,
+                            content=seg.content,
+                            variable_name=seg.variable_name,
+                        )
+                        for seg in render_result.segments
+                    ]
             else:
                 system_prompt = f"你是{npc.name}。性格：{npc.personality or '友善'}。背景：{npc.background or '无'}。"
 
@@ -117,19 +128,27 @@ class NpcResponseGenerator:
                     messages.append({"role": "assistant", "content": log.npc_response})
 
             # Build user message with guide instruction
+            user_prompt_segments: list[PromptSegment] = []
             if has_clue_guidance:
-                guide = (
+                guide_prefix = (
                     f"【指引】请在接下来的回答中，自然地透露以下信息的一部分，"
                     f"用{npc.name}的语气说出来，不要一次性讲完所有细节，"
                     f"不要提到'线索'、'卡牌'、'ID'等元信息：\n"
-                    + "\n".join(clue_guides)
                 )
+                clue_guides_text = "\n".join(clue_guides)
+                guide = guide_prefix + clue_guides_text
+                # Build segments for user prompt
+                user_prompt_segments.append(PromptSegment(type="system", content=guide_prefix))
+                user_prompt_segments.append(PromptSegment(type="variable", content=clue_guides_text, variable_name="clue_guides"))
             else:
                 guide = (
                     f"【指引】这一次你不需要提供新的关键情报，"
                     f"只需根据对话和人设，自然回应对方。"
                 )
+                user_prompt_segments.append(PromptSegment(type="system", content=guide))
 
+            user_prompt_segments.append(PromptSegment(type="system", content="\n玩家刚才的话是："))
+            user_prompt_segments.append(PromptSegment(type="variable", content=player_message, variable_name="player_message"))
             user_content = f"{guide}\n玩家刚才的话是：{player_message}"
             messages.append({"role": "user", "content": user_content})
 
@@ -145,6 +164,9 @@ class NpcResponseGenerator:
                 system_prompt=system_prompt,
                 user_prompt=user_content,
                 messages=messages,
+                has_clue=has_clue_guidance,
+                system_prompt_segments=system_prompt_segments,
+                user_prompt_segments=user_prompt_segments if user_prompt_segments else None,
             )
 
         except Exception as e:

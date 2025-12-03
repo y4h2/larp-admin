@@ -153,7 +153,7 @@ class TemplateRenderer:
                 rendered_parts.append(remaining)
 
         return TemplateRenderResponse(
-            content="".join(rendered_parts),
+            rendered_content="".join(rendered_parts),
             warnings=warnings,
             unresolved_variables=unresolved,
             segments=segments,

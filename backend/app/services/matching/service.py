@@ -120,6 +120,15 @@ class MatchingService:
                 "system_prompt": npc_result.system_prompt,
                 "user_prompt": npc_result.user_prompt,
                 "messages": npc_result.messages,
+                "has_clue": npc_result.has_clue,
+                "system_prompt_segments": [
+                    {"type": seg.type, "content": seg.content, "variable_name": seg.variable_name}
+                    for seg in npc_result.system_prompt_segments
+                ] if npc_result.system_prompt_segments else None,
+                "user_prompt_segments": [
+                    {"type": seg.type, "content": seg.content, "variable_name": seg.variable_name}
+                    for seg in npc_result.user_prompt_segments
+                ] if npc_result.user_prompt_segments else None,
             }
 
         return SimulateResponse(
@@ -274,6 +283,25 @@ class MatchingService:
             if isinstance(strategy_debug, LLMMatchPrompts):
                 detail["llm_system_prompt"] = strategy_debug.system_prompt
                 detail["llm_user_message"] = strategy_debug.user_message
+                # Add segments for color-coded display
+                if strategy_debug.system_prompt_segments:
+                    detail["llm_system_prompt_segments"] = [
+                        {
+                            "type": seg.type,
+                            "content": seg.content,
+                            "variable_name": seg.variable_name,
+                        }
+                        for seg in strategy_debug.system_prompt_segments
+                    ]
+                if strategy_debug.user_message_segments:
+                    detail["llm_user_message_segments"] = [
+                        {
+                            "type": seg.type,
+                            "content": seg.content,
+                            "variable_name": seg.variable_name,
+                        }
+                        for seg in strategy_debug.user_message_segments
+                    ]
             # Add embedding rendered content and segments for embedding strategy
             if isinstance(strategy_debug, EmbeddingRenderedContent):
                 if clue.id in strategy_debug.clue_contents:

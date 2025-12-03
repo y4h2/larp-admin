@@ -462,7 +462,13 @@
     "embeddingSimilarity": "向量相似度",
     "keywordMatches": "关键词匹配",
     "matchScore": "匹配分数",
-    "matchPrompt": "匹配提示词"
+    "matchPrompt": "匹配提示词",
+    "npcReplyPrompts": "NPC 回复提示词",
+    "npcReplySection": "NPC 回复生成",
+    "hasClueTemplate": "有线索模板",
+    "noClueTemplate": "无线索模板",
+    "chatHistory": "对话历史",
+    "rounds": "轮"
   },
   "template": {
     "title": "提示词模板",
