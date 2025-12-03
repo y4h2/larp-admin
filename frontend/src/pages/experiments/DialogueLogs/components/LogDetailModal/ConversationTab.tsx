@@ -265,7 +265,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({ log, getNpcNam
       </div>
 
       {/* LLM Usage Statistics */}
-      <LLMUsagePanel usage={log.llm_usage} t={t} />
+      <LLMUsagePanel usage={log.debug_info?.llm_usage as LLMUsageInfo | undefined} t={t} />
 
       {/* Chat Messages */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

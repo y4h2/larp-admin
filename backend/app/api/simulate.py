@@ -93,6 +93,10 @@ async def simulate_dialogue(
     log_id = None
     if request.save_log:
         session_id = request.session_id or str(uuid4())
+        # Merge llm_usage into debug_info for persistence
+        debug_info_to_save = result.debug_info.copy() if result.debug_info else {}
+        if result.llm_usage:
+            debug_info_to_save["llm_usage"] = result.llm_usage.model_dump()
         log = DialogueLog(
             session_id=session_id,
             username=request.username,
@@ -111,7 +115,7 @@ async def simulate_dialogue(
             },
             matched_clues=[mc.model_dump() for mc in result.matched_clues],
             triggered_clues=[mc.clue_id for mc in result.triggered_clues],
-            debug_info=result.debug_info,
+            debug_info=debug_info_to_save,
         )
         db.add(log)
         await db.commit()
