@@ -1,14 +1,12 @@
 import { Space, Collapse, Tag, Divider, Typography } from 'antd';
 import {
   SearchOutlined,
-  UserOutlined,
   RobotOutlined,
   SettingOutlined,
   CodeOutlined,
   MessageOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  FileTextOutlined,
 } from '@ant-design/icons';
 import type { DialogueLog } from '@/types';
 import { formatDate } from '@/utils';
@@ -45,62 +43,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({ log, getNpcNam
 
       {/* Chat Messages */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* System Prompt */}
-        {promptInfo?.system_prompt && (
-          <Collapse
-            size="small"
-            items={[{
-              key: 'system',
-              label: (
-                <span style={{ color: '#666' }}>
-                  <SettingOutlined style={{ marginRight: 6 }} />
-                  {t('logs.systemPromptLabel')}
-                </span>
-              ),
-              children: (
-                <Paragraph copyable style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 300, overflow: 'auto', fontSize: 13 }}>
-                  {promptInfo.system_prompt}
-                </Paragraph>
-              ),
-            }]}
-          />
-        )}
-
-        {/* User Prompt */}
-        {promptInfo?.user_prompt && (
-          <Collapse
-            size="small"
-            items={[{
-              key: 'user_prompt',
-              label: (
-                <span style={{ color: '#1890ff' }}>
-                  <CodeOutlined style={{ marginRight: 6 }} />
-                  {t('logs.userPromptLabel')}
-                </span>
-              ),
-              children: (
-                <Paragraph
-                  copyable
-                  style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 300, overflow: 'auto', fontSize: 13, background: '#e6f7ff', padding: 12, borderRadius: 4 }}
-                >
-                  {promptInfo.user_prompt}
-                </Paragraph>
-              ),
-            }]}
-          />
-        )}
-
-        {/* Player Message */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <div style={{ maxWidth: '85%', padding: 12, background: '#1890ff', color: '#fff', borderRadius: '12px 12px 4px 12px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-            <div style={{ fontSize: 12, marginBottom: 4, opacity: 0.8 }}>
-              <UserOutlined style={{ marginRight: 4 }} />
-              {t('logs.playerMessage')}
-            </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>{log.player_message}</div>
-          </div>
-        </div>
-
         {/* Retrieval Process */}
         {debugInfo && (debugInfo.candidates?.length > 0 || log.matched_clues?.length > 0) && (
           <Collapse

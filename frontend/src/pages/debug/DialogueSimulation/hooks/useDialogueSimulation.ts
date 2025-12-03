@@ -47,7 +47,7 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
 
   // Matching configuration
   const [matchingStrategy, setMatchingStrategy] = useState<MatchingStrategy>(
-    storedConfig.matchingStrategy ?? 'keyword'
+    storedConfig.matchingStrategy === 'keyword' ? 'llm' : (storedConfig.matchingStrategy ?? 'llm')
   );
   const [matchingTemplateId, setMatchingTemplateId] = useState<string | undefined>(
     storedConfig.matchingTemplateId

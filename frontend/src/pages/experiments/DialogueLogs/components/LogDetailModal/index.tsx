@@ -3,8 +3,6 @@ import {
   MessageOutlined,
   SettingOutlined,
   ExperimentOutlined,
-  CheckCircleOutlined,
-  CodeOutlined,
   CommentOutlined,
 } from '@ant-design/icons';
 import type { DialogueLog } from '@/types';
@@ -13,8 +11,6 @@ import { DialogueTab } from './DialogueTab';
 import { ConversationTab } from './ConversationTab';
 import { ConfigTab } from './ConfigTab';
 import { AlgorithmTab } from './AlgorithmTab';
-import { TriggeredTab } from './TriggeredTab';
-import { PromptTab } from './PromptTab';
 
 interface LogDetailModalProps {
   visible: boolean;
@@ -67,16 +63,6 @@ export const LogDetailModal: React.FC<LogDetailModalProps> = ({
             key: 'algorithm',
             label: <span><ExperimentOutlined />{t('logs.algorithmFlow')}</span>,
             children: <AlgorithmTab log={log} t={t} />,
-          },
-          {
-            key: 'triggered',
-            label: <span><CheckCircleOutlined />{t('logs.triggeredClues')} ({log.matched_clues?.filter((mc) => mc.is_triggered).length || 0})</span>,
-            children: <TriggeredTab log={log} t={t} />,
-          },
-          {
-            key: 'prompts',
-            label: <span><CodeOutlined />{t('logs.promptInfo')}</span>,
-            children: <PromptTab log={log} t={t} />,
           },
         ]}
       />

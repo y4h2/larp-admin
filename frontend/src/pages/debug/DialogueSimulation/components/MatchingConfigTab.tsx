@@ -1,5 +1,5 @@
 import { Select, Space, Tag, Switch, Slider, Button, Typography } from 'antd';
-import { SearchOutlined, ThunderboltOutlined, RobotOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, RobotOutlined } from '@ant-design/icons';
 import type { PromptTemplate } from '@/api/templates';
 import type { LLMConfig } from '@/api/llmConfigs';
 import type { MatchingStrategy } from '@/types';
@@ -10,7 +10,6 @@ const { Option } = Select;
 const { Text } = Typography;
 
 const MATCHING_STRATEGIES: { value: MatchingStrategy; label: string; icon: React.ReactNode }[] = [
-  { value: 'keyword', label: 'debug.keywordMatching', icon: <SearchOutlined /> },
   { value: 'embedding', label: 'debug.embeddingMatching', icon: <ThunderboltOutlined /> },
   { value: 'llm', label: 'debug.llmMatching', icon: <RobotOutlined /> },
 ];
