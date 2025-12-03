@@ -80,3 +80,13 @@ export {
   getUserColor,
 } from './cursorPosition';
 export type { CursorPixelPosition } from './cursorPosition';
+
+// API error handling utilities
+export {
+  getRequestIdFromError,
+  formatErrorWithRequestId,
+  getErrorMessage,
+  showApiError,
+  showApiErrorNotification,
+  copyRequestIdToClipboard,
+} from './apiError';

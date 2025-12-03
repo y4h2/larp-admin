@@ -14,6 +14,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.api import api_router
 from app.config import settings
+from app.middleware import RequestIDMiddleware
 
 # Frontend static files directory
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -74,6 +75,9 @@ def create_app() -> FastAPI:
         allow_methods=settings.cors_allow_methods,
         allow_headers=settings.cors_allow_headers,
     )
+
+    # Add request ID middleware for tracking
+    app.add_middleware(RequestIDMiddleware)
 
     # Include API routes
     app.include_router(api_router, prefix="/api")
