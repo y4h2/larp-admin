@@ -15,7 +15,7 @@ from app.schemas.simulate import ChatOptionsOverride
 from app.services.common import LLMClient, LLMConfigManager
 from app.services.template import template_renderer
 
-from .models import MatchContext, MatchResult, NpcResponseResult, PromptSegment
+from .models import LLMMetrics, MatchContext, MatchResult, NpcResponseResult, PromptSegment
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ class NpcResponseGenerator:
 
             # Call LLM
             logger.info(f"Calling LLM with {len(messages)} messages")
-            response = await self._call_llm_with_messages(
+            response, metrics = await self._call_llm_with_messages(
                 chat_config, messages, context.chat_options_override
             )
             logger.info(f"NPC response generated: {len(response)} chars")
@@ -167,6 +167,7 @@ class NpcResponseGenerator:
                 has_clue=has_clue_guidance,
                 system_prompt_segments=system_prompt_segments,
                 user_prompt_segments=user_prompt_segments if user_prompt_segments else None,
+                metrics=metrics,
             )
 
         except Exception as e:
@@ -244,8 +245,12 @@ class NpcResponseGenerator:
         config: LLMConfig,
         messages: list[dict],
         chat_override: ChatOptionsOverride | None = None,
-    ) -> str:
-        """Call LLM with a full messages array."""
+    ) -> tuple[str, LLMMetrics]:
+        """Call LLM with a full messages array.
+
+        Returns:
+            Tuple of (response content, LLM metrics)
+        """
         temperature = 0.7
         max_tokens = None
 
@@ -266,6 +271,16 @@ class NpcResponseGenerator:
 
         logger.debug(f"LLM model: {config.model}, temp: {temperature}")
 
-        return await LLMClient.call_with_messages(
+        llm_response = await LLMClient.call_with_messages_with_usage(
             config, messages, temperature, max_tokens
         )
+
+        metrics = LLMMetrics(
+            prompt_tokens=llm_response.usage.prompt_tokens,
+            completion_tokens=llm_response.usage.completion_tokens,
+            total_tokens=llm_response.usage.total_tokens,
+            latency_ms=llm_response.latency_ms,
+            model=config.model,
+        )
+
+        return llm_response.content, metrics

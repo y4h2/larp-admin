@@ -7,3 +7,5 @@ export type { ResizableColumn } from './ResizableTable';
 export { default as OnlineUsers } from './OnlineUsers';
 export { default as EditingIndicator } from './EditingIndicator';
 export { default as SyncStatus } from './SyncStatus';
+export { default as VariableLabel } from './VariableLabel';
+export type { VariableLabelProps } from './VariableLabel';

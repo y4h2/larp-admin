@@ -39,6 +39,17 @@ class PromptSegment:
 
 
 @dataclass
+class LLMMetrics:
+    """LLM call metrics for tracking token usage and latency."""
+
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    latency_ms: float | None = None
+    model: str | None = None
+
+
+@dataclass
 class LLMMatchPrompts:
     """LLM matching prompts for debug info."""
 
@@ -46,6 +57,7 @@ class LLMMatchPrompts:
     user_message: str
     system_prompt_segments: list[PromptSegment] | None = None
     user_message_segments: list[PromptSegment] | None = None
+    metrics: LLMMetrics | None = None
 
 
 @dataclass
@@ -102,3 +114,4 @@ class NpcResponseResult:
     has_clue: bool = False  # Whether triggered clues were used
     system_prompt_segments: list[PromptSegment] | None = None
     user_prompt_segments: list[PromptSegment] | None = None
+    metrics: LLMMetrics | None = None

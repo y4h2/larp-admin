@@ -14,8 +14,9 @@ import {
 } from 'antd';
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, EditingIndicator, SyncStatus } from '@/components/common';
+import { PageHeader, EditingIndicator, SyncStatus, VariableLabel } from '@/components/common';
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect } from '@/components/collaborative';
+import { SCRIPT_VARIABLES } from '@/constants';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useRealtimeSync } from '@/hooks';
 import { scriptApi } from '@/api';
@@ -164,7 +165,7 @@ export default function ScriptDetail() {
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                   <Form.Item
                     name="title"
-                    label={t('script.scriptName')}
+                    label={<VariableLabel label={t('script.scriptName')} variablePath={SCRIPT_VARIABLES.title} />}
                     rules={[{ required: true, message: t('script.enterScriptName') }]}
                   >
                     <CollaborativeInput
@@ -173,7 +174,7 @@ export default function ScriptDetail() {
                       placeholder={t('script.enterScriptName')}
                     />
                   </Form.Item>
-                  <Form.Item name="summary" label={t('script.summary')}>
+                  <Form.Item name="summary" label={<VariableLabel label={t('script.summary')} variablePath={SCRIPT_VARIABLES.summary} />}>
                     <CollaborativeTextArea
                       docId={`script_${id}`}
                       fieldName="summary"
@@ -181,7 +182,7 @@ export default function ScriptDetail() {
                       rows={3}
                     />
                   </Form.Item>
-                  <Form.Item name="background" label={t('script.background')}>
+                  <Form.Item name="background" label={<VariableLabel label={t('script.background')} variablePath={SCRIPT_VARIABLES.background} />}>
                     <CollaborativeTextArea
                       docId={`script_${id}`}
                       fieldName="background"
@@ -189,7 +190,7 @@ export default function ScriptDetail() {
                       rows={4}
                     />
                   </Form.Item>
-                  <Form.Item name="difficulty" label={t('script.difficulty')}>
+                  <Form.Item name="difficulty" label={<VariableLabel label={t('script.difficulty')} variablePath={SCRIPT_VARIABLES.difficulty} />}>
                     <CollaborativeSelect docId={`script_${id}`} fieldName="difficulty">
                       <Option value="easy">{t('script.easy')}</Option>
                       <Option value="medium">{t('script.medium')}</Option>
@@ -206,21 +207,21 @@ export default function ScriptDetail() {
             children: (
               <Card title={t('script.truthSubtitle')}>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
-                  <Form.Item name={['truth', 'murderer']} label={t('script.murderer')}>
+                  <Form.Item name={['truth', 'murderer']} label={<VariableLabel label={t('script.murderer')} variablePath={SCRIPT_VARIABLES['truth.murderer']} />}>
                     <CollaborativeInput
                       docId={`script_${id}`}
                       fieldName="truth_murderer"
                       placeholder={t('script.murdererPlaceholder')}
                     />
                   </Form.Item>
-                  <Form.Item name={['truth', 'weapon']} label={t('script.weapon')}>
+                  <Form.Item name={['truth', 'weapon']} label={<VariableLabel label={t('script.weapon')} variablePath={SCRIPT_VARIABLES['truth.weapon']} />}>
                     <CollaborativeInput
                       docId={`script_${id}`}
                       fieldName="truth_weapon"
                       placeholder={t('script.weaponPlaceholder')}
                     />
                   </Form.Item>
-                  <Form.Item name={['truth', 'motive']} label={t('script.motive')}>
+                  <Form.Item name={['truth', 'motive']} label={<VariableLabel label={t('script.motive')} variablePath={SCRIPT_VARIABLES['truth.motive']} />}>
                     <CollaborativeTextArea
                       docId={`script_${id}`}
                       fieldName="truth_motive"
@@ -228,7 +229,7 @@ export default function ScriptDetail() {
                       rows={3}
                     />
                   </Form.Item>
-                  <Form.Item name={['truth', 'crime_method']} label={t('script.crimeMethod')}>
+                  <Form.Item name={['truth', 'crime_method']} label={<VariableLabel label={t('script.crimeMethod')} variablePath={SCRIPT_VARIABLES['truth.crime_method']} />}>
                     <CollaborativeTextArea
                       docId={`script_${id}`}
                       fieldName="truth_crime_method"

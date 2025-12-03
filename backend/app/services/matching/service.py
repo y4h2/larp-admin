@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.clue import Clue
 from app.schemas.simulate import (
+    LLMTokenUsage,
+    LLMUsageInfo,
     MatchedClue,
     MatchingStrategy,
     SimulateRequest,
@@ -131,6 +133,9 @@ class MatchingService:
                 ] if npc_result.user_prompt_segments else None,
             }
 
+        # Build LLM usage info from metrics
+        llm_usage = self._build_llm_usage_info(strategy_debug, npc_result)
+
         return SimulateResponse(
             matched_clues=matched_clues,
             triggered_clues=triggered_clues,
@@ -147,6 +152,7 @@ class MatchingService:
                 "excluded": excluded_clues,
                 "prompt_info": prompt_info,
             },
+            llm_usage=llm_usage,
         )
 
     async def _get_candidate_clues(
@@ -361,3 +367,51 @@ class MatchingService:
             embedding_similarity=result.embedding_similarity,
             is_triggered=result.is_triggered,
         )
+
+    def _build_llm_usage_info(
+        self,
+        strategy_debug: LLMMatchPrompts | EmbeddingRenderedContent | None,
+        npc_result: NpcResponseResult,
+    ) -> LLMUsageInfo | None:
+        """Build LLM usage info from metrics."""
+        matching_tokens = None
+        matching_latency_ms = None
+        matching_model = None
+        npc_tokens = None
+        npc_latency_ms = None
+        npc_model = None
+
+        # Extract matching metrics (only for LLM strategy)
+        if isinstance(strategy_debug, LLMMatchPrompts) and strategy_debug.metrics:
+            metrics = strategy_debug.metrics
+            matching_tokens = LLMTokenUsage(
+                prompt_tokens=metrics.prompt_tokens,
+                completion_tokens=metrics.completion_tokens,
+                total_tokens=metrics.total_tokens,
+            )
+            matching_latency_ms = metrics.latency_ms
+            matching_model = metrics.model
+
+        # Extract NPC response metrics
+        if npc_result.metrics:
+            metrics = npc_result.metrics
+            npc_tokens = LLMTokenUsage(
+                prompt_tokens=metrics.prompt_tokens,
+                completion_tokens=metrics.completion_tokens,
+                total_tokens=metrics.total_tokens,
+            )
+            npc_latency_ms = metrics.latency_ms
+            npc_model = metrics.model
+
+        # Only return if we have any metrics
+        if matching_tokens or npc_tokens:
+            return LLMUsageInfo(
+                matching_tokens=matching_tokens,
+                matching_latency_ms=matching_latency_ms,
+                matching_model=matching_model,
+                npc_tokens=npc_tokens,
+                npc_latency_ms=npc_latency_ms,
+                npc_model=npc_model,
+            )
+
+        return None

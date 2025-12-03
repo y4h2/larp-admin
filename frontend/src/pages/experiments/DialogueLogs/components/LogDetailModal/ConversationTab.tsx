@@ -1,4 +1,4 @@
-import { Space, Collapse, Tag, Divider, Typography } from 'antd';
+import { Space, Collapse, Tag, Divider, Typography, Statistic, Row, Col, Progress, Tooltip } from 'antd';
 import {
   SearchOutlined,
   RobotOutlined,
@@ -7,13 +7,236 @@ import {
   MessageOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  ThunderboltOutlined,
+  FieldTimeOutlined,
+  StopOutlined,
+  LockOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import type { DialogueLog } from '@/types';
+import type { DialogueLog, LLMUsageInfo, LLMTokenUsage, CandidateClueDetail, ExcludedClueDetail } from '@/types';
 import { formatDate } from '@/utils';
 import { SegmentedPromptRenderer } from '../SegmentedPromptRenderer';
 import { PromptLegend } from '../PromptLegend';
 
 const { Text, Paragraph } = Typography;
+
+// Helper to format latency
+const formatLatency = (ms: number | null | undefined): string => {
+  if (ms == null) return '-';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+};
+
+// Helper to format token count
+const formatTokens = (tokens: LLMTokenUsage | null | undefined): string => {
+  if (!tokens) return '-';
+  return tokens.total_tokens?.toLocaleString() ?? '-';
+};
+
+// LLM Usage Stats Panel Component
+const LLMUsagePanel: React.FC<{ usage: LLMUsageInfo | null | undefined; t: (key: string) => string }> = ({ usage, t }) => {
+  if (!usage) return null;
+
+  const hasMatchingData = usage.matching_tokens || usage.matching_latency_ms;
+  const hasNpcData = usage.npc_tokens || usage.npc_latency_ms;
+
+  if (!hasMatchingData && !hasNpcData) return null;
+
+  return (
+    <div style={{ marginBottom: 16, padding: 12, background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%)', borderRadius: 8, border: '1px solid #d9d9d9' }}>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ThunderboltOutlined style={{ color: '#722ed1' }} />
+        <Text strong style={{ color: '#722ed1' }}>{t('logs.llmUsage')}</Text>
+      </div>
+      <Row gutter={[16, 8]}>
+        {hasMatchingData && (
+          <Col xs={24} sm={12}>
+            <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #e8e8e8' }}>
+              <div style={{ marginBottom: 8 }}>
+                <Tag color="purple">{t('logs.matching')}</Tag>
+                {usage.matching_model && <Text type="secondary" style={{ fontSize: 11 }}>({usage.matching_model})</Text>}
+              </div>
+              <Space size="large">
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}><FieldTimeOutlined /> {t('logs.latency')}</span>}
+                  value={formatLatency(usage.matching_latency_ms)}
+                  valueStyle={{ fontSize: 16 }}
+                />
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}>{t('logs.tokens')}</span>}
+                  value={formatTokens(usage.matching_tokens)}
+                  valueStyle={{ fontSize: 16 }}
+                />
+              </Space>
+              {usage.matching_tokens && (usage.matching_tokens.prompt_tokens || usage.matching_tokens.completion_tokens) && (
+                <div style={{ marginTop: 6, fontSize: 11, color: '#666' }}>
+                  {t('logs.promptTokens')}: {usage.matching_tokens.prompt_tokens?.toLocaleString() ?? '-'} | {t('logs.completionTokens')}: {usage.matching_tokens.completion_tokens?.toLocaleString() ?? '-'}
+                </div>
+              )}
+            </div>
+          </Col>
+        )}
+        {hasNpcData && (
+          <Col xs={24} sm={12}>
+            <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #e8e8e8' }}>
+              <div style={{ marginBottom: 8 }}>
+                <Tag color="green">{t('logs.generation')}</Tag>
+                {usage.npc_model && <Text type="secondary" style={{ fontSize: 11 }}>({usage.npc_model})</Text>}
+              </div>
+              <Space size="large">
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}><FieldTimeOutlined /> {t('logs.latency')}</span>}
+                  value={formatLatency(usage.npc_latency_ms)}
+                  valueStyle={{ fontSize: 16 }}
+                />
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}>{t('logs.tokens')}</span>}
+                  value={formatTokens(usage.npc_tokens)}
+                  valueStyle={{ fontSize: 16 }}
+                />
+              </Space>
+              {usage.npc_tokens && (usage.npc_tokens.prompt_tokens || usage.npc_tokens.completion_tokens) && (
+                <div style={{ marginTop: 6, fontSize: 11, color: '#666' }}>
+                  {t('logs.promptTokens')}: {usage.npc_tokens.prompt_tokens?.toLocaleString() ?? '-'} | {t('logs.completionTokens')}: {usage.npc_tokens.completion_tokens?.toLocaleString() ?? '-'}
+                </div>
+              )}
+            </div>
+          </Col>
+        )}
+      </Row>
+    </div>
+  );
+};
+
+// Helper to get score color based on value and threshold
+const getScoreColor = (score: number, threshold: number, triggered: boolean): string => {
+  if (triggered) return '#52c41a'; // Green for triggered
+  if (score >= threshold) return '#faad14'; // Yellow for matched but not triggered
+  return '#ff4d4f'; // Red for below threshold
+};
+
+// Helper to get score status
+const getScoreStatus = (score: number, threshold: number, triggered: boolean): 'success' | 'exception' | 'normal' => {
+  if (triggered) return 'success';
+  if (score >= threshold) return 'normal';
+  return 'exception';
+};
+
+// Candidate Clue Score Display Component
+const CandidateScoreDisplay: React.FC<{
+  candidates: CandidateClueDetail[];
+  excluded: ExcludedClueDetail[] | undefined;
+  threshold: number;
+  t: (key: string) => string;
+}> = ({ candidates, excluded, threshold, t }) => {
+  // Sort candidates: triggered first, then by score descending
+  const sortedCandidates = [...candidates].sort((a, b) => {
+    if (a.triggered && !b.triggered) return -1;
+    if (!a.triggered && b.triggered) return 1;
+    return (b.score ?? 0) - (a.score ?? 0);
+  });
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {/* Score Overview Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Text strong style={{ fontSize: 13 }}>
+          {t('logs.candidateClues')} ({candidates.length})
+        </Text>
+        <Space size="small">
+          <Tag>{t('logs.threshold')}: {(threshold * 100).toFixed(0)}%</Tag>
+        </Space>
+      </div>
+
+      {/* Score Legend */}
+      <div style={{ marginBottom: 12, display: 'flex', gap: 16, fontSize: 11 }}>
+        <span><CheckCircleOutlined style={{ color: '#52c41a' }} /> {t('logs.triggered')}</span>
+        <span><ExclamationCircleOutlined style={{ color: '#faad14' }} /> {t('logs.matchedCount')}</span>
+        <span><CloseCircleOutlined style={{ color: '#ff4d4f' }} /> {t('logs.noCluesMatched')}</span>
+      </div>
+
+      {/* Candidate Scores */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sortedCandidates.map((c, i) => {
+          const score = c.score ?? 0;
+          const triggered = c.triggered ?? false;
+          const color = getScoreColor(score, threshold, triggered);
+          const status = getScoreStatus(score, threshold, triggered);
+
+          return (
+            <div
+              key={i}
+              style={{
+                padding: '8px 12px',
+                background: triggered ? '#f6ffed' : score >= threshold ? '#fffbe6' : '#fff',
+                borderRadius: 6,
+                border: `1px solid ${triggered ? '#b7eb8f' : score >= threshold ? '#ffe58f' : '#d9d9d9'}`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                {triggered ? (
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                ) : score >= threshold ? (
+                  <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+                ) : (
+                  <CloseCircleOutlined style={{ color: '#999' }} />
+                )}
+                <Text strong style={{ fontSize: 13, flex: 1 }}>{c.name}</Text>
+                <Tag color={triggered ? 'green' : score >= threshold ? 'gold' : 'default'}>
+                  {(score * 100).toFixed(0)}%
+                </Tag>
+                {triggered && <Tag color="green">{t('logs.triggered')}</Tag>}
+              </div>
+              <div style={{ paddingLeft: 24 }}>
+                <Progress
+                  percent={Math.round(score * 100)}
+                  size="small"
+                  status={status}
+                  strokeColor={color}
+                  trailColor="#f0f0f0"
+                  showInfo={false}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Excluded Clues */}
+      {excluded && excluded.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <Text strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <LockOutlined style={{ color: '#999' }} />
+            {t('logs.excludedClues')} ({excluded.length})
+          </Text>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+            {excluded.map((e, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: '6px 12px',
+                  background: '#fafafa',
+                  borderRadius: 4,
+                  border: '1px dashed #d9d9d9',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <StopOutlined style={{ color: '#999' }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>{e.name}</Text>
+                  <Tooltip title={e.missing_prereq_ids?.join(', ')}>
+                    <Tag color="orange" style={{ fontSize: 10 }}>
+                      {t('logs.missingPrereqs')}
+                    </Tag>
+                  </Tooltip>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface ConversationTabProps {
   log: DialogueLog;
@@ -40,6 +263,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({ log, getNpcNam
           <span>NPC: {getNpcName(log.npc_id)}</span>
         </Space>
       </div>
+
+      {/* LLM Usage Statistics */}
+      <LLMUsagePanel usage={log.llm_usage} t={t} />
 
       {/* Chat Messages */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -96,116 +322,39 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({ log, getNpcNam
                     );
                   })()}
 
-                  {/* Candidates */}
+                  {/* Candidates Score Display - New visual format */}
                   {debugInfo.candidates && debugInfo.candidates.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <Text strong style={{ fontSize: 13 }}>{t('logs.candidateClues')} ({debugInfo.candidates.length})</Text>
-                      <Collapse
-                        size="small"
-                        style={{ marginTop: 8 }}
-                        items={debugInfo.candidates.map((c, i) => ({
-                          key: i,
-                          label: <Text strong style={{ fontSize: 13 }}>{c.name}</Text>,
-                          children: (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              {/* Clue ID */}
-                              <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>ID: </Text>
-                                <Text code copyable style={{ fontSize: 11 }}>{c.clue_id}</Text>
-                              </div>
-
-                              {/* Trigger Keywords */}
-                              <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>{t('common.keywords')}: </Text>
-                                {c.trigger_keywords && c.trigger_keywords.length > 0 ? (
-                                  c.trigger_keywords.map((kw, j) => <Tag key={j} style={{ fontSize: 11 }}>{kw}</Tag>)
-                                ) : (
-                                  <Text type="secondary" italic style={{ fontSize: 12 }}>({t('common.notSet')})</Text>
-                                )}
-                              </div>
-
-                              {/* Trigger Semantic Summary */}
-                              <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>{t('clues.triggerSemanticSummary')}: </Text>
-                                {c.trigger_semantic_summary ? (
-                                  <div style={{ background: '#f5f5f5', padding: 8, borderRadius: 4, marginTop: 4 }}>
-                                    <Text style={{ fontSize: 12 }}>{c.trigger_semantic_summary}</Text>
-                                  </div>
-                                ) : (
-                                  <Text type="secondary" italic style={{ fontSize: 12 }}>({t('common.notSet')})</Text>
-                                )}
-                              </div>
-
-                              {/* Embedding Rendered Content (only for embedding strategy) */}
-                              {debugInfo.strategy === 'embedding' && (
-                                <div>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>{t('logs.renderedContent')}: </Text>
-                                  {c.embedding_rendered_segments ? (
-                                    <>
-                                      <div style={{ background: '#fafafa', padding: 8, borderRadius: 4, marginTop: 4, border: '1px solid #e8e8e8' }}>
-                                        <SegmentedPromptRenderer segments={c.embedding_rendered_segments} />
-                                      </div>
-                                      <PromptLegend />
-                                    </>
-                                  ) : c.embedding_rendered_content ? (
-                                    <div style={{ background: '#e6f7ff', padding: 8, borderRadius: 4, marginTop: 4, border: '1px solid #91d5ff' }}>
-                                      <Text style={{ fontSize: 12 }}>{c.embedding_rendered_content}</Text>
-                                    </div>
-                                  ) : (
-                                    <Text type="secondary" italic style={{ fontSize: 12 }}>({t('common.notSet')})</Text>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ),
-                        }))}
-                      />
-                    </div>
+                    <CandidateScoreDisplay
+                      candidates={debugInfo.candidates}
+                      excluded={debugInfo.excluded}
+                      threshold={debugInfo.threshold ?? 0.5}
+                      t={t}
+                    />
                   )}
 
-                  {/* Match Results */}
-                  {log.matched_clues && log.matched_clues.length > 0 && (
-                    <div>
-                      <Text strong style={{ fontSize: 13 }}>
-                        {t('logs.matchDetails')} ({log.matched_clues.filter(mc => mc.is_triggered).length}/{log.matched_clues.length} {t('logs.triggeredClues').toLowerCase()})
-                      </Text>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                        {log.matched_clues.map((mc, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              padding: 8,
-                              background: mc.is_triggered ? '#f6ffed' : '#fff',
-                              borderRadius: 6,
-                              border: mc.is_triggered ? '1px solid #52c41a' : '1px solid #d9d9d9',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              {mc.is_triggered ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloseCircleOutlined style={{ color: '#999' }} />}
-                              <Text strong style={{ fontSize: 13 }}>{mc.name || mc.clue_id}</Text>
-                              <Tag color={mc.is_triggered ? 'green' : 'default'}>{(mc.score * 100).toFixed(0)}%</Tag>
-                              {mc.embedding_similarity != null && <Tag color="purple">{t('debug.similarity')}: {(mc.embedding_similarity * 100).toFixed(0)}%</Tag>}
-                              {mc.clue_type && <Tag>{mc.clue_type}</Tag>}
-                            </div>
-                            {mc.match_reasons && mc.match_reasons.length > 0 && (
-                              <div style={{ marginTop: 6 }}>
+                  {/* Match Reasons Detail - Collapsed for additional info */}
+                  {log.matched_clues && log.matched_clues.length > 0 && log.matched_clues.some(mc => mc.match_reasons?.length > 0) && (
+                    <Collapse
+                      size="small"
+                      items={[{
+                        key: 'match_reasons',
+                        label: <Text type="secondary" style={{ fontSize: 12 }}>{t('logs.matchDetails')}</Text>,
+                        children: (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {log.matched_clues.filter(mc => mc.match_reasons?.length > 0).map((mc, i) => (
+                              <div key={i} style={{ fontSize: 12 }}>
+                                <Text strong>{mc.name}: </Text>
                                 <Space size={4} wrap>
                                   {mc.match_reasons.map((r, j) => (
                                     <Tag key={j} color={r.includes('keyword') ? 'blue' : r.includes('LLM') ? 'purple' : 'cyan'} style={{ fontSize: 11 }}>{r}</Tag>
                                   ))}
                                 </Space>
                               </div>
-                            )}
-                            {mc.keyword_matches && mc.keyword_matches.length > 0 && (
-                              <div style={{ marginTop: 4 }}>
-                                <Text type="secondary" style={{ fontSize: 11 }}>{t('debug.keywords')}: </Text>
-                                {mc.keyword_matches.map((kw, j) => <Tag key={j} color="blue" style={{ fontSize: 11 }}>{kw}</Tag>)}
-                              </div>
-                            )}
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        ),
+                      }]}
+                    />
                   )}
                 </div>
               ),

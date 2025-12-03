@@ -13,7 +13,7 @@ from app.models.prompt_template import PromptTemplate
 from app.services.common import LLMClient, LLMConfigManager
 from app.services.template import template_renderer
 
-from ..models import LLMMatchPrompts, LLMMatchResponse, MatchContext, MatchResult, PromptSegment
+from ..models import LLMMatchPrompts, LLMMatchResponse, LLMMetrics, MatchContext, MatchResult, PromptSegment
 from .base import BaseStrategy
 from .keyword import KeywordStrategy
 
@@ -69,14 +69,17 @@ class LLMStrategy(BaseStrategy):
 
         # Call LLM
         try:
-            llm_response = await self._call_llm_for_matching(
+            llm_match_response, metrics = await self._call_llm_for_matching(
                 chat_config,
                 system_prompt,
                 context.player_message,
             )
 
+            # Add metrics to llm_prompts
+            llm_prompts.metrics = metrics
+
             # Build results
-            score_reason_map = {m.id: (m.score, m.reason) for m in llm_response.matches}
+            score_reason_map = {m.id: (m.score, m.reason) for m in llm_match_response.matches}
 
             if context.llm_return_all_scores:
                 for clue in candidates:
@@ -210,8 +213,12 @@ class LLMStrategy(BaseStrategy):
 
     async def _call_llm_for_matching(
         self, config: LLMConfig, system_prompt: str, user_message: str
-    ) -> LLMMatchResponse:
-        """Call LLM for clue matching with structured JSON output."""
+    ) -> tuple[LLMMatchResponse, LLMMetrics]:
+        """Call LLM for clue matching with structured JSON output.
+
+        Returns:
+            Tuple of (match response, LLM metrics)
+        """
         response_schema = {
             "type": "json_schema",
             "json_schema": {
@@ -250,11 +257,22 @@ class LLMStrategy(BaseStrategy):
             },
         }
 
-        result = await LLMClient.call_structured(
+        llm_response = await LLMClient.call_structured_with_usage(
             config,
             system_prompt,
             user_message,
             response_schema,
             temperature=settings.llm_matching_temperature,
         )
-        return LLMMatchResponse.model_validate(result)
+
+        # Build metrics from response
+        metrics = LLMMetrics(
+            prompt_tokens=llm_response.usage.prompt_tokens,
+            completion_tokens=llm_response.usage.completion_tokens,
+            total_tokens=llm_response.usage.total_tokens,
+            latency_ms=llm_response.latency_ms,
+            model=config.model,
+        )
+
+        result = json.loads(llm_response.content)
+        return LLMMatchResponse.model_validate(result), metrics

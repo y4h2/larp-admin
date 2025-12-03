@@ -124,6 +124,39 @@ class SimulateRequest(BaseModel):
     )
 
 
+class LLMTokenUsage(BaseModel):
+    """Token usage from a single LLM call."""
+
+    prompt_tokens: int | None = Field(default=None, description="Prompt tokens used")
+    completion_tokens: int | None = Field(
+        default=None, description="Completion tokens used"
+    )
+    total_tokens: int | None = Field(default=None, description="Total tokens used")
+
+
+class LLMUsageInfo(BaseModel):
+    """LLM usage metrics for the simulation request."""
+
+    matching_tokens: LLMTokenUsage | None = Field(
+        default=None, description="Token usage for clue matching"
+    )
+    matching_latency_ms: float | None = Field(
+        default=None, description="Latency for clue matching in milliseconds"
+    )
+    matching_model: str | None = Field(
+        default=None, description="Model used for matching"
+    )
+    npc_tokens: LLMTokenUsage | None = Field(
+        default=None, description="Token usage for NPC response generation"
+    )
+    npc_latency_ms: float | None = Field(
+        default=None, description="Latency for NPC response in milliseconds"
+    )
+    npc_model: str | None = Field(
+        default=None, description="Model used for NPC response"
+    )
+
+
 class MatchedClue(BaseModel):
     """Schema for a matched clue in simulation results."""
 
@@ -159,6 +192,9 @@ class SimulateResponse(BaseModel):
     )
     debug_info: dict[str, Any] = Field(
         default_factory=dict, description="Debug information"
+    )
+    llm_usage: LLMUsageInfo | None = Field(
+        default=None, description="LLM token usage and latency metrics"
     )
     log_id: str | None = Field(
         default=None, description="ID of saved dialogue log"

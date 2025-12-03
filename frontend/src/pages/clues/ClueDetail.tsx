@@ -14,8 +14,9 @@ import {
   App,
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined, RobotOutlined, BulbOutlined, UndoOutlined, StopOutlined } from '@ant-design/icons';
-import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus } from '@/components/common';
+import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus, VariableLabel } from '@/components/common';
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
+import { CLUE_VARIABLES } from '@/constants';
 import { usePresence } from '@/contexts/PresenceContext';
 import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
 import { clueApi, aiEnhancementApi } from '@/api';
@@ -403,7 +404,7 @@ export default function ClueDetail() {
 
           <Form.Item
             name="name"
-            label={t('clue.name')}
+            label={<VariableLabel label={t('clue.name')} variablePath={CLUE_VARIABLES.name} />}
             rules={[{ required: true }]}
           >
             <CollaborativeInput
@@ -413,7 +414,7 @@ export default function ClueDetail() {
             />
           </Form.Item>
 
-          <Form.Item name="type" label={t('clue.type')}>
+          <Form.Item name="type" label={<VariableLabel label={t('clue.type')} variablePath={CLUE_VARIABLES.type} />}>
             <CollaborativeSelect docId={`clue_${id}`} fieldName="type">
               <Option value="text">{t('common.text')}</Option>
               <Option value="image">{t('common.image')}</Option>
@@ -423,44 +424,49 @@ export default function ClueDetail() {
           <Form.Item
             name="detail"
             label={
-              <Space>
-                {t('clue.detail')}
-                {polishing ? (
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<StopOutlined />}
-                    onClick={handleCancelAI}
-                    danger
-                  >
-                    {t('clue.aiEnhance.cancel')}
-                  </Button>
-                ) : (
-                  <Tooltip title={t('clue.aiEnhance.polishTooltip')}>
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<RobotOutlined />}
-                      onClick={handlePolishDetail}
-                    >
-                      {t('clue.aiEnhance.polish')}
-                    </Button>
-                  </Tooltip>
-                )}
-                {polishHistory && polishHistory.field === 'detail' && !polishing && (
-                  <Tooltip title={t('clue.aiEnhance.undoTooltip')}>
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<UndoOutlined />}
-                      onClick={handleUndoPolish}
-                      style={{ color: '#faad14' }}
-                    >
-                      {t('clue.aiEnhance.undo')}
-                    </Button>
-                  </Tooltip>
-                )}
-              </Space>
+              <VariableLabel
+                label={t('clue.detail')}
+                variablePath={CLUE_VARIABLES.detail}
+                extra={
+                  <>
+                    {polishing ? (
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<StopOutlined />}
+                        onClick={handleCancelAI}
+                        danger
+                      >
+                        {t('clue.aiEnhance.cancel')}
+                      </Button>
+                    ) : (
+                      <Tooltip title={t('clue.aiEnhance.polishTooltip')}>
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<RobotOutlined />}
+                          onClick={handlePolishDetail}
+                        >
+                          {t('clue.aiEnhance.polish')}
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {polishHistory && polishHistory.field === 'detail' && !polishing && (
+                      <Tooltip title={t('clue.aiEnhance.undoTooltip')}>
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<UndoOutlined />}
+                          onClick={handleUndoPolish}
+                          style={{ color: '#faad14' }}
+                        >
+                          {t('clue.aiEnhance.undo')}
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </>
+                }
+              />
             }
             rules={[{ required: true }]}
           >
@@ -474,7 +480,7 @@ export default function ClueDetail() {
 
           <Form.Item
             name="detail_for_npc"
-            label={t('clue.detailForNpc')}
+            label={<VariableLabel label={t('clue.detailForNpc')} variablePath={CLUE_VARIABLES.detail_for_npc} />}
             extra={t('clue.detailForNpcExtra')}
           >
             <CollaborativeTextArea
@@ -488,20 +494,23 @@ export default function ClueDetail() {
           <Form.Item
             name="trigger_keywords"
             label={
-              <Space>
-                {t('clue.triggerKeywords')}
-                <Tooltip title={t('clue.aiEnhance.suggestKeywordsTooltip')}>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<BulbOutlined />}
-                    loading={suggestingKeywords}
-                    onClick={handleSuggestKeywords}
-                  >
-                    {t('clue.aiEnhance.suggestKeywords')}
-                  </Button>
-                </Tooltip>
-              </Space>
+              <VariableLabel
+                label={t('clue.triggerKeywords')}
+                variablePath={CLUE_VARIABLES.trigger_keywords}
+                extra={
+                  <Tooltip title={t('clue.aiEnhance.suggestKeywordsTooltip')}>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<BulbOutlined />}
+                      loading={suggestingKeywords}
+                      onClick={handleSuggestKeywords}
+                    >
+                      {t('clue.aiEnhance.suggestKeywords')}
+                    </Button>
+                  </Tooltip>
+                }
+              />
             }
           >
             <CollaborativeMultiSelect
@@ -515,31 +524,34 @@ export default function ClueDetail() {
           <Form.Item
             name="trigger_semantic_summary"
             label={
-              <Space>
-                {t('clue.triggerSemanticSummary')}
-                {generatingSummary ? (
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<StopOutlined />}
-                    onClick={handleCancelAI}
-                    danger
-                  >
-                    {t('clue.aiEnhance.cancel')}
-                  </Button>
-                ) : (
-                  <Tooltip title={t('clue.aiEnhance.generateSummaryTooltip')}>
+              <VariableLabel
+                label={t('clue.triggerSemanticSummary')}
+                variablePath={CLUE_VARIABLES.trigger_semantic_summary}
+                extra={
+                  generatingSummary ? (
                     <Button
                       type="link"
                       size="small"
-                      icon={<RobotOutlined />}
-                      onClick={handleGenerateSummary}
+                      icon={<StopOutlined />}
+                      onClick={handleCancelAI}
+                      danger
                     >
-                      {t('clue.aiEnhance.generateSummary')}
+                      {t('clue.aiEnhance.cancel')}
                     </Button>
-                  </Tooltip>
-                )}
-              </Space>
+                  ) : (
+                    <Tooltip title={t('clue.aiEnhance.generateSummaryTooltip')}>
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={<RobotOutlined />}
+                        onClick={handleGenerateSummary}
+                      >
+                        {t('clue.aiEnhance.generateSummary')}
+                      </Button>
+                    </Tooltip>
+                  )
+                }
+              />
             }
           >
             <CollaborativeTextArea

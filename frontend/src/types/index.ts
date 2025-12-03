@@ -126,6 +126,7 @@ export interface SimulationResult {
     threshold: number;
     strategy: MatchingStrategy;
   };
+  llm_usage?: LLMUsageInfo | null;
   log_id?: string | null;
 }
 
@@ -152,9 +153,14 @@ export interface CandidateClueDetail {
   name: string;
   trigger_keywords: string[];
   trigger_semantic_summary: string;
-  match_prompt?: string;  // LLM 策略使用的匹配提示词 (legacy)
-  llm_system_prompt?: string;  // LLM 匹配时的 system prompt
-  llm_user_message?: string;   // LLM 匹配时的 user message
+  has_prereqs?: boolean;           // Whether this clue has prerequisites
+  prereq_ids?: string[];           // List of prerequisite clue IDs
+  score?: number;                  // Match score (0.0-1.0)
+  matched?: boolean;               // Whether clue scored above 0
+  triggered?: boolean;             // Whether clue was actually triggered
+  match_prompt?: string;           // LLM 策略使用的匹配提示词 (legacy)
+  llm_system_prompt?: string;      // LLM 匹配时的 system prompt
+  llm_user_message?: string;       // LLM 匹配时的 user message
   llm_system_prompt_segments?: PromptSegment[];  // 分段的 system prompt
   llm_user_message_segments?: PromptSegment[];   // 分段的 user message
   embedding_rendered_content?: string;  // embedding 策略使用的渲染内容
@@ -175,6 +181,13 @@ export interface PromptInfo {
   user_prompt_segments?: PromptSegment[] | null;
 }
 
+export interface ExcludedClueDetail {
+  clue_id: string;
+  name: string;
+  reason: string;                 // e.g., "prerequisites_not_met"
+  missing_prereq_ids?: string[];  // IDs of missing prerequisite clues
+}
+
 export interface DialogueLogDebugInfo {
   total_clues?: number;
   total_candidates?: number;
@@ -184,8 +197,24 @@ export interface DialogueLogDebugInfo {
   threshold?: number;
   strategy?: string;
   candidates?: CandidateClueDetail[];
-  excluded?: string[];
+  excluded?: ExcludedClueDetail[];
   prompt_info?: PromptInfo | null;
+}
+
+// LLM usage and latency tracking
+export interface LLMTokenUsage {
+  prompt_tokens?: number | null;
+  completion_tokens?: number | null;
+  total_tokens?: number | null;
+}
+
+export interface LLMUsageInfo {
+  matching_tokens?: LLMTokenUsage | null;
+  matching_latency_ms?: number | null;
+  matching_model?: string | null;
+  npc_tokens?: LLMTokenUsage | null;
+  npc_latency_ms?: number | null;
+  npc_model?: string | null;
 }
 
 export interface DialogueLog {
@@ -200,6 +229,7 @@ export interface DialogueLog {
   matched_clues: MatchedClue[];
   triggered_clues: string[];
   debug_info: DialogueLogDebugInfo;
+  llm_usage?: LLMUsageInfo | null;
   created_at: string;
 }
 

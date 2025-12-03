@@ -16,8 +16,9 @@ import {
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, type ResizableColumn } from '@/components/common';
+import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, VariableLabel, type ResizableColumn } from '@/components/common';
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
+import { NPC_VARIABLES } from '@/constants';
 import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
 import { useScripts, useRealtimeSync } from '@/hooks';
@@ -217,7 +218,7 @@ export default function NpcDetail() {
                     <Col span={12}>
                       <Form.Item
                         name="name"
-                        label={t('common.name')}
+                        label={<VariableLabel label={t('common.name')} variablePath={NPC_VARIABLES.name} />}
                         rules={[{ required: true, message: t('npc.enterNpcName') }]}
                       >
                         <CollaborativeInput
@@ -228,7 +229,7 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={12}>
-                      <Form.Item name="age" label={t('npc.age')}>
+                      <Form.Item name="age" label={<VariableLabel label={t('npc.age')} variablePath={NPC_VARIABLES.age} />}>
                         <CollaborativeInput
                           docId={`npc_${id}`}
                           fieldName="age"
@@ -253,7 +254,7 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={24}>
-                      <Form.Item name="background" label={t('npc.background')}>
+                      <Form.Item name="background" label={<VariableLabel label={t('npc.background')} variablePath={NPC_VARIABLES.background} />}>
                         <CollaborativeTextArea
                           docId={`npc_${id}`}
                           fieldName="background"
@@ -263,7 +264,7 @@ export default function NpcDetail() {
                       </Form.Item>
                     </Col>
                     <Col span={24}>
-                      <Form.Item name="personality" label={t('npc.personality')}>
+                      <Form.Item name="personality" label={<VariableLabel label={t('npc.personality')} variablePath={NPC_VARIABLES.personality} />}>
                         <CollaborativeTextArea
                           docId={`npc_${id}`}
                           fieldName="personality"
@@ -283,7 +284,7 @@ export default function NpcDetail() {
                 <Card>
                   <Form.Item
                     name={['knowledge_scope', 'knows']}
-                    label={t('npc.knows')}
+                    label={<VariableLabel label={t('npc.knows')} variablePath={NPC_VARIABLES['knowledge_scope.knows']} />}
                   >
                     <CollaborativeMultiSelect
                       docId={`npc_${id}`}
@@ -295,7 +296,7 @@ export default function NpcDetail() {
                   </Form.Item>
                   <Form.Item
                     name={['knowledge_scope', 'does_not_know']}
-                    label={t('npc.doesNotKnow')}
+                    label={<VariableLabel label={t('npc.doesNotKnow')} variablePath={NPC_VARIABLES['knowledge_scope.does_not_know']} />}
                   >
                     <CollaborativeMultiSelect
                       docId={`npc_${id}`}
@@ -307,7 +308,7 @@ export default function NpcDetail() {
                   </Form.Item>
                   <Form.Item
                     name={['knowledge_scope', 'world_model_limits']}
-                    label={t('npc.worldModelLimits')}
+                    label={<VariableLabel label={t('npc.worldModelLimits')} variablePath={NPC_VARIABLES['knowledge_scope.world_model_limits']} />}
                   >
                     <CollaborativeMultiSelect
                       docId={`npc_${id}`}
