@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, memo } from 'react';
 import {
   Card,
   Space,
@@ -56,7 +56,7 @@ interface StatusBarProps {
   onImportFavorites: (file: File) => void;
 }
 
-export default function StatusBar({
+const StatusBar = memo(function StatusBar({
   selectedScript,
   selectedNpc,
   matchingStrategy,
@@ -374,4 +374,6 @@ export default function StatusBar({
       </Modal>
     </>
   );
-}
+});
+
+export default StatusBar;

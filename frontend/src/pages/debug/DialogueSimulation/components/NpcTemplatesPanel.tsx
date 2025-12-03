@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Tag, Button, Divider, Alert, Empty, Spin, Typography } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import type { PromptTemplate, TemplateRenderResponse } from '@/api/templates';
@@ -18,7 +19,7 @@ interface NpcTemplatesPanelProps {
   t: (key: string) => string;
 }
 
-export const NpcTemplatesPanel: React.FC<NpcTemplatesPanelProps> = ({
+export const NpcTemplatesPanel = memo(function NpcTemplatesPanel({
   selectedNpc,
   selectedNpcClueTemplate,
   selectedNpcNoClueTemplate,
@@ -29,7 +30,7 @@ export const NpcTemplatesPanel: React.FC<NpcTemplatesPanelProps> = ({
   onRenderClueTemplate,
   onRenderNoClueTemplate,
   t,
-}) => {
+}: NpcTemplatesPanelProps) {
   if (!selectedNpcClueTemplate && !selectedNpcNoClueTemplate) {
     return <Empty description={t('debug.selectNpcTemplate')} />;
   }
@@ -115,4 +116,4 @@ export const NpcTemplatesPanel: React.FC<NpcTemplatesPanelProps> = ({
       )}
     </>
   );
-};
+});

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Collapse, Space, Tag, Tooltip, Button, Divider, Alert, Empty, Spin, Typography } from 'antd';
 import { LockOutlined, EyeOutlined } from '@ant-design/icons';
 import { ClueTypeTag } from '@/components/common';
@@ -16,7 +17,7 @@ interface LockedCluesPanelProps {
   t: (key: string, params?: Record<string, unknown>) => string;
 }
 
-export const LockedCluesPanel: React.FC<LockedCluesPanelProps> = ({
+export const LockedCluesPanel = memo(function LockedCluesPanel({
   lockedClues,
   totalClues,
   matchingTemplateId,
@@ -24,7 +25,7 @@ export const LockedCluesPanel: React.FC<LockedCluesPanelProps> = ({
   renderingClueId,
   onRenderClue,
   t,
-}) => {
+}: LockedCluesPanelProps) {
   return (
     <>
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
@@ -94,4 +95,4 @@ export const LockedCluesPanel: React.FC<LockedCluesPanelProps> = ({
       )}
     </>
   );
-};
+});

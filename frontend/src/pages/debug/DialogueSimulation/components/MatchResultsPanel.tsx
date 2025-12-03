@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Space, Tag, Table, Progress, Alert, Empty, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { PromptTemplate } from '@/api/templates';
@@ -12,12 +13,12 @@ interface MatchResultsPanelProps {
   t: (key: string) => string;
 }
 
-export const MatchResultsPanel: React.FC<MatchResultsPanelProps> = ({
+export const MatchResultsPanel = memo(function MatchResultsPanel({
   lastMatchResults,
   lastDebugInfo,
   selectedMatchingTemplate,
   t,
-}) => {
+}: MatchResultsPanelProps) {
   const matchResultColumns: ColumnsType<MatchedClue> = [
     {
       title: t('clue.name'),
@@ -100,4 +101,4 @@ export const MatchResultsPanel: React.FC<MatchResultsPanelProps> = ({
       )}
     </>
   );
-};
+});

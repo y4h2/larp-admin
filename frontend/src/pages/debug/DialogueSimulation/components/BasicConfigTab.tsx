@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Select, Space, Typography } from 'antd';
 import type { Script, NPC, Clue } from '@/types';
 
@@ -18,7 +19,7 @@ interface BasicConfigTabProps {
   t: (key: string) => string;
 }
 
-export const BasicConfigTab: React.FC<BasicConfigTabProps> = ({
+export const BasicConfigTab = memo(function BasicConfigTab({
   scripts,
   npcs,
   clues,
@@ -30,7 +31,7 @@ export const BasicConfigTab: React.FC<BasicConfigTabProps> = ({
   onUnlockedCluesChange,
   getNpcName,
   t,
-}) => {
+}: BasicConfigTabProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
       <div>
@@ -81,4 +82,4 @@ export const BasicConfigTab: React.FC<BasicConfigTabProps> = ({
       </div>
     </div>
   );
-};
+});

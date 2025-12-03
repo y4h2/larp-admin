@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Select, Space, Tag, Switch, Slider, Button, Typography } from 'antd';
 import { ThunderboltOutlined, RobotOutlined } from '@ant-design/icons';
 import type { PromptTemplate } from '@/api/templates';
@@ -36,7 +37,7 @@ interface MatchingConfigTabProps {
   t: (key: string) => string;
 }
 
-export const MatchingConfigTab: React.FC<MatchingConfigTabProps> = ({
+export const MatchingConfigTab = memo(function MatchingConfigTab({
   matchingStrategy,
   matchingTemplateId,
   matchingLlmConfigId,
@@ -56,7 +57,7 @@ export const MatchingConfigTab: React.FC<MatchingConfigTabProps> = ({
   onLlmReturnAllScoresChange,
   onLlmScoreThresholdChange,
   t,
-}) => {
+}: MatchingConfigTabProps) {
   return (
     <Space orientation="vertical" style={{ width: '100%' }} size={12}>
       <div>
@@ -228,4 +229,4 @@ export const MatchingConfigTab: React.FC<MatchingConfigTabProps> = ({
       )}
     </Space>
   );
-};
+});

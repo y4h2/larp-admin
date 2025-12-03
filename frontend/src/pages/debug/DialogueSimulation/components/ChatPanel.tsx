@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import {
   Card,
   Input,
@@ -38,7 +38,7 @@ interface ChatPanelProps {
   onClear: () => void;
 }
 
-export default function ChatPanel({
+const ChatPanel = memo(function ChatPanel({
   chatHistory,
   playerMessage,
   loading,
@@ -350,4 +350,6 @@ export default function ChatPanel({
       </div>
     </Card>
   );
-}
+});
+
+export default ChatPanel;

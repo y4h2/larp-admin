@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Select, Space, Tag, Switch, Slider, Button, Alert, Typography } from 'antd';
 import { BulbOutlined, BulbFilled } from '@ant-design/icons';
 import type { PromptTemplate } from '@/api/templates';
@@ -26,7 +27,7 @@ interface NpcReplyConfigTabProps {
   t: (key: string) => string;
 }
 
-export const NpcReplyConfigTab: React.FC<NpcReplyConfigTabProps> = ({
+export const NpcReplyConfigTab = memo(function NpcReplyConfigTab({
   enableNpcReply,
   npcClueTemplateId,
   npcNoClueTemplateId,
@@ -43,7 +44,7 @@ export const NpcReplyConfigTab: React.FC<NpcReplyConfigTabProps> = ({
   onTemperatureChange,
   onMaxTokensChange,
   t,
-}) => {
+}: NpcReplyConfigTabProps) {
   return (
     <Space orientation="vertical" style={{ width: '100%' }} size={12}>
       <div style={{ padding: '8px 12px', background: enableNpcReply ? '#f6ffed' : '#fafafa', borderRadius: 6, border: enableNpcReply ? '1px solid #b7eb8f' : '1px solid #d9d9d9' }}>
@@ -180,4 +181,4 @@ export const NpcReplyConfigTab: React.FC<NpcReplyConfigTabProps> = ({
       )}
     </Space>
   );
-};
+});
