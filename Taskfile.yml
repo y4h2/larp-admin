@@ -1,16 +1,30 @@
 version: '3'
 
 tasks:
-  build:
+  production:build:
     desc: Build frontend and copy to backend/static
     dir: backend
     cmds:
       - ./build.sh
 
-  pack:
+  production:pack:
     desc: Build and package as larpadmin.zip
     cmds:
       - ./pack.sh
+
+  production:backend:
+    deps:
+      - build
+    desc: Run backend dev server in production mode
+    dir: backend
+    cmds:
+      - ENVIRONMENT=production gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001
+
+  production:migrate:
+    desc: Run database migrations on production
+    dir: backend
+    cmds:
+      - ENVIRONMENT=production alembic upgrade head
 
   dev:backend:
     desc: Run backend dev server
@@ -24,15 +38,7 @@ tasks:
     cmds:
       - npm run dev
 
-  dev:backend:production:
-    deps:
-      - build
-    desc: Run backend dev server in production mode
-    dir: backend
-    cmds:
-      - ENVIRONMENT=production gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001
-
-  migrate:
+  dev:migrate:
     desc: Run database migrations
     dir: backend
     cmds:
