@@ -9,12 +9,14 @@ from app.api.debug_audit_logs import router as debug_audit_logs_router
 from app.api.llm_configs import router as llm_configs_router
 from app.api.logs import router as logs_router
 from app.api.npcs import router as npcs_router
+from app.api.reference_data import router as reference_data_router
 from app.api.scripts import router as scripts_router
 from app.api.simulate import router as simulate_router
 from app.api.templates import router as templates_router
 
 api_router = APIRouter()
 
+api_router.include_router(reference_data_router, prefix="/reference-data", tags=["reference-data"])
 api_router.include_router(scripts_router, prefix="/scripts", tags=["scripts"])
 api_router.include_router(npcs_router, prefix="/npcs", tags=["npcs"])
 api_router.include_router(clues_router, tags=["clues"])

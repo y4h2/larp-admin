@@ -2,17 +2,27 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { message } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 import { simulationApi, clueApi } from '@/api';
-import { templateApi, type PromptTemplate, type TemplateRenderResponse } from '@/api/templates';
-import { llmConfigApi, type LLMConfig } from '@/api/llmConfigs';
-import { useScripts, useNpcs, usePresets, type PresetConfig } from '@/hooks';
+import { templateApi, type TemplateRenderResponse } from '@/api/templates';
+import { useReferenceData } from '@/hooks/useReferenceData';
+import { usePresets, type PresetConfig } from '@/hooks';
 import type { Clue, MatchedClue, MatchingStrategy } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { loadStoredConfig, saveConfig, type ChatMessage, type VectorBackend } from '../types';
 
 export function useDialogueSimulation(t: (key: string, params?: Record<string, unknown>) => string) {
   const { user } = useAuth();
-  const { scripts, fetchScripts } = useScripts();
-  const { npcs, fetchNpcs } = useNpcs();
+
+  // Use aggregated reference data API (1 request instead of 4)
+  const {
+    scripts,
+    npcs: allNpcs,
+    templates,
+    llmConfigs,
+    fetchReferenceData,
+    getNpcsByScript,
+    getLlmConfigsByType,
+  } = useReferenceData();
+
   const {
     history: presetHistory,
     favorites: presetFavorites,
@@ -27,9 +37,6 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
   } = usePresets();
 
   const [clues, setClues] = useState<Clue[]>([]);
-  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
-  const [embeddingConfigs, setEmbeddingConfigs] = useState<LLMConfig[]>([]);
-  const [chatConfigs, setChatConfigs] = useState<LLMConfig[]>([]);
 
   // Load stored config on initial render
   const storedConfig = useMemo(() => loadStoredConfig(), []);
@@ -124,6 +131,14 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
     templates.filter((tpl) => ['npc_system_prompt', 'custom'].includes(tpl.type)),
     [templates]
   );
+
+  // Computed values from reference data
+  const npcs = useMemo(() => {
+    return selectedScriptId ? getNpcsByScript(selectedScriptId) : allNpcs;
+  }, [selectedScriptId, getNpcsByScript, allNpcs]);
+
+  const embeddingConfigs = useMemo(() => getLlmConfigsByType('embedding'), [getLlmConfigsByType]);
+  const chatConfigs = useMemo(() => getLlmConfigsByType('chat'), [getLlmConfigsByType]);
 
   // Memoized selections
   const selectedMatchingTemplate = useMemo(() => {
@@ -270,25 +285,10 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
     setFavoriteModalOpen(true);
   }, []);
 
-  // Effects
+  // Effects - Fetch all reference data on mount (1 request instead of 4)
   useEffect(() => {
-    fetchScripts();
-    templateApi.list({ page_size: 100 }).then((res) => {
-      setTemplates(res?.items ?? []);
-    }).catch(() => {
-      setTemplates([]);
-    });
-    llmConfigApi.list({ type: 'embedding', page_size: 100 }).then((res) => {
-      setEmbeddingConfigs(res?.items ?? []);
-    }).catch(() => {
-      setEmbeddingConfigs([]);
-    });
-    llmConfigApi.list({ type: 'chat', page_size: 100 }).then((res) => {
-      setChatConfigs(res?.items ?? []);
-    }).catch(() => {
-      setChatConfigs([]);
-    });
-  }, [fetchScripts]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   useEffect(() => {
     saveConfig({
@@ -315,47 +315,19 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
     llmReturnAllScores, llmScoreThreshold,
   ]);
 
+  // Fetch clues when script changes (NPCs are already in reference data)
   useEffect(() => {
     if (selectedScriptId) {
-      fetchNpcs({ script_id: selectedScriptId });
       clueApi.list({ script_id: selectedScriptId, page_size: 100 }).then((res) => setClues(res?.items ?? [])).catch(() => setClues([]));
     }
-  }, [selectedScriptId, fetchNpcs]);
+  }, [selectedScriptId]);
 
+  // Clear rendered previews when template or NPC changes
+  // Note: Removed automatic rendering of all clues to reduce API calls
+  // Users can click individual clues to render them on demand via handleRenderClue
   useEffect(() => {
     setRenderedPreviews({});
-    if (matchingTemplateId && lockedClues.length > 0 && selectedNpc) {
-      const renderAllLocked = async () => {
-        const previews: Record<string, TemplateRenderResponse> = {};
-        for (const clue of lockedClues) {
-          try {
-            const result = await templateApi.render({
-              template_id: matchingTemplateId,
-              context: {
-                clue: {
-                  id: clue.id, name: clue.name, type: clue.type, detail: clue.detail,
-                  detail_for_npc: clue.detail_for_npc, trigger_keywords: clue.trigger_keywords,
-                  trigger_semantic_summary: clue.trigger_semantic_summary,
-                },
-                npc: {
-                  id: selectedNpc.id, name: selectedNpc.name, age: selectedNpc.age,
-                  personality: selectedNpc.personality, background: selectedNpc.background,
-                  knowledge_scope: {
-                    knows: selectedNpc.knowledge_scope?.knows || [],
-                    does_not_know: selectedNpc.knowledge_scope?.does_not_know || [],
-                    world_model_limits: selectedNpc.knowledge_scope?.world_model_limits || [],
-                  },
-                },
-              },
-            });
-            previews[clue.id] = result;
-          } catch { /* Skip failed renders */ }
-        }
-        setRenderedPreviews(previews);
-      };
-      renderAllLocked();
-    }
-  }, [matchingTemplateId, lockedClues, selectedNpc]);
+  }, [matchingTemplateId, selectedNpcId]);
 
   // Handlers
   const handleSend = useCallback(async () => {

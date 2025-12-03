@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { logApi, templateApi, llmConfigApi, type PromptTemplate, type LLMConfig } from '@/api';
-import { useScripts, useNpcs } from '@/hooks';
+import { logApi } from '@/api';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import type { DialogueLog } from '@/types';
 import type { SessionGroup, LogFilters } from '../types';
 
@@ -8,30 +8,23 @@ export function useDialogueLogs() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<DialogueLog[]>([]);
   const [total, setTotal] = useState(0);
-  const { scripts, fetchScripts } = useScripts();
-  const { npcs, fetchNpcs } = useNpcs();
+
+  // Use aggregated reference data API (1 request instead of 4)
+  const { scripts, npcs, templates, llmConfigs, fetchReferenceData } = useReferenceData();
+
   const [selectedLog, setSelectedLog] = useState<DialogueLog | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [groupBySession, setGroupBySession] = useState(true);
-
-  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
-  const [llmConfigs, setLlmConfigs] = useState<LLMConfig[]>([]);
 
   const [filters, setFilters] = useState<LogFilters>({
     page: 1,
     page_size: 50,
   });
 
+  // Fetch reference data once on mount
   useEffect(() => {
-    fetchScripts();
-    fetchNpcs();
-    templateApi.list({ page_size: 100 }).then((res) => {
-      setTemplates(res?.items ?? []);
-    }).catch(() => setTemplates([]));
-    llmConfigApi.list({ page_size: 100 }).then((res) => {
-      setLlmConfigs(res?.items ?? []);
-    }).catch(() => setLlmConfigs([]));
-  }, [fetchScripts, fetchNpcs]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   const filteredNpcs = useMemo(() => {
     return filters.script_id

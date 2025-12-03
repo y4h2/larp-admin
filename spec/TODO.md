@@ -256,52 +256,6 @@ id除了 uuid 之外考虑一些更加方便人类阅读的id
 
 
 
- 已完成的功能
-
-  1. Token/耗时追踪 (后端)
-
-  新增数据类:
-  - backend/app/services/common/llm_client.py: 添加 LLMUsage 和 LLMResponse dataclass
-  - backend/app/services/matching/models.py: 添加 LLMMetrics dataclass
-
-  Schema 更新:
-  - backend/app/schemas/simulate.py: 添加 LLMTokenUsage 和 LLMUsageInfo 模型
-
-  服务改造:
-  - strategies/llm.py: 使用 call_structured_with_usage 捕获匹配过程的 token/latency
-  - npc_response.py: 使用 call_with_messages_with_usage 捕获 NPC 回复的 token/latency
-  - service.py: 将指标聚合到 SimulateResponse.llm_usage
-
-  2. Token/耗时统计面板 (前端)
-
-  TypeScript 类型:
-  - frontend/src/types/index.ts: 添加 LLMTokenUsage, LLMUsageInfo, ExcludedClueDetail 等类型
-
-  UI 组件:
-  - ConversationTab.tsx: 添加 LLMUsagePanel 组件，显示:
-    - 匹配阶段: Token 用量、耗时、模型名称
-    - 生成阶段: Token 用量、耗时、模型名称
-    - 详细的输入/输出 token 分解
-
-  3. 候选线索得分对比可视化
-
-  新增 CandidateScoreDisplay 组件:
-  - 按得分排序显示所有候选线索
-  - 颜色编码:
-    - 🟢 绿色: 已触发 (score >= threshold && triggered)
-    - 🟡 黄色: 已匹配未触发 (score >= threshold && !triggered)
-    - 🔴 红色: 未匹配 (score < threshold)
-  - Progress 进度条可视化得分
-  - 显示排除线索及缺失的前置条件
-
-  4. 本地化
-
-  - zh.json / en.json: 添加 llmUsage, matching, generation, tokens, latency 等翻译键
-
-
-
-
-
 # Future
 
 
