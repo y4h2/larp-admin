@@ -70,6 +70,9 @@ class NpcResponseGenerator:
                     if r.clue.detail_for_npc:
                         clue_guides.append(r.clue.detail_for_npc)
                 has_clue_guidance = len(clue_guides) > 0
+            logger.debug(
+                f"Triggered clues: {len(triggered_clues)}, has_clue_guidance: {has_clue_guidance}"
+            )
 
             # Select appropriate template
             template_id = self._select_template(context, has_clue_guidance)
@@ -117,6 +120,9 @@ class NpcResponseGenerator:
             # Get dialogue history
             history_messages = await self._get_dialogue_history(
                 context.session_id, limit=settings.dialogue_history_limit
+            )
+            logger.debug(
+                f"Loaded {len(history_messages)} history messages for session={context.session_id}"
             )
 
             # Build messages array
@@ -269,7 +275,7 @@ class NpcResponseGenerator:
             if config_max_tokens is not None:
                 max_tokens = config_max_tokens
 
-        logger.debug(f"LLM model: {config.model}, temp: {temperature}")
+        logger.debug(f"LLM model: {config.model}, temp: {temperature}, max_tokens: {max_tokens}")
 
         llm_response = await LLMClient.call_with_messages_with_usage(
             config, messages, temperature, max_tokens
@@ -281,6 +287,10 @@ class NpcResponseGenerator:
             total_tokens=llm_response.usage.total_tokens,
             latency_ms=llm_response.latency_ms,
             model=config.model,
+        )
+        logger.debug(
+            f"LLM response: latency={llm_response.latency_ms}ms, "
+            f"tokens(prompt={metrics.prompt_tokens}, completion={metrics.completion_tokens})"
         )
 
         return llm_response.content, metrics

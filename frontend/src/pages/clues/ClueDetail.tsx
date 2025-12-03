@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,7 +18,8 @@ import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus, VariableLabel } 
 import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
 import { CLUE_VARIABLES } from '@/constants';
 import { usePresence } from '@/contexts/PresenceContext';
-import { useClues, useScripts, useNpcs, useRealtimeSync } from '@/hooks';
+import { useClues, useRealtimeSync } from '@/hooks';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import { clueApi, aiEnhancementApi } from '@/api';
 import type { Clue } from '@/types';
 
@@ -32,8 +33,13 @@ export default function ClueDetail() {
   const [form] = Form.useForm();
   const { trackEditing, stopEditing } = usePresence();
   const { fetchClue, updateClue, deleteClue } = useClues();
-  const { scripts, fetchScripts } = useScripts();
-  const { npcs, fetchNpcs } = useNpcs();
+  const { scripts, npcs, fetchReferenceData } = useReferenceData();
+
+  // Watch script_id to filter NPCs
+  const watchedScriptId = Form.useWatch('script_id', form);
+  const filteredNpcs = useMemo(() => {
+    return watchedScriptId ? npcs.filter((n) => n.script_id === watchedScriptId) : [];
+  }, [npcs, watchedScriptId]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,8 +80,8 @@ export default function ClueDetail() {
   });
 
   useEffect(() => {
-    fetchScripts();
-  }, [fetchScripts]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   // Fetch sibling clues when script_id changes
   const fetchSiblingClues = async (scriptId: string) => {
@@ -95,7 +101,6 @@ export default function ClueDetail() {
         const data = await fetchClue(id);
         setInitialClue(data);
         if (data.script_id) {
-          fetchNpcs({ script_id: data.script_id });
           fetchSiblingClues(data.script_id);
         }
       } catch {
@@ -105,7 +110,7 @@ export default function ClueDetail() {
       }
     };
     loadClue();
-  }, [id, fetchClue, fetchNpcs]);
+  }, [id, fetchClue]);
 
   // Set form values after loading is complete and Form is mounted
   useEffect(() => {
@@ -369,9 +374,9 @@ export default function ClueDetail() {
               placeholder={t('clue.selectScript')}
               onChange={(value) => {
                 if (value) {
-                  fetchNpcs({ script_id: value as string });
                   fetchSiblingClues(value as string);
-                  // Clear prerequisites when script changes since they're script-specific
+                  // Clear NPC and prerequisites when script changes since they're script-specific
+                  form.setFieldValue('npc_id', undefined);
                   form.setFieldValue('prereq_clue_ids', []);
                 }
               }}
@@ -394,7 +399,7 @@ export default function ClueDetail() {
               fieldName="npc_id"
               placeholder={t('clue.selectNpc')}
             >
-              {npcs.map((n) => (
+              {filteredNpcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
                 </Option>

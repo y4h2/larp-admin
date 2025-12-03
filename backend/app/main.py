@@ -20,8 +20,9 @@ from app.middleware import RequestIDMiddleware
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
 # Configure logging
+log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
 logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
+    level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Debug mode: {settings.debug}")
+    logger.info(f"Log level: {settings.log_level}")
 
     yield
 

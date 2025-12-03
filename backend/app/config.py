@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
     environment: Literal["development", "staging", "production"] = "development"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/larp_admin"

@@ -17,7 +17,8 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
-import { useNpcs, useScripts } from '@/hooks';
+import { useNpcs } from '@/hooks';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import { formatDate } from '@/utils';
 import type { NPC } from '@/types';
 
@@ -29,7 +30,7 @@ export default function NpcList() {
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const { loading, npcs, total, fetchNpcs, createNpc, deleteNpc } = useNpcs();
-  const { scripts, fetchScripts } = useScripts();
+  const { scripts, fetchReferenceData } = useReferenceData();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -45,8 +46,8 @@ export default function NpcList() {
   });
 
   useEffect(() => {
-    fetchScripts();
-  }, [fetchScripts]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   useEffect(() => {
     fetchNpcs(filters);

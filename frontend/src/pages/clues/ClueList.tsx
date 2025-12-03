@@ -19,7 +19,8 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, ResizableTable, type ResizableColumn } from '@/components/common';
-import { useClues, useScripts, useNpcs } from '@/hooks';
+import { useClues } from '@/hooks';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import { formatDate } from '@/utils';
 import type { Clue } from '@/types';
 
@@ -31,8 +32,8 @@ export default function ClueList() {
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const { loading, clues, total, fetchClues, createClue, deleteClue } = useClues();
-  const { scripts, fetchScripts } = useScripts();
-  const { npcs, fetchNpcs } = useNpcs();
+  // Use aggregated reference data (1 request instead of 2)
+  const { scripts, npcs, fetchReferenceData } = useReferenceData();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,9 +51,8 @@ export default function ClueList() {
   });
 
   useEffect(() => {
-    fetchScripts();
-    fetchNpcs(); // Fetch all NPCs for name display
-  }, [fetchScripts, fetchNpcs]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   // State for modal's script selection
   const [modalScriptId, setModalScriptId] = useState<string | undefined>(undefined);

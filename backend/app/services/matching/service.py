@@ -56,6 +56,10 @@ class MatchingService:
         Returns:
             SimulateResponse with matched and triggered clues.
         """
+        logger.debug(
+            f"Starting simulate: script_id={request.script_id}, npc_id={request.npc_id}, "
+            f"strategy={request.matching_strategy.value}, message='{request.player_message[:50]}...'"
+        )
         # Build match context
         context = MatchContext(
             player_message=request.player_message.lower(),
@@ -79,27 +83,39 @@ class MatchingService:
             script_id=request.script_id,
             npc_id=request.npc_id,
         )
+        logger.debug(f"Found {len(all_clues)} total clues for NPC")
 
         # Categorize clues by prerequisites
         eligible_clues, excluded_clues = self._filter_by_prerequisites(
             all_clues, context
         )
+        logger.debug(
+            f"After prereq filtering: {len(eligible_clues)} eligible, {len(excluded_clues)} excluded"
+        )
 
         # Match clues using selected strategy
+        logger.debug(f"Starting {request.matching_strategy.value} matching...")
         results, strategy_debug = await self._match_with_strategy(
             eligible_clues, context, request.matching_strategy
         )
+        logger.debug(f"Matching completed: {len(results)} results")
 
         # Sort by score
         results.sort(key=lambda r: r.score, reverse=True)
+        if results:
+            logger.debug(
+                f"Top 3 scores: {[(r.clue.name, f'{r.score:.2f}') for r in results[:3]]}"
+            )
 
         # Determine threshold
         threshold = self._get_threshold(context, request.matching_strategy)
+        logger.debug(f"Using threshold: {threshold}")
 
         # Determine triggered clues
         triggered = self._determine_triggered(
             results, threshold, request.matching_strategy
         )
+        logger.debug(f"Triggered {len(triggered)} clues: {[t.clue.name for t in triggered]}")
 
         # Build response schemas
         matched_clues = [self._result_to_schema(r) for r in results]

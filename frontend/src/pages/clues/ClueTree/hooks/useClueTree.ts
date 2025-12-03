@@ -15,7 +15,7 @@ import { App } from 'antd';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { clueApi, type ClueTreeData, type ClueTreeNode } from '@/api/clues';
 import { aiEnhancementApi, type AnalyzeClueChainResponse } from '@/api/aiEnhancement';
-import { useScripts, useNpcs } from '@/hooks';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import type { ClueNodeField, ClueNodeData } from '../types';
 import { DEFAULT_VISIBLE_FIELDS } from '../constants';
 import { loadSavedPositions, savePositionsToStorage, detectCycle, getDescendants } from '../utils';
@@ -27,8 +27,7 @@ export function useClueTree() {
   const { t } = useTranslation();
   const { modal, message } = App.useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { scripts, fetchScripts } = useScripts();
-  const { npcs, fetchNpcs } = useNpcs();
+  const { scripts, npcs, fetchReferenceData, getNpcsByScript } = useReferenceData();
 
   const [loading, setLoading] = useState(false);
   const [layouting, setLayouting] = useState(false);
@@ -64,26 +63,26 @@ export function useClueTree() {
   const scriptId = searchParams.get('script_id');
 
   useEffect(() => {
-    fetchScripts();
-  }, [fetchScripts]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   useEffect(() => {
     if (scriptId) {
-      fetchNpcs({ script_id: scriptId });
       const allPositions = loadSavedPositions();
       const scriptPositions = allPositions[scriptId] || {};
       customPositionsRef.current = scriptPositions;
       setHasCustomPositions(Object.keys(scriptPositions).length > 0);
     }
-  }, [scriptId, fetchNpcs]);
+  }, [scriptId]);
 
   const npcMap = useMemo(() => {
     const map = new Map<string, string>();
-    npcs.forEach((npc) => {
+    const scriptNpcs = scriptId ? npcs.filter((n) => n.script_id === scriptId) : npcs;
+    scriptNpcs.forEach((npc) => {
       map.set(npc.id, npc.name);
     });
     return map;
-  }, [npcs]);
+  }, [npcs, scriptId]);
 
   const fetchTree = useCallback(async () => {
     if (!scriptId) return;

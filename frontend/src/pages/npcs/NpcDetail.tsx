@@ -21,7 +21,8 @@ import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, Collabo
 import { NPC_VARIABLES } from '@/constants';
 import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
-import { useScripts, useRealtimeSync } from '@/hooks';
+import { useRealtimeSync } from '@/hooks';
+import { useReferenceData } from '@/hooks/useReferenceData';
 import type { NPC, Clue } from '@/types';
 
 const { Option } = Select;
@@ -33,7 +34,7 @@ export default function NpcDetail() {
   const [form] = Form.useForm();
   const { trackEditing, stopEditing } = usePresence();
 
-  const { scripts, fetchScripts } = useScripts();
+  const { scripts, fetchReferenceData } = useReferenceData();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -88,8 +89,8 @@ export default function NpcDetail() {
   }, [id, navigate, t]);
 
   useEffect(() => {
-    fetchScripts();
-  }, [fetchScripts]);
+    fetchReferenceData();
+  }, [fetchReferenceData]);
 
   useEffect(() => {
     fetchData();
