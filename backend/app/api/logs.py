@@ -3,16 +3,17 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.log import DialogueLog
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.log import DialogueLogResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.get("", response_model=PaginatedResponse[DialogueLogResponse])

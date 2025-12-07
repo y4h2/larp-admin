@@ -14,96 +14,50 @@ import {
 } from 'antd';
 import { NodeIndexOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, EditingIndicator, SyncStatus, VariableLabel } from '@/components/common';
-import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect } from '@/components/collaborative';
+import { PageHeader, VariableLabel } from '@/components/common';
 import { SCRIPT_VARIABLES } from '@/constants';
-import { usePresence } from '@/contexts/PresenceContext';
-import { useRealtimeSync } from '@/hooks';
 import { scriptApi } from '@/api';
 import { formatDate } from '@/utils';
 import type { Script } from '@/types';
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 export default function ScriptDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const { trackEditing, stopEditing } = usePresence();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [initialScript, setInitialScript] = useState<Script | null>(null);
-
-  // Realtime sync hook
-  const handleRemoteChange = useCallback(
-    (remoteData: Script) => {
-      // Update form with merged data
-      form.setFieldsValue(remoteData);
-    },
-    [form]
-  );
-
-  const {
-    data: script,
-    setLocalData,
-    lastMergeResult,
-    isConnected,
-  } = useRealtimeSync<Script>({
-    table: 'scripts',
-    id: id || '',
-    initialData: initialScript,
-    onRemoteChange: handleRemoteChange,
-    enabled: !!id && !loading,
-  });
+  const [script, setScript] = useState<Script | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
       const scriptData = await scriptApi.get(id);
-      setInitialScript(scriptData);
+      setScript(scriptData);
+      form.setFieldsValue(scriptData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/scripts');
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, t]);
+  }, [id, navigate, t, form]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Set form values after loading completes and Form is mounted
-  useEffect(() => {
-    if (!loading && initialScript) {
-      // Use setTimeout to ensure Form is mounted before setting values
-      const timer = setTimeout(() => {
-        form.setFieldsValue(initialScript);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, initialScript, form]);
-
-  // Track editing presence
-  useEffect(() => {
-    if (id) {
-      trackEditing('script', id);
-    }
-    return () => {
-      stopEditing();
-    };
-  }, [id, trackEditing, stopEditing]);
 
   const handleSave = async (values: Partial<Script>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await scriptApi.update(id, values);
-      setLocalData(updated);
-      setInitialScript(updated);
+      setScript(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       message.error(t('common.saveFailed'));
@@ -128,19 +82,13 @@ export default function ScriptDetail() {
     <div>
       <PageHeader
         title={script.title}
-        subtitle={
-          <Space>
-            <span>{`${t('common.updatedAt')} ${formatDate(script.updated_at)}`}</span>
-            <EditingIndicator type="script" id={id!} />
-          </Space>
-        }
+        subtitle={`${t('common.updatedAt')} ${formatDate(script.updated_at)}`}
         breadcrumbs={[
           { title: t('script.title'), path: '/scripts' },
           { title: script.title },
         ]}
         extra={
           <Space>
-            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
             <Button
               icon={<NodeIndexOutlined />}
               onClick={() => navigate(`/clues/tree?script_id=${script.id}`)}
@@ -168,34 +116,26 @@ export default function ScriptDetail() {
                     label={<VariableLabel label={t('script.scriptName')} variablePath={SCRIPT_VARIABLES.title} />}
                     rules={[{ required: true, message: t('script.enterScriptName') }]}
                   >
-                    <CollaborativeInput
-                      docId={`script_${id}`}
-                      fieldName="title"
-                      placeholder={t('script.enterScriptName')}
-                    />
+                    <Input placeholder={t('script.enterScriptName')} />
                   </Form.Item>
                   <Form.Item name="summary" label={<VariableLabel label={t('script.summary')} variablePath={SCRIPT_VARIABLES.summary} />}>
-                    <CollaborativeTextArea
-                      docId={`script_${id}`}
-                      fieldName="summary"
+                    <TextArea
                       placeholder={t('script.summaryPlaceholder')}
                       rows={3}
                     />
                   </Form.Item>
                   <Form.Item name="background" label={<VariableLabel label={t('script.background')} variablePath={SCRIPT_VARIABLES.background} />}>
-                    <CollaborativeTextArea
-                      docId={`script_${id}`}
-                      fieldName="background"
+                    <TextArea
                       placeholder={t('script.backgroundPlaceholder')}
                       rows={4}
                     />
                   </Form.Item>
                   <Form.Item name="difficulty" label={<VariableLabel label={t('script.difficulty')} variablePath={SCRIPT_VARIABLES.difficulty} />}>
-                    <CollaborativeSelect docId={`script_${id}`} fieldName="difficulty">
+                    <Select>
                       <Option value="easy">{t('script.easy')}</Option>
                       <Option value="medium">{t('script.medium')}</Option>
                       <Option value="hard">{t('script.hard')}</Option>
-                    </CollaborativeSelect>
+                    </Select>
                   </Form.Item>
                 </Form>
               </Card>
@@ -208,31 +148,19 @@ export default function ScriptDetail() {
               <Card title={t('script.truthSubtitle')}>
                 <Form form={form} layout="vertical" onFinish={handleSave}>
                   <Form.Item name={['truth', 'murderer']} label={<VariableLabel label={t('script.murderer')} variablePath={SCRIPT_VARIABLES['truth.murderer']} />}>
-                    <CollaborativeInput
-                      docId={`script_${id}`}
-                      fieldName="truth_murderer"
-                      placeholder={t('script.murdererPlaceholder')}
-                    />
+                    <Input placeholder={t('script.murdererPlaceholder')} />
                   </Form.Item>
                   <Form.Item name={['truth', 'weapon']} label={<VariableLabel label={t('script.weapon')} variablePath={SCRIPT_VARIABLES['truth.weapon']} />}>
-                    <CollaborativeInput
-                      docId={`script_${id}`}
-                      fieldName="truth_weapon"
-                      placeholder={t('script.weaponPlaceholder')}
-                    />
+                    <Input placeholder={t('script.weaponPlaceholder')} />
                   </Form.Item>
                   <Form.Item name={['truth', 'motive']} label={<VariableLabel label={t('script.motive')} variablePath={SCRIPT_VARIABLES['truth.motive']} />}>
-                    <CollaborativeTextArea
-                      docId={`script_${id}`}
-                      fieldName="truth_motive"
+                    <TextArea
                       placeholder={t('script.motivePlaceholder')}
                       rows={3}
                     />
                   </Form.Item>
                   <Form.Item name={['truth', 'crime_method']} label={<VariableLabel label={t('script.crimeMethod')} variablePath={SCRIPT_VARIABLES['truth.crime_method']} />}>
-                    <CollaborativeTextArea
-                      docId={`script_${id}`}
-                      fieldName="truth_crime_method"
+                    <TextArea
                       placeholder={t('script.crimeMethodPlaceholder')}
                       rows={4}
                     />

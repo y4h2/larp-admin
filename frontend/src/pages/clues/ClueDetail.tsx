@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Card,
   Form,
+  Input,
   Select,
   Button,
   Space,
@@ -14,16 +15,15 @@ import {
   App,
 } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, DeleteOutlined, RobotOutlined, BulbOutlined, UndoOutlined, StopOutlined } from '@ant-design/icons';
-import { PageHeader, ClueTypeTag, EditingIndicator, SyncStatus, VariableLabel } from '@/components/common';
-import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
+import { PageHeader, ClueTypeTag, VariableLabel } from '@/components/common';
 import { CLUE_VARIABLES } from '@/constants';
-import { usePresence } from '@/contexts/PresenceContext';
-import { useClues, useRealtimeSync } from '@/hooks';
+import { useClues } from '@/hooks';
 import { useReferenceData } from '@/hooks/useReferenceData';
 import { clueApi, aiEnhancementApi } from '@/api';
 import type { Clue } from '@/types';
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 export default function ClueDetail() {
   const { t } = useTranslation();
@@ -31,7 +31,6 @@ export default function ClueDetail() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [form] = Form.useForm();
-  const { trackEditing, stopEditing } = usePresence();
   const { fetchClue, updateClue, deleteClue } = useClues();
   const { scripts, npcs, fetchReferenceData } = useReferenceData();
 
@@ -46,7 +45,7 @@ export default function ClueDetail() {
   const [polishing, setPolishing] = useState(false);
   const [suggestingKeywords, setSuggestingKeywords] = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
-  const [initialClue, setInitialClue] = useState<Clue | null>(null);
+  const [clue, setClue] = useState<Clue | null>(null);
   const [siblingClues, setSiblingClues] = useState<Clue[]>([]);
 
   // AI Polish history for undo
@@ -57,27 +56,6 @@ export default function ClueDetail() {
 
   // AbortController for cancelling AI streaming
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Realtime sync hook
-  const handleRemoteChange = useCallback(
-    (remoteData: Clue) => {
-      form.setFieldsValue(remoteData);
-    },
-    [form]
-  );
-
-  const {
-    data: clue,
-    setLocalData,
-    lastMergeResult,
-    isConnected,
-  } = useRealtimeSync<Clue>({
-    table: 'clues',
-    id: id || '',
-    initialData: initialClue,
-    onRemoteChange: handleRemoteChange,
-    enabled: !!id && !loading,
-  });
 
   useEffect(() => {
     fetchReferenceData();
@@ -99,7 +77,7 @@ export default function ClueDetail() {
       setLoading(true);
       try {
         const data = await fetchClue(id);
-        setInitialClue(data);
+        setClue(data);
         if (data.script_id) {
           fetchSiblingClues(data.script_id);
         }
@@ -114,36 +92,25 @@ export default function ClueDetail() {
 
   // Set form values after loading is complete and Form is mounted
   useEffect(() => {
-    if (!loading && initialClue) {
+    if (!loading && clue) {
       // Use requestAnimationFrame to ensure Form is mounted before setting values
       const setValues = () => {
         if (formMountedRef.current) {
-          form.setFieldsValue(initialClue);
+          form.setFieldsValue(clue);
         } else {
           requestAnimationFrame(setValues);
         }
       };
       requestAnimationFrame(setValues);
     }
-  }, [loading, initialClue, form]);
-
-  // Track editing presence
-  useEffect(() => {
-    if (id) {
-      trackEditing('clue', id);
-    }
-    return () => {
-      stopEditing();
-    };
-  }, [id, trackEditing, stopEditing]);
+  }, [loading, clue, form]);
 
   const handleSave = async (values: Partial<Clue>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await updateClue(id, values);
-      setLocalData(updated);
-      setInitialClue(updated);
+      setClue(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       // Error handled in hook
@@ -330,19 +297,13 @@ export default function ClueDetail() {
             <ClueTypeTag type={clue.type} />
           </Space>
         }
-        subtitle={
-          <Space>
-            <span>{`ID: ${clue.id}`}</span>
-            <EditingIndicator type="clue" id={id!} />
-          </Space>
-        }
+        subtitle={`ID: ${clue.id}`}
         breadcrumbs={[
           { title: t('clue.title'), path: '/clues' },
           { title: clue.name },
         ]}
         extra={
           <Space>
-            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/clues')}>
               {t('common.back')}
             </Button>
@@ -368,9 +329,7 @@ export default function ClueDetail() {
             label={t('script.title')}
             rules={[{ required: true, message: t('clue.pleaseSelectScript') }]}
           >
-            <CollaborativeSelect
-              docId={`clue_${id}`}
-              fieldName="script_id"
+            <Select
               placeholder={t('clue.selectScript')}
               onChange={(value) => {
                 if (value) {
@@ -386,7 +345,7 @@ export default function ClueDetail() {
                   {s.title}
                 </Option>
               ))}
-            </CollaborativeSelect>
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -394,17 +353,13 @@ export default function ClueDetail() {
             label="NPC"
             rules={[{ required: true, message: t('clue.selectNpc') }]}
           >
-            <CollaborativeSelect
-              docId={`clue_${id}`}
-              fieldName="npc_id"
-              placeholder={t('clue.selectNpc')}
-            >
+            <Select placeholder={t('clue.selectNpc')}>
               {filteredNpcs.map((n) => (
                 <Option key={n.id} value={n.id}>
                   {n.name}
                 </Option>
               ))}
-            </CollaborativeSelect>
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -412,18 +367,14 @@ export default function ClueDetail() {
             label={<VariableLabel label={t('clue.name')} variablePath={CLUE_VARIABLES.name} />}
             rules={[{ required: true }]}
           >
-            <CollaborativeInput
-              docId={`clue_${id}`}
-              fieldName="name"
-              placeholder={t('clue.name')}
-            />
+            <Input placeholder={t('clue.name')} />
           </Form.Item>
 
           <Form.Item name="type" label={<VariableLabel label={t('clue.type')} variablePath={CLUE_VARIABLES.type} />}>
-            <CollaborativeSelect docId={`clue_${id}`} fieldName="type">
+            <Select>
               <Option value="text">{t('common.text')}</Option>
               <Option value="image">{t('common.image')}</Option>
-            </CollaborativeSelect>
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -475,12 +426,7 @@ export default function ClueDetail() {
             }
             rules={[{ required: true }]}
           >
-            <CollaborativeTextArea
-              docId={`clue_${id}`}
-              fieldName="detail"
-              placeholder={t('clue.detailPlaceholder')}
-              rows={4}
-            />
+            <TextArea placeholder={t('clue.detailPlaceholder')} rows={4} />
           </Form.Item>
 
           <Form.Item
@@ -488,12 +434,7 @@ export default function ClueDetail() {
             label={<VariableLabel label={t('clue.detailForNpc')} variablePath={CLUE_VARIABLES.detail_for_npc} />}
             extra={t('clue.detailForNpcExtra')}
           >
-            <CollaborativeTextArea
-              docId={`clue_${id}`}
-              fieldName="detail_for_npc"
-              placeholder={t('clue.detailForNpcPlaceholder')}
-              rows={3}
-            />
+            <TextArea placeholder={t('clue.detailForNpcPlaceholder')} rows={3} />
           </Form.Item>
 
           <Form.Item
@@ -518,9 +459,7 @@ export default function ClueDetail() {
               />
             }
           >
-            <CollaborativeMultiSelect
-              docId={`clue_${id}`}
-              fieldName="trigger_keywords"
+            <Select
               mode="tags"
               placeholder={t('clue.triggerKeywordsPlaceholder')}
             />
@@ -559,12 +498,7 @@ export default function ClueDetail() {
               />
             }
           >
-            <CollaborativeTextArea
-              docId={`clue_${id}`}
-              fieldName="trigger_semantic_summary"
-              placeholder={t('clue.triggerSemanticSummaryPlaceholder')}
-              rows={2}
-            />
+            <TextArea placeholder={t('clue.triggerSemanticSummaryPlaceholder')} rows={2} />
           </Form.Item>
 
           <Form.Item
@@ -572,9 +506,7 @@ export default function ClueDetail() {
             label={t('clue.prerequisites')}
             extra={t('clue.prerequisiteCluesExtra')}
           >
-            <CollaborativeMultiSelect
-              docId={`clue_${id}`}
-              fieldName="prereq_clue_ids"
+            <Select
               mode="multiple"
               placeholder={t('clue.selectPrerequisiteClues')}
             >
@@ -585,15 +517,13 @@ export default function ClueDetail() {
                     {c.name}
                   </Option>
                 ))}
-            </CollaborativeMultiSelect>
+            </Select>
           </Form.Item>
 
           <Form.Item>
-            <Space orientation="vertical" style={{ width: '100%' }}>
-              <Space>
-                <Tag>{t('common.createdAt')}: {new Date(clue.created_at).toLocaleString()}</Tag>
-                <Tag>{t('common.updatedAt')}: {new Date(clue.updated_at).toLocaleString()}</Tag>
-              </Space>
+            <Space style={{ width: '100%' }}>
+              <Tag>{t('common.createdAt')}: {new Date(clue.created_at).toLocaleString()}</Tag>
+              <Tag>{t('common.updatedAt')}: {new Date(clue.updated_at).toLocaleString()}</Tag>
             </Space>
           </Form.Item>
         </Form>

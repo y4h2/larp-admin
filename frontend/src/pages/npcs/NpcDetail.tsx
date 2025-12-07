@@ -16,59 +16,27 @@ import {
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { PageHeader, ResizableTable, EditingIndicator, SyncStatus, VariableLabel, type ResizableColumn } from '@/components/common';
-import { CollaborativeTextArea, CollaborativeInput, CollaborativeSelect, CollaborativeMultiSelect } from '@/components/collaborative';
+import { PageHeader, ResizableTable, VariableLabel, type ResizableColumn } from '@/components/common';
 import { NPC_VARIABLES } from '@/constants';
-import { usePresence } from '@/contexts/PresenceContext';
 import { npcApi, clueApi } from '@/api';
-import { useRealtimeSync } from '@/hooks';
 import { useReferenceData } from '@/hooks/useReferenceData';
 import type { NPC, Clue } from '@/types';
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 export default function NpcDetail() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const { trackEditing, stopEditing } = usePresence();
 
   const { scripts, fetchReferenceData } = useReferenceData();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [initialNpc, setInitialNpc] = useState<NPC | null>(null);
+  const [npc, setNpc] = useState<NPC | null>(null);
   const [relatedClues, setRelatedClues] = useState<Clue[]>([]);
-
-  // Realtime sync hook
-  const handleRemoteChange = useCallback(
-    (remoteData: NPC) => {
-      const formData = {
-        ...remoteData,
-        knowledge_scope: {
-          knows: remoteData.knowledge_scope?.knows || [],
-          does_not_know: remoteData.knowledge_scope?.does_not_know || [],
-          world_model_limits: remoteData.knowledge_scope?.world_model_limits || [],
-        },
-      };
-      form.setFieldsValue(formData);
-    },
-    [form]
-  );
-
-  const {
-    data: npc,
-    setLocalData,
-    lastMergeResult,
-    isConnected,
-  } = useRealtimeSync<NPC>({
-    table: 'npcs',
-    id: id || '',
-    initialData: initialNpc,
-    onRemoteChange: handleRemoteChange,
-    enabled: !!id && !loading,
-  });
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -78,15 +46,24 @@ export default function NpcDetail() {
         npcApi.get(id),
         clueApi.list({ npc_id: id, page_size: 100 }),
       ]);
-      setInitialNpc(npcData);
+      setNpc(npcData);
       setRelatedClues(cluesData.items);
+      const formData = {
+        ...npcData,
+        knowledge_scope: {
+          knows: npcData.knowledge_scope?.knows || [],
+          does_not_know: npcData.knowledge_scope?.does_not_know || [],
+          world_model_limits: npcData.knowledge_scope?.world_model_limits || [],
+        },
+      };
+      form.setFieldsValue(formData);
     } catch {
       message.error(t('common.loadFailed'));
       navigate('/npcs');
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, t]);
+  }, [id, navigate, t, form]);
 
   useEffect(() => {
     fetchReferenceData();
@@ -96,42 +73,12 @@ export default function NpcDetail() {
     fetchData();
   }, [fetchData]);
 
-  // Set form values after loading completes and Form is mounted
-  useEffect(() => {
-    if (!loading && initialNpc) {
-      // Use setTimeout to ensure Form is mounted before setting values
-      const timer = setTimeout(() => {
-        const formData = {
-          ...initialNpc,
-          knowledge_scope: {
-            knows: initialNpc.knowledge_scope?.knows || [],
-            does_not_know: initialNpc.knowledge_scope?.does_not_know || [],
-            world_model_limits: initialNpc.knowledge_scope?.world_model_limits || [],
-          },
-        };
-        form.setFieldsValue(formData);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, initialNpc, form]);
-
-  // Track editing presence
-  useEffect(() => {
-    if (id) {
-      trackEditing('npc', id);
-    }
-    return () => {
-      stopEditing();
-    };
-  }, [id, trackEditing, stopEditing]);
-
   const handleSave = async (values: Partial<NPC>) => {
     if (!id) return;
     setSaving(true);
     try {
       const updated = await npcApi.update(id, values);
-      setLocalData(updated);
-      setInitialNpc(updated);
+      setNpc(updated);
       message.success(t('common.saveSuccess'));
     } catch {
       message.error(t('common.saveFailed'));
@@ -181,28 +128,20 @@ export default function NpcDetail() {
     <div>
       <PageHeader
         title={npc.name}
-        subtitle={
-          <Space>
-            <span>{scriptTitle}</span>
-            <EditingIndicator type="npc" id={id!} />
-          </Space>
-        }
+        subtitle={scriptTitle}
         breadcrumbs={[
           { title: t('npc.title'), path: '/npcs' },
           { title: npc.name },
         ]}
         extra={
-          <Space>
-            <SyncStatus isConnected={isConnected} lastMergeResult={lastMergeResult} />
-            <Button
-              type="primary"
-              icon={<SaveOutlined />}
-              loading={saving}
-              onClick={() => form.submit()}
-            >
-              {t('common.save')}
-            </Button>
-          </Space>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={saving}
+            onClick={() => form.submit()}
+          >
+            {t('common.save')}
+          </Button>
         }
       />
 
@@ -222,21 +161,12 @@ export default function NpcDetail() {
                         label={<VariableLabel label={t('common.name')} variablePath={NPC_VARIABLES.name} />}
                         rules={[{ required: true, message: t('npc.enterNpcName') }]}
                       >
-                        <CollaborativeInput
-                          docId={`npc_${id}`}
-                          fieldName="name"
-                          placeholder={t('npc.enterNpcName')}
-                        />
+                        <Input placeholder={t('npc.enterNpcName')} />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item name="age" label={<VariableLabel label={t('npc.age')} variablePath={NPC_VARIABLES.age} />}>
-                        <CollaborativeInput
-                          docId={`npc_${id}`}
-                          fieldName="age"
-                          type="number"
-                          placeholder={t('npc.enterAge')}
-                        />
+                        <Input type="number" placeholder={t('npc.enterAge')} />
                       </Form.Item>
                     </Col>
                     <Col span={24}>
@@ -245,20 +175,18 @@ export default function NpcDetail() {
                         label={t('script.title')}
                         rules={[{ required: true }]}
                       >
-                        <CollaborativeSelect docId={`npc_${id}`} fieldName="script_id">
+                        <Select placeholder={t('script.selectScript')}>
                           {scripts.map((s) => (
                             <Option key={s.id} value={s.id}>
                               {s.title}
                             </Option>
                           ))}
-                        </CollaborativeSelect>
+                        </Select>
                       </Form.Item>
                     </Col>
                     <Col span={24}>
                       <Form.Item name="background" label={<VariableLabel label={t('npc.background')} variablePath={NPC_VARIABLES.background} />}>
-                        <CollaborativeTextArea
-                          docId={`npc_${id}`}
-                          fieldName="background"
+                        <TextArea
                           placeholder={t('npc.enterBackground')}
                           rows={4}
                         />
@@ -266,9 +194,7 @@ export default function NpcDetail() {
                     </Col>
                     <Col span={24}>
                       <Form.Item name="personality" label={<VariableLabel label={t('npc.personality')} variablePath={NPC_VARIABLES.personality} />}>
-                        <CollaborativeTextArea
-                          docId={`npc_${id}`}
-                          fieldName="personality"
+                        <TextArea
                           placeholder={t('npc.enterPersonality')}
                           rows={4}
                         />
@@ -287,9 +213,7 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'knows']}
                     label={<VariableLabel label={t('npc.knows')} variablePath={NPC_VARIABLES['knowledge_scope.knows']} />}
                   >
-                    <CollaborativeMultiSelect
-                      docId={`npc_${id}`}
-                      fieldName="knowledge_scope_knows"
+                    <Select
                       mode="tags"
                       placeholder={t('npc.knowsPlaceholder')}
                       style={{ width: '100%' }}
@@ -299,9 +223,7 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'does_not_know']}
                     label={<VariableLabel label={t('npc.doesNotKnow')} variablePath={NPC_VARIABLES['knowledge_scope.does_not_know']} />}
                   >
-                    <CollaborativeMultiSelect
-                      docId={`npc_${id}`}
-                      fieldName="knowledge_scope_does_not_know"
+                    <Select
                       mode="tags"
                       placeholder={t('npc.doesNotKnowPlaceholder')}
                       style={{ width: '100%' }}
@@ -311,9 +233,7 @@ export default function NpcDetail() {
                     name={['knowledge_scope', 'world_model_limits']}
                     label={<VariableLabel label={t('npc.worldModelLimits')} variablePath={NPC_VARIABLES['knowledge_scope.world_model_limits']} />}
                   >
-                    <CollaborativeMultiSelect
-                      docId={`npc_${id}`}
-                      fieldName="knowledge_scope_world_model_limits"
+                    <Select
                       mode="tags"
                       placeholder={t('npc.worldModelLimitsPlaceholder')}
                       style={{ width: '100%' }}

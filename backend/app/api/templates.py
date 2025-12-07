@@ -4,10 +4,11 @@ import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.prompt_template import PromptTemplate, TemplateType
 from app.schemas.common import PaginatedResponse
 from app.schemas.prompt_template import (
@@ -21,7 +22,7 @@ from app.schemas.prompt_template import (
 from app.services.template import template_renderer
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/templates", tags=["templates"])
+router = APIRouter(prefix="/templates", tags=["templates"], dependencies=[Depends(get_current_active_user)])
 
 
 # ============ CRUD Endpoints ============

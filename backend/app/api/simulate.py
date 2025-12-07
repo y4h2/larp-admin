@@ -6,11 +6,12 @@ from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.log import DialogueLog
 from app.models.npc import NPC
 from app.models.script import Script
@@ -18,7 +19,7 @@ from app.schemas.simulate import SimulateRequest, SimulateResponse
 from app.services.matching import MatchingService
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.post("", response_model=SimulateResponse)

@@ -9,6 +9,7 @@ from app.utils.id_generator import (
     generate_npc_id,
     generate_script_id,
     generate_template_id,
+    generate_user_id,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "generate_template_id",
     "generate_llm_config_id",
     "generate_dialogue_log_id",
+    "generate_user_id",
 ]

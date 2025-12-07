@@ -3,17 +3,18 @@
 import logging
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.npc import NPC
 from app.models.script import Script
 from app.schemas.common import PaginatedResponse
 from app.schemas.npc import NPCCreate, NPCResponse, NPCUpdate
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.get("", response_model=PaginatedResponse[NPCResponse])

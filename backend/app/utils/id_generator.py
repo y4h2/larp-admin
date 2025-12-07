@@ -17,6 +17,7 @@ class IDPrefix(str, Enum):
     PROMPT_TEMPLATE = "tpl"
     LLM_CONFIG = "llm"
     DIALOGUE_LOG = "dlg"
+    USER = "usr"
 
 
 def generate_id(prefix: IDPrefix, size: int = DEFAULT_SIZE) -> str:
@@ -62,3 +63,8 @@ def generate_llm_config_id() -> str:
 def generate_dialogue_log_id() -> str:
     """Generate a DialogueLog ID."""
     return generate_id(IDPrefix.DIALOGUE_LOG)
+
+
+def generate_user_id() -> str:
+    """Generate a User ID."""
+    return generate_id(IDPrefix.USER)

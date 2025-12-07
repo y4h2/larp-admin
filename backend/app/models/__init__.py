@@ -7,6 +7,7 @@ from app.models.log import DialogueLog
 from app.models.npc import NPC
 from app.models.prompt_template import PromptTemplate
 from app.models.script import Script
+from app.models.user import User
 
 __all__ = [
     "Script",
@@ -16,4 +17,5 @@ __all__ = [
     "PromptTemplate",
     "DebugAuditLog",
     "LLMConfig",
+    "User",
 ]

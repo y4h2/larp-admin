@@ -25,8 +25,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '@/store';
 import { useAuth } from '@/contexts/AuthContext';
-import { PresenceProvider } from '@/contexts/PresenceContext';
-import SidebarOnlineUsers from './SidebarOnlineUsers';
 
 const { Header, Sider, Content } = Layout;
 
@@ -55,19 +53,6 @@ const getAllParentKeys = (items: MenuItem[]): string[] => {
     }
   });
   return keys;
-};
-
-// Check if current path is a collaborative editing page (detail pages)
-const isCollaborativePage = (pathname: string): boolean => {
-  // Match /scripts/:id, /npcs/:id, /clues/:id (but not list or tree pages)
-  const patterns = [
-    /^\/scripts\/[^/]+$/,
-    /^\/npcs\/[^/]+$/,
-    /^\/clues\/[^/]+$/,
-  ];
-  // Exclude /clues/tree
-  if (pathname === '/clues/tree') return false;
-  return patterns.some((pattern) => pattern.test(pathname));
 };
 
 // Menu items generator function that uses translations
@@ -103,7 +88,6 @@ export default function MainLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const showCollaborativeFeatures = isCollaborativePage(location.pathname);
 
   // Auto-close drawer when navigating on mobile
   useEffect(() => {
@@ -194,16 +178,12 @@ export default function MainLayout() {
         onClick={handleMenuClick}
         style={{ flex: 1 }}
       />
-      {showCollaborativeFeatures && (
-        <SidebarOnlineUsers collapsed={!isMobile && sidebarCollapsed} />
-      )}
     </div>
   );
 
   return (
-    <PresenceProvider>
-      <Layout style={{ minHeight: '100vh' }}>
-        {/* Desktop Sider */}
+    <Layout style={{ minHeight: '100vh' }}>
+      {/* Desktop Sider */}
       {!isMobile && (
         <Sider
           trigger={null}
@@ -281,8 +261,7 @@ export default function MainLayout() {
         >
           <Outlet />
         </Content>
-        </Layout>
       </Layout>
-    </PresenceProvider>
+    </Layout>
   );
 }

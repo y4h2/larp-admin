@@ -2,9 +2,10 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.schemas.ai_assistant import (
     ClueChainSuggestion,
     CreateScriptFromDraftRequest,
@@ -21,7 +22,7 @@ from app.schemas.ai_assistant import (
 from app.services.story_assistant import AIStoryAssistantService, ClueChainGenerator
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.post("/generate-truth", response_model=TruthOptionsResponse)

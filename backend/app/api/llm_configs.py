@@ -3,10 +3,11 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.llm_config import LLMConfig, LLMConfigType
 from app.schemas.common import PaginatedResponse
 from app.schemas.llm_config import (
@@ -17,7 +18,7 @@ from app.schemas.llm_config import (
 from app.utils import generate_llm_config_id
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/llm-configs", tags=["llm-configs"])
+router = APIRouter(prefix="/llm-configs", tags=["llm-configs"], dependencies=[Depends(get_current_active_user)])
 
 
 # ============ CRUD Endpoints ============

@@ -3,16 +3,17 @@
 import logging
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.debug_audit_log import DebugAuditLog, LogLevel
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.debug_audit_log import DebugAuditLogCreate, DebugAuditLogResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.get("", response_model=PaginatedResponse[DebugAuditLogResponse])

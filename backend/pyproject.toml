@@ -32,6 +32,8 @@ dependencies = [
     "langchain-openai>=1.1.0",
     "langchain-core>=1.1.0",
     "pgvector>=0.2.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
 ]
 
 [project.optional-dependencies]

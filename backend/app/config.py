@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Dialogue settings
     dialogue_history_limit: int = 4  # Max dialogue history entries to include
 
+    # JWT Authentication
+    jwt_secret_key: str = "your-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+
 
 @lru_cache
 def get_settings() -> Settings:

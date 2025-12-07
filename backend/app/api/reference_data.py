@@ -2,10 +2,11 @@
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.llm_config import LLMConfig
 from app.models.npc import NPC
 from app.models.prompt_template import PromptTemplate
@@ -17,7 +18,7 @@ from app.schemas.reference_data import ReferenceDataResponse
 from app.schemas.script import ScriptResponse
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 @router.get("", response_model=ReferenceDataResponse)

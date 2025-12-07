@@ -5,5 +5,4 @@ export { useTemplates } from './useTemplates';
 export { useLLMConfigs } from './useLLMConfigs';
 export { usePresets } from './usePresets';
 export type { PresetConfig, HistoryPreset, FavoritePreset } from './usePresets';
-export { useRealtimeSync } from './useRealtimeSync';
 export { useIdleTimeout } from './useIdleTimeout';

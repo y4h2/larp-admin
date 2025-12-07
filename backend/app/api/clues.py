@@ -3,10 +3,11 @@
 import logging
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 
 from app.database import DBSession
+from app.dependencies.auth import get_current_active_user
 from app.models.clue import Clue, ClueType
 from app.models.npc import NPC
 from app.models.script import Script
@@ -23,7 +24,7 @@ from app.schemas.common import PaginatedResponse
 from app.services.clue_tree import ClueTreeService
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_active_user)])
 
 
 # ============ CRUD Endpoints ============

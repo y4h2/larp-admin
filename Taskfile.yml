@@ -1,6 +1,22 @@
-version: '3'
-
 tasks:
+  db:up:
+    desc: Start PostgreSQL database
+    dir: infra
+    cmds:
+      - docker-compose -p larp-admin-postgres up -d
+
+  db:down:
+    desc: Stop PostgreSQL database
+    dir: infra
+    cmds:
+      - docker-compose down
+
+  db:logs:
+    desc: View PostgreSQL logs
+    dir: infra
+    cmds:
+      - docker-compose logs -f postgres
+
   production:build:
     desc: Build frontend and copy to backend/static
     dir: backend

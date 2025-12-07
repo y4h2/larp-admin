@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.ai_assistant import router as ai_assistant_router
 from app.api.ai_enhancement import router as ai_enhancement_router
+from app.api.auth import router as auth_router
 from app.api.clues import router as clues_router
 from app.api.debug_audit_logs import router as debug_audit_logs_router
 from app.api.llm_configs import router as llm_configs_router
@@ -16,6 +17,7 @@ from app.api.templates import router as templates_router
 
 api_router = APIRouter()
 
+api_router.include_router(auth_router)
 api_router.include_router(reference_data_router, prefix="/reference-data", tags=["reference-data"])
 api_router.include_router(scripts_router, prefix="/scripts", tags=["scripts"])
 api_router.include_router(npcs_router, prefix="/npcs", tags=["npcs"])
