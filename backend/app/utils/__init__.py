@@ -3,6 +3,7 @@
 from app.utils.id_generator import (
     IDPrefix,
     generate_clue_id,
+    generate_debug_log_id,
     generate_dialogue_log_id,
     generate_id,
     generate_llm_config_id,
@@ -22,4 +23,5 @@ __all__ = [
     "generate_llm_config_id",
     "generate_dialogue_log_id",
     "generate_user_id",
+    "generate_debug_log_id",
 ]

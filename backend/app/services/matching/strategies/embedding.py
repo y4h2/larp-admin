@@ -32,7 +32,7 @@ class EmbeddingStrategy(BaseStrategy):
         context: MatchContext,
     ) -> tuple[list[MatchResult], EmbeddingRenderedContent | None]:
         """
-        Match clues using embedding similarity with pgvector.
+        Match clues using embedding similarity with Chroma vector store.
 
         Args:
             candidates: List of candidate clues
@@ -112,7 +112,7 @@ class EmbeddingStrategy(BaseStrategy):
                         result.match_reasons.append("Matched using template rendering")
                     results.append(result)
 
-            logger.info(f"pgvector matching found {len(results)} results")
+            logger.info(f"Embedding matching found {len(results)} results")
 
         except Exception as e:
             logger.error(f"Vector matching failed: {e}", exc_info=True)

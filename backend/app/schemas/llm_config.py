@@ -69,3 +69,33 @@ class LLMConfigUpdate(BaseModel):
     api_key: str | None = Field(None, min_length=1)
     is_default: bool | None = None
     options: dict[str, Any] | None = None
+
+
+class LLMConfigExportData(BaseModel):
+    """Schema for a single LLM config in export/import format."""
+
+    name: str
+    type: Literal["embedding", "chat"]
+    model: str
+    base_url: str
+    api_key: str = ""
+    is_default: bool = False
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMConfigsExportBundle(BaseModel):
+    """Schema for LLM configs export bundle."""
+
+    version: str = "1.0"
+    exported_at: str | None = None
+    configs: list[LLMConfigExportData]
+
+
+class LLMConfigImportRequest(BaseModel):
+    """Schema for importing LLM configs."""
+
+    data: LLMConfigsExportBundle
+    skip_existing: bool = Field(
+        default=True,
+        description="Skip configs with same name instead of raising error",
+    )

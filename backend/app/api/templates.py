@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -20,6 +19,7 @@ from app.schemas.prompt_template import (
     TemplateUpdate,
 )
 from app.services.template import template_renderer
+from app.utils import generate_template_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/templates", tags=["templates"], dependencies=[Depends(get_current_active_user)])
@@ -111,7 +111,7 @@ async def create_template(
             t.is_default = False
 
     template = PromptTemplate(
-        id=str(uuid4()),
+        id=generate_template_id(),
         name=data.name,
         description=data.description,
         type=TemplateType(data.type),
@@ -316,7 +316,7 @@ async def duplicate_template(
         )
 
     new_template = PromptTemplate(
-        id=str(uuid4()),
+        id=generate_template_id(),
         name=f"{original.name} (Copy)",
         description=original.description,
         type=original.type,

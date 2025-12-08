@@ -1,7 +1,7 @@
 """Add debug_info column to dialogue_logs table
 
 Revision ID: 8f0a2b7c6d5e
-Revises: 7e9f1a6b5c4d
+Revises: 3a5f8c9d2e1b
 Create Date: 2024-12-02 10:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
 revision: str = '8f0a2b7c6d5e'
-down_revision: Union[str, None] = '7e9f1a6b5c4d'
+down_revision: Union[str, None] = '3a5f8c9d2e1b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

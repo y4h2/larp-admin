@@ -1,7 +1,6 @@
 """Debug audit log API endpoints."""
 
 import logging
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -11,6 +10,7 @@ from app.dependencies.auth import get_current_active_user
 from app.models.debug_audit_log import DebugAuditLog, LogLevel
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.debug_audit_log import DebugAuditLogCreate, DebugAuditLogResponse
+from app.utils import generate_debug_log_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_active_user)])
@@ -79,7 +79,7 @@ async def create_debug_audit_log(
 ) -> DebugAuditLogResponse:
     """Create a new debug audit log entry."""
     log = DebugAuditLog(
-        id=str(uuid4()),
+        id=generate_debug_log_id(),
         level=LogLevel(log_data.level),
         source=log_data.source,
         message=log_data.message,

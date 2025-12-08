@@ -12,6 +12,7 @@ from app.models.llm_config import LLMConfig, LLMConfigType
 from app.schemas.common import PaginatedResponse
 from app.schemas.llm_config import (
     LLMConfigCreate,
+    LLMConfigImportRequest,
     LLMConfigResponse,
     LLMConfigUpdate,
 )
@@ -250,3 +251,86 @@ async def set_default_llm_config(
 
     logger.info(f"Set LLM config {config_id} as default for type {config.type.value}")
     return LLMConfigResponse.from_model(config)
+
+
+# ============ Import/Export Endpoints ============
+
+
+from pydantic import BaseModel as PydanticBaseModel
+
+
+class ImportResult(PydanticBaseModel):
+    """Result of import operation."""
+
+    imported: int
+    skipped: int
+    configs: list[LLMConfigResponse]
+
+
+@router.post("/import", response_model=ImportResult, status_code=status.HTTP_201_CREATED)
+async def import_llm_configs(
+    db: DBSession,
+    request: LLMConfigImportRequest,
+) -> ImportResult:
+    """Import LLM configs from a JSON bundle.
+
+    Args:
+        request: Import request containing configs data and options
+
+    Returns:
+        Import result with counts and created configs
+    """
+    data = request.data
+    imported_configs: list[LLMConfigResponse] = []
+    skipped_count = 0
+
+    for config_data in data.configs:
+        # Check if config with same name already exists
+        existing = await db.execute(
+            select(LLMConfig)
+            .where(LLMConfig.name == config_data.name)
+            .where(LLMConfig.deleted_at.is_(None))
+        )
+        if existing.scalars().first():
+            if request.skip_existing:
+                skipped_count += 1
+                logger.info(f"Skipped existing LLM config: {config_data.name}")
+                continue
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"LLM config with name '{config_data.name}' already exists",
+                )
+
+        # If setting as default, unset other defaults first
+        if config_data.is_default:
+            unset_result = await db.execute(
+                select(LLMConfig)
+                .where(LLMConfig.type == config_data.type)
+                .where(LLMConfig.is_default.is_(True))
+            )
+            for c in unset_result.scalars().all():
+                c.is_default = False
+
+        config = LLMConfig(
+            id=generate_llm_config_id(),
+            name=config_data.name,
+            type=LLMConfigType(config_data.type),
+            model=config_data.model,
+            base_url=config_data.base_url,
+            api_key=config_data.api_key,
+            is_default=config_data.is_default,
+            options=config_data.options,
+        )
+        db.add(config)
+        await db.flush()
+        await db.refresh(config)
+        imported_configs.append(LLMConfigResponse.from_model(config))
+
+    logger.info(f"Imported {len(imported_configs)} LLM configs, skipped {skipped_count}")
+
+    return ImportResult(
+        imported=len(imported_configs),
+        skipped=skipped_count,
+        configs=imported_configs,
+    )

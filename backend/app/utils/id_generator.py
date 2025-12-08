@@ -18,6 +18,7 @@ class IDPrefix(str, Enum):
     LLM_CONFIG = "llm"
     DIALOGUE_LOG = "dlg"
     USER = "usr"
+    DEBUG_LOG = "dbg"
 
 
 def generate_id(prefix: IDPrefix, size: int = DEFAULT_SIZE) -> str:
@@ -68,3 +69,8 @@ def generate_dialogue_log_id() -> str:
 def generate_user_id() -> str:
     """Generate a User ID."""
     return generate_id(IDPrefix.USER)
+
+
+def generate_debug_log_id() -> str:
+    """Generate a DebugAuditLog ID."""
+    return generate_id(IDPrefix.DEBUG_LOG)

@@ -10,7 +10,6 @@ class VectorBackendOverride(str, Enum):
     """Vector backend options."""
 
     CHROMA = "chroma"
-    PGVECTOR = "pgvector"
 
 
 class EmbeddingOptionsOverride(BaseModel):
@@ -24,7 +23,7 @@ class EmbeddingOptionsOverride(BaseModel):
     )
     vector_backend: VectorBackendOverride | None = Field(
         default=None,
-        description="Override vector backend (chroma or pgvector)",
+        description="Override vector backend (only chroma supported)",
     )
 
 

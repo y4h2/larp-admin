@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -21,6 +20,7 @@ from app.schemas.script import (
     ScriptResponse,
     ScriptUpdate,
 )
+from app.utils import generate_clue_id, generate_npc_id, generate_script_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_active_user)])
@@ -73,7 +73,7 @@ async def create_script(
 ) -> ScriptResponse:
     """Create a new script."""
     script = Script(
-        id=str(uuid4()),
+        id=generate_script_id(),
         title=data.title,
         summary=data.summary,
         background=data.background,
@@ -203,7 +203,7 @@ async def copy_script(
 
     # Create copy
     new_script = Script(
-        id=str(uuid4()),
+        id=generate_script_id(),
         title=new_title or f"{source.title} (Copy)",
         summary=source.summary,
         background=source.background,
@@ -317,7 +317,7 @@ async def import_script(
 
     # Create the script
     script = Script(
-        id=str(uuid4()),
+        id=generate_script_id(),
         title=title,
         summary=data.summary,
         background=data.background,
@@ -331,7 +331,7 @@ async def import_script(
     export_id_to_npc_id: dict[str, str] = {}
     for npc_data in data.npcs:
         npc = NPC(
-            id=str(uuid4()),
+            id=generate_npc_id(),
             script_id=script.id,
             name=npc_data.name,
             age=npc_data.age,
@@ -355,7 +355,7 @@ async def import_script(
             continue
 
         clue = Clue(
-            id=str(uuid4()),
+            id=generate_clue_id(),
             script_id=script.id,
             npc_id=npc_id,
             name=clue_data.name,

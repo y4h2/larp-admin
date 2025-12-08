@@ -1,7 +1,6 @@
 """NPC API endpoints."""
 
 import logging
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -12,6 +11,7 @@ from app.models.npc import NPC
 from app.models.script import Script
 from app.schemas.common import PaginatedResponse
 from app.schemas.npc import NPCCreate, NPCResponse, NPCUpdate
+from app.utils import generate_npc_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_active_user)])
@@ -72,7 +72,7 @@ async def create_npc(
         )
 
     npc = NPC(
-        id=str(uuid4()),
+        id=generate_npc_id(),
         script_id=data.script_id,
         name=data.name,
         age=data.age,

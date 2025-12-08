@@ -1,7 +1,6 @@
 """Clue API endpoints."""
 
 import logging
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -22,6 +21,7 @@ from app.schemas.clue import (
 )
 from app.schemas.common import PaginatedResponse
 from app.services.clue_tree import ClueTreeService
+from app.utils import generate_clue_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(get_current_active_user)])
@@ -99,7 +99,7 @@ async def create_clue(
         )
 
     clue = Clue(
-        id=str(uuid4()),
+        id=generate_clue_id(),
         script_id=data.script_id,
         npc_id=data.npc_id,
         name=data.name,
