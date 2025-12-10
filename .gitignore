@@ -6,6 +6,7 @@ infra/supabase/volumes/db/data
 infra/supabase/volumes/storage
 .serena
 .env
+.env.production.supabase
 .DS_Store
 .env.production
 *.zip

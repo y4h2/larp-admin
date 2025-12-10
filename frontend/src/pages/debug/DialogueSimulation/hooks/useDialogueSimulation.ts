@@ -431,7 +431,20 @@ export function useDialogueSimulation(t: (key: string, params?: Record<string, u
           },
           onError: (error) => {
             message.error(error.error || t('debug.simulationFailed'));
-            setStreamingNpcResponse('');
+            // Preserve any partial NPC response that was already streamed
+            setStreamingNpcResponse((prev) => {
+              if (prev && enableNpcReply) {
+                const npcMessage: ChatMessage = {
+                  role: 'npc',
+                  content: prev + '\n\n[生成中断]',
+                  hasTriggeredClues: triggeredCount > 0,
+                  triggeredClueCount: triggeredCount,
+                  timestamp: Date.now(),
+                };
+                setChatHistory((h) => [...h, npcMessage]);
+              }
+              return '';
+            });
           },
         },
         abortControllerRef.current.signal,

@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -18,6 +19,15 @@ engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
 )
+
+
+# Set search_path when schema is configured
+if settings.database_schema:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_search_path(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute(f"SET search_path TO {settings.database_schema}")
+        cursor.close()
 
 # Create async session factory
 async_session_maker = async_sessionmaker(

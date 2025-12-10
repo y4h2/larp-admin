@@ -1,3 +1,5 @@
+version: 3
+
 tasks:
   db:up:
     desc: Start PostgreSQL database
@@ -65,3 +67,9 @@ tasks:
     dir: backend
     cmds:
       - pytest
+
+  user:create:
+    desc: Create a new user (usage task user:create -- email password)
+    dir: backend
+    cmds:
+      - ENVIRONMENT=production python create_user.py {{.CLI_ARGS}}

@@ -29,7 +29,7 @@ router = APIRouter(prefix="/llm-configs", tags=["llm-configs"], dependencies=[De
 async def list_llm_configs(
     db: DBSession,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=1000),
     type: str | None = Query(default=None),
     search: str | None = Query(default=None),
 ) -> PaginatedResponse[LLMConfigResponse]:

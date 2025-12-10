@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/larp_admin"
+    database_schema: str | None = None  # PostgreSQL schema (search_path)
     database_echo: bool = False
 
     # CORS

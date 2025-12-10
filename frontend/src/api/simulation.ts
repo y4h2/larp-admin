@@ -92,16 +92,9 @@ export const simulationApi = {
     let buffer = '';
 
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      let currentEvent = '';
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        let currentEvent = '';
-
+      const processLines = (lines: string[]) => {
         for (const line of lines) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7).trim();
@@ -132,6 +125,23 @@ export const simulationApi = {
             currentEvent = '';
           }
         }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Process any remaining data in buffer when stream ends
+          if (buffer.trim()) {
+            const lines = buffer.split('\n');
+            processLines(lines);
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        processLines(lines);
       }
     } finally {
       reader.releaseLock();

@@ -60,12 +60,12 @@ const LLMUsagePanel: React.FC<{ usage: LLMUsageInfo | null | undefined; t: (key:
                 <Statistic
                   title={<span style={{ fontSize: 11 }}><FieldTimeOutlined /> {t('logs.latency')}</span>}
                   value={formatLatency(usage.matching_latency_ms)}
-                  valueStyle={{ fontSize: 16 }}
+                  styles={{ content: { fontSize: 16 } }}
                 />
                 <Statistic
                   title={<span style={{ fontSize: 11 }}>{t('logs.tokens')}</span>}
                   value={formatTokens(usage.matching_tokens)}
-                  valueStyle={{ fontSize: 16 }}
+                  styles={{ content: { fontSize: 16 } }}
                 />
               </Space>
               {usage.matching_tokens && (usage.matching_tokens.prompt_tokens || usage.matching_tokens.completion_tokens) && (
@@ -87,12 +87,12 @@ const LLMUsagePanel: React.FC<{ usage: LLMUsageInfo | null | undefined; t: (key:
                 <Statistic
                   title={<span style={{ fontSize: 11 }}><FieldTimeOutlined /> {t('logs.latency')}</span>}
                   value={formatLatency(usage.npc_latency_ms)}
-                  valueStyle={{ fontSize: 16 }}
+                  styles={{ content: { fontSize: 16 } }}
                 />
                 <Statistic
                   title={<span style={{ fontSize: 11 }}>{t('logs.tokens')}</span>}
                   value={formatTokens(usage.npc_tokens)}
-                  valueStyle={{ fontSize: 16 }}
+                  styles={{ content: { fontSize: 16 } }}
                 />
               </Space>
               {usage.npc_tokens && (usage.npc_tokens.prompt_tokens || usage.npc_tokens.completion_tokens) && (
@@ -193,7 +193,7 @@ const CandidateScoreDisplay: React.FC<{
                   size="small"
                   status={status}
                   strokeColor={color}
-                  trailColor="#f0f0f0"
+                  railColor="#f0f0f0"
                   showInfo={false}
                 />
               </div>
